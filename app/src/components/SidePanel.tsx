@@ -22,6 +22,7 @@ export function SidePanel({ state, lens, onClose, onPick }: {
   const insets = useSafeAreaInsets();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [q, setQ] = useState("");
+  const [focused, setFocused] = useState(false);
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const [overlap, setOverlap] = useState<Overlap | null>(null);
@@ -90,9 +91,9 @@ export function SidePanel({ state, lens, onClose, onPick }: {
           <Text style={{ fontFamily: serif, fontSize: 26, color: t.ink, flex: 1 }}>Interests</Text>
           <Pressable onPress={onClose} hitSlop={12} accessibilityLabel="Close"><Ionicons name="close" size={24} color={t.muted} /></Pressable>
         </View>
-        <View style={[st.search, { backgroundColor: t.card, borderColor: t.line }]}>
+        <View style={[st.search, { backgroundColor: t.card, borderColor: focused ? t.muted : t.line }]}>
           <Ionicons name="add" size={18} color={t.muted} />
-          <TextInput value={q} onChangeText={(v) => { setQ(v); setOverlap(null); setSite(null); setErr(""); }} onSubmitEditing={add} returnKeyType="go"
+          <TextInput value={q} onChangeText={(v) => { setQ(v); setOverlap(null); setSite(null); setErr(""); }} onSubmitEditing={add} returnKeyType="go" onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
             placeholder="Add an interest or a site" autoCapitalize="none" placeholderTextColor={t.faint} style={{ flex: 1, color: t.ink, fontSize: 15, paddingVertical: 8 }} />
           {busy ? <ActivityIndicator size="small" color={t.muted} /> : null}
         </View>

@@ -1,8 +1,16 @@
 import Stack from "expo-router/stack";
+import { Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useTheme } from "@/lib/theme";
 import { Studio, StudioInsets } from "@/components/Studio";
+
+if (Platform.OS === "web" && typeof document !== "undefined" && !document.getElementById("reveal-web-css")) {
+  const css = document.createElement("style");
+  css.id = "reveal-web-css";
+  css.textContent = "input:focus, textarea:focus { outline: none !important; box-shadow: none !important; }";
+  document.head.appendChild(css);
+}
 
 export default function RootLayout() {
   const t = useTheme();
