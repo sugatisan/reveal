@@ -168,6 +168,19 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    id: "full-scrim", panel: "Feed cards", title: "Full screen shade",
+    hint: "The shade that rises from the bottom of each full-screen story so the text reads over the image.",
+    controls: [
+      { key: "full.scrimHeight", label: "Height", hint: "How far up the screen it reaches.", type: "range", min: 20, max: 100, step: 2, unit: "%", default: 62 },
+      { key: "full.scrimDark", label: "Darkness", hint: "At the bottom edge.", type: "range", min: 0, max: 100, step: 2, unit: "%", default: 88 },
+      { key: "full.scrimCurve", label: "Falloff", hint: "Low: an even wash. High: dark only near the bottom.", type: "range", min: 0.5, max: 4, step: 0.1, default: 1.6 },
+      { key: "full.scrimColor", label: "Color", type: "color", default: "#000000", swatches: ["#000000", "#14110F", "#1E2A43", "#2B1B12", "#0F2A1F", "#3B0D2E"] },
+      choice("full.scrimBlend", "Blend mode", "normal", [["normal", "Normal"], ["multiply", "Multiply"], ["darken", "Darken"], ["overlay", "Overlay"], ["soft-light", "Soft light"], ["color-burn", "Color burn"], ["luminosity", "Luminosity"]],
+        "How the shade mixes with the image. Multiply and color burn deepen the image's own colors; luminosity keeps its brightness pattern."),
+      { key: "full.topDark", label: "Top shade darkness", hint: "Behind the pills and status bar.", type: "range", min: 0, max: 100, step: 5, unit: "%", default: 45 },
+    ],
+  },
+  {
     id: "story-body", panel: "Story page", title: "Description",
     hint: "What shows under the headline. The two non-AI options skip the curator entirely, so key facts and questions disappear too.",
     controls: [

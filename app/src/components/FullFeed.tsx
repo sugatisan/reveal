@@ -7,17 +7,22 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ago, CuratorCard, FeedEntry, FeedItem, sendEvents } from "@/lib/api";
 import { serif, space, useTheme } from "@/lib/theme";
+import { rgba } from "@/lib/backdrop";
+import { useDesign } from "@/design/store";
 import { StorySheet } from "./StorySheet";
 import { BestImage } from "./BestImage";
 
-// A soft dark fade, built from bands (no gradient dependency).
-function Fade({ from, height, max }: { from: "top" | "bottom"; height: number; max: number }) {
-  const n = 14;
+// A soft fade, built from bands (no gradient dependency). Studio: Feed cards › Full screen shade.
+function Fade({ from, height, max, curve = 1.6, color = "#000000", blend = "normal" }: { from: "top" | "bottom"; height: number; max: number; curve?: number; color?: string; blend?: string }) {
+  const n = 24;
   return (
-    <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, height, [from]: 0 }}>
+    // mixBlendMode works on the web and in React Native's new architecture.
+    <View pointerEvents="none" style={{ position: "absolute", left: 0, right: 0, height, [from]: 0, ...(blend !== "normal" ? ({ mixBlendMode: blend } as any) : null) }}>
       {Array.from({ length: n }, (_, k) => {
         const x = (k + 0.5) / n; // 0 at the edge
-        return <View key={k} style={{ position: "absolute", left: 0, right: 0, height: height / n + 1, [from]: (height * k) / n, backgroundColor: `rgba(0,0,0,${(max * Math.pow(1 - x, 1.6)).toFixed(3)})` }} />;
+        // Bands meet exactly on whole pixels: overlapping them doubled the shade at each seam (visible lines).
+        const a = Math.round((height * k) / n), b = Math.round((height * (k + 1)) / n);
+        return <View key={k} style={{ position: "absolute", left: 0, right: 0, height: b - a, [from]: a, backgroundColor: rgba(color, max * Math.pow(1 - x, curve)) }} />;
       })}
     </View>
   );
@@ -31,6 +36,8 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
   curator: { follow: (s: string, i: string) => Promise<void>; ask: (p: string, id?: string) => void; dismiss: (id: string) => void };
 }) {
   const t = useTheme();
+  const d = useDesign();
+  const shade = { curve: d["full.scrimCurve"] as number, color: d["full.scrimColor"] as string, blend: d["full.scrimBlend"] as string };
   const [details, setDetails] = useState<string | null>(null);
   // Preload the next two stories' large images so swiping doesn't show them loading.
   const entriesRef = useRef(entries); entriesRef.current = entries;
@@ -64,8 +71,8 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
     return (
       <View style={{ height, backgroundColor: img ? "#000" : t.card }}>
         {img ? <BestImage large={it.imageLarge} small={it.image} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} priority="high" /> : null}
-        {img ? <Fade from="top" height={topSpace + 40} max={0.45} /> : null}
-        {img ? <Fade from="bottom" height={height * 0.62} max={0.88} /> : null}
+        {img && d["full.topDark"] > 0 ? <Fade from="top" height={topSpace + 40} max={d["full.topDark"] / 100} color={shade.color} /> : null}
+        {img && d["full.scrimDark"] > 0 ? <Fade from="bottom" height={height * d["full.scrimHeight"] / 100} max={d["full.scrimDark"] / 100} {...shade} /> : null}
         <View style={[st.bottom, { paddingBottom: bottomSpace + space.m }]}>
           <View style={{ flex: 1, gap: space.s }}>
             <Text style={{ color: img ? "#F5C542" : t.accent, fontSize: 11, fontWeight: "800", letterSpacing: 1 }} numberOfLines={1}>{it.why.toUpperCase()}</Text>
