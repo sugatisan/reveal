@@ -104,6 +104,24 @@ async function addSourcesTo(interest, proposals, { followFirst = 0, origin = "ag
   return { added: good.length, failed: fresh.length - good.length };
 }
 
+// Feeds found from typed sites, kept briefly so "preview" then "add" fetches once.
+const found = new Map();
+async function findFeed(url) {
+  const hit = found.get(url);
+  if (hit && Date.now() - hit.at < 10 * 6e4) return hit.f;
+  const f = await discoverFeed(url);
+  found.set(url, { f, at: Date.now() });
+  return f;
+}
+async function followSite(url) {
+  const f = await findFeed(url);
+  const id = sourceIdFor(f.site || url);
+  upsertSource({ id, name: f.title || url, site: normalizeUrl(f.site || url), feedUrl: f.feedUrl, status: "ok", kind: sourceKind(f.items), perWeek: cadence(f.items), lastFetched: Date.now(), about: f.description?.slice(0, 200), origin: "user", addedAt: Date.now() });
+  storeItems(id, f.items);
+  mergeDuplicates();
+  return id;
+}
+
 async function createInterest(p, origin) {
   const d = load();
   let interest = d.interests.find((i) => i.label.toLowerCase() === p.label.toLowerCase());
@@ -134,7 +152,7 @@ function newCounts() {
 }
 function interestView(i, counts = newCounts()) {
   return {
-    id: i.id, label: i.label, origin: i.origin, createdAt: i.createdAt || 0, lastViewedAt: i.lastViewedAt || 0,
+    id: i.id, label: i.label, origin: i.origin, strict: !!i.strict, createdAt: i.createdAt || 0, lastViewedAt: i.lastViewedAt || 0,
     newCount: i.sourceIds.reduce((n, s) => n + (counts.get(s) || 0), 0), subs: i.subs, subSuggestions: (i.subSuggestions || []).filter((x) => !i.subs.includes(x)), clarify: i.clarify, merged: i.merged,
     sources: i.sourceIds.map((id) => sourceView(id, true)).filter(Boolean).map((s) => ({ ...s, newCount: counts.get(s.id) || 0 })),
     suggested: i.suggestedIds.filter((id) => !i.sourceIds.includes(id)).map((id) => sourceView(id, false)).filter(Boolean),
@@ -336,11 +354,12 @@ const routes = {
   },
 
   "POST /api/interests/update": async (req) => {
-    const { id, subs, label, clarifyChoice } = await body(req);
+    const { id, subs, label, clarifyChoice, strict } = await body(req);
     const i = load().interests.find((x) => x.id === id);
     if (!i) throw new Error("Interest not found");
     if (Array.isArray(subs)) i.subs = [...new Set(subs.map((s) => s.trim()).filter(Boolean))];
     if (label?.trim()) i.label = label.trim();
+    if (typeof strict === "boolean") i.strict = strict;
     if (clarifyChoice !== undefined) { if (clarifyChoice && !i.subs.includes(clarifyChoice)) i.subs.unshift(clarifyChoice); i.clarify = null; }
     save();
     return state();
@@ -422,16 +441,44 @@ const routes = {
     return { overlaps: overlaps.slice(0, 1) };
   },
 
+  "POST /api/sources/preview": async (req) => {
+    // Typed a site: find its feed, and guess which interest it belongs in.
+    const { url } = await body(req);
+    const f = await findFeed(url);
+    const d = load();
+    const words = (x) => new Set(String(x).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3));
+    const site = words([f.title, f.description, ...f.items.slice(0, 15).map((x) => x.title)].join(" "));
+    const sid = sourceIdFor(f.site || url);
+    let guess = null, best = 0;
+    for (const i of d.interests) {
+      if (i.strict || i.sourceIds.includes(sid)) continue;
+      const mine = words([i.label, ...(i.subs || []), ...i.sourceIds.map((s) => d.sources[s]?.about || "")].join(" "));
+      let n = 0; for (const w of mine) if (site.has(w)) n++;
+      if (n > best) { best = n; guess = i.id; }
+    }
+    const already = d.interests.filter((i) => i.sourceIds.includes(sid)).map((i) => i.id);
+    return { name: f.title || url, site: f.site || url, kind: sourceKind(f.items), about: (f.description || "").slice(0, 160), guess: best >= 2 ? guess : null, already };
+  },
+
+  "POST /api/interests/fromSource": async (req) => {
+    // "New interest: just this site": an interest holding only this source, kept strict.
+    const { url } = await body(req);
+    const id = await followSite(url);
+    const d = load();
+    const name = d.sources[id].name;
+    let i = d.interests.find((x) => x.label.toLowerCase() === name.toLowerCase());
+    if (!i) { i = { id: slug(name) + "-" + hash(Date.now() + name).slice(0, 4), label: name, origin: "source", strict: true, topic: null, subs: [], subSuggestions: [], clarify: null, merged: [], sourceIds: [], suggestedIds: [], createdAt: Date.now() }; d.interests.push(i); }
+    if (!i.sourceIds.includes(id)) i.sourceIds.push(id);
+    save();
+    return { created: [{ id: i.id }], state: state() };
+  },
+
   "POST /api/sources/add": async (req) => {
     // Paste a site into an interest.
     const { interestId, url } = await body(req);
     const i = load().interests.find((x) => x.id === interestId);
     if (!i) throw new Error("Interest not found");
-    const f = await discoverFeed(url);
-    const id = sourceIdFor(f.site || url);
-    upsertSource({ id, name: f.title || url, site: normalizeUrl(f.site || url), feedUrl: f.feedUrl, status: "ok", kind: sourceKind(f.items), perWeek: cadence(f.items), lastFetched: Date.now(), about: f.description?.slice(0, 200), origin: "user", addedAt: Date.now() });
-    storeItems(id, f.items);
-    mergeDuplicates();
+    const id = await followSite(url);
     i.suggestedIds = i.suggestedIds.filter((s) => s !== id);
     if (!i.sourceIds.includes(id)) i.sourceIds.push(id);
     save();

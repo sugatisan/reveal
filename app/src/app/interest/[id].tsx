@@ -143,15 +143,26 @@ export default function InterestScreen() {
           {i.sources.length ? i.sources.map((s) => (
             <SourceRow key={s.id} src={s} busy={busy === s.id} onUnfollow={() => run(s.id, () => api("/api/sources/follow", { interestId: i.id, sourceId: s.id, follow: false }))} />
           )) : <Text style={{ color: t.muted }}>Nothing followed yet.</Text>}
-          {i.suggested.length ? <Text style={[st.label, { color: t.muted, marginTop: space.s }]}>SUGGESTED</Text> : null}
-          {shownSuggested.map((s) => (
+          {/* Strict ("just these sources") vs enriched (the curator may suggest more). */}
+          <Pressable onPress={() => run("strict", () => api("/api/interests/update", { id: i.id, strict: !i.strict }))} accessibilityRole="switch" accessibilityState={{ checked: !i.strict }}
+            style={{ flexDirection: "row", alignItems: "center", gap: space.m, paddingVertical: space.s, marginTop: space.xs }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: t.ink, fontSize: 15, fontWeight: "500" }}>Let the curator suggest sources</Text>
+              <Text style={{ color: t.muted, fontSize: 12, marginTop: 2 }}>{i.strict ? "Off: just the sources you follow here." : "On: it may propose sources like these."}</Text>
+            </View>
+            <View style={[st.switch, { backgroundColor: i.strict ? t.line : t.accent }]}>
+              <View style={[st.knob, { alignSelf: i.strict ? "flex-start" : "flex-end" }]} />
+            </View>
+          </Pressable>
+          {!i.strict && i.suggested.length ? <Text style={[st.label, { color: t.muted, marginTop: space.s }]}>SUGGESTED</Text> : null}
+          {(i.strict ? [] : shownSuggested).map((s) => (
             <SourceRow key={s.id} src={s} busy={busy === s.id} onFollow={() => run(s.id, () => api("/api/sources/follow", { interestId: i.id, sourceId: s.id, follow: true }))} />
           ))}
-          <View style={st.chips}>
+          {i.strict ? null : <View style={st.chips}>
             {i.suggested.length > 3 ? <Button label={moreOpen ? "Show fewer" : `Show ${i.suggested.length - 3} more`} kind="ghost" onPress={() => setMoreOpen(!moreOpen)} /> : null}
             <Button label="Find more sources" kind="curator" busy={busy === "more"}
               onPress={() => run("more", () => api("/api/interests/more", { id: i.id })).then((r: any) => r && setNote(r.added ? `Added ${r.added} suggestion${r.added === 1 ? "" : "s"}.` : "No new sources found this time."))} />
-          </View>
+          </View>}
           {busy === "more" ? <Text style={{ color: t.muted, fontSize: 13 }}>The curator is looking and checking each feed. This can take half a minute.</Text> : note ? <Text style={{ color: t.muted, fontSize: 13 }}>{note}</Text> : null}
           <Field value={url} onChange={setUrl} placeholder="Add a site by address, e.g. core77.com" action="Add" busy={busy === "url"} keyboard="url"
             onSubmit={() => { const u = url.trim(); if (!u) return; run("url", () => api("/api/sources/add", { interestId: i.id, url: u })).then((r: any) => { if (r) { setUrl(""); setNote(`Following ${r.name}.`); } }); }} />
@@ -228,5 +239,7 @@ const st = StyleSheet.create({
   label: { fontSize: 12, fontWeight: "700", letterSpacing: 0.6 },
   more: { borderWidth: 1, borderStyle: "dashed", borderRadius: 999, paddingHorizontal: 12, minHeight: 30, minWidth: 56, alignItems: "center", justifyContent: "center" },
   ideasHead: { flexDirection: "row", alignItems: "center", gap: 6, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: space.m, marginTop: space.s },
+  switch: { width: 46, height: 28, borderRadius: 14, padding: 3, justifyContent: "center" },
+  knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff" },
   rule: { flexDirection: "row", alignItems: "center", gap: space.m, paddingVertical: 4 },
 });

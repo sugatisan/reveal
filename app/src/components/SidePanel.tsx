@@ -8,7 +8,7 @@ import { router } from "expo-router";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { api, AppState, Lens, Overlap } from "@/lib/api";
+import { api, AppState, Lens, looksLikeSite, Overlap, SitePreview } from "@/lib/api";
 import { bumpFeed, setAppState } from "@/lib/store";
 import { EditGlyph } from "./EditGlyph";
 import { radius, serif, space, useTheme } from "@/lib/theme";
@@ -25,7 +25,24 @@ export function SidePanel({ state, lens, onClose, onPick }: {
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const [overlap, setOverlap] = useState<Overlap | null>(null);
+  const [site, setSite] = useState<SitePreview | null>(null);
   const text = q.trim();
+  const isSite = looksLikeSite(text);
+  const finish = (r: { state: AppState }, pick?: string) => {
+    setAppState(r.state); bumpFeed(); setQ(""); setSite(null);
+    if (pick) onPick({ kind: "interest", id: pick });
+  };
+  // A site goes into an interest you choose (the likeliest one is suggested), or becomes its own strict interest.
+  const addSiteTo = async (interestId: string) => {
+    setBusy("site-add"); setErr("");
+    try { finish(await api<{ state: AppState }>("/api/sources/add", { interestId, url: text }), interestId); }
+    catch (e: any) { setErr(e.message); } finally { setBusy(""); }
+  };
+  const siteAsInterest = async () => {
+    setBusy("site-add"); setErr("");
+    try { const r = await api<{ created: { id: string }[]; state: AppState }>("/api/interests/fromSource", { url: text }); finish(r, r.created?.[0]?.id); }
+    catch (e: any) { setErr(e.message); } finally { setBusy(""); }
+  };
   const create = async () => {
     setOverlap(null); setBusy("add"); setErr("");
     try {
@@ -37,6 +54,12 @@ export function SidePanel({ state, lens, onClose, onPick }: {
   // Check first for an interest that already covers this (e.g. "MCM Knoll" when you follow MCM).
   const add = async () => {
     if (!text || busy) return;
+    if (isSite) {
+      setBusy("site"); setErr(""); setSite(null);
+      try { setSite(await api<SitePreview>("/api/sources/preview", { url: text })); }
+      catch (e: any) { setErr(e.message); } finally { setBusy(""); }
+      return;
+    }
     setBusy("check"); setErr("");
     const r = await api<{ overlaps: Overlap[] }>("/api/interests/check", { text }).catch(() => ({ overlaps: [] as Overlap[] }));
     setBusy("");
@@ -69,10 +92,30 @@ export function SidePanel({ state, lens, onClose, onPick }: {
         </View>
         <View style={[st.search, { backgroundColor: t.card, borderColor: t.line }]}>
           <Ionicons name="add" size={18} color={t.muted} />
-          <TextInput value={q} onChangeText={(v) => { setQ(v); setOverlap(null); setErr(""); }} onSubmitEditing={add} returnKeyType="go"
-            placeholder="Add an interest" placeholderTextColor={t.faint} style={{ flex: 1, color: t.ink, fontSize: 15, paddingVertical: 8 }} />
+          <TextInput value={q} onChangeText={(v) => { setQ(v); setOverlap(null); setSite(null); setErr(""); }} onSubmitEditing={add} returnKeyType="go"
+            placeholder="Add an interest or a site" autoCapitalize="none" placeholderTextColor={t.faint} style={{ flex: 1, color: t.ink, fontSize: 15, paddingVertical: 8 }} />
           {busy ? <ActivityIndicator size="small" color={t.muted} /> : null}
         </View>
+        {busy === "site" ? <Text style={{ color: t.muted, fontSize: 13, marginHorizontal: space.l, marginBottom: space.s }}>Looking for {text}'s feed…</Text> : null}
+        {site ? (
+          <View style={[st.overlap, { backgroundColor: t.card }]}>
+            <Text style={{ color: t.ink, fontWeight: "600" }}>Add {site.name} to…</Text>
+            {site.already.length ? <Text style={{ color: t.muted, fontSize: 12, marginTop: 2 }}>Already in {site.already.map((id) => state?.interests.find((i) => i.id === id)?.label).filter(Boolean).join(", ")}.</Text> : null}
+            {site.about ? <Text style={{ color: t.muted, fontSize: 12, marginTop: 2 }} numberOfLines={2}>{site.about}</Text> : null}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.s }}>
+              {[...(state?.interests || [])].filter((i) => !site.already.includes(i.id)).sort((a, b) => (a.id === site.guess ? -1 : b.id === site.guess ? 1 : a.label.localeCompare(b.label))).map((i) => (
+                <Pressable key={i.id} disabled={!!busy} onPress={() => addSiteTo(i.id)}
+                  style={[st.choice, i.id === site.guess ? { backgroundColor: t.accent } : { borderWidth: 1, borderColor: t.line }]}>
+                  <Text style={{ color: i.id === site.guess ? t.accentInk : t.ink, fontWeight: "600" }}>{i.label}{i.id === site.guess ? " · suggested" : ""}</Text>
+                </Pressable>
+              ))}
+              <Pressable disabled={!!busy} onPress={siteAsInterest} style={[st.choice, { borderWidth: 1, borderColor: t.line, borderStyle: "dashed" }]}>
+                <Text style={{ color: t.ink, fontWeight: "600" }}>New interest: just {site.name}</Text>
+              </Pressable>
+            </View>
+            {busy === "site-add" ? <Text style={{ color: t.muted, fontSize: 12, marginTop: space.s }}>Adding…</Text> : null}
+          </View>
+        ) : null}
         {busy === "add" ? <Text style={{ color: t.muted, fontSize: 13, marginHorizontal: space.l, marginBottom: space.s }}>Finding sources for "{text}". This can take half a minute.</Text> : null}
         {err ? <Text style={{ color: t.danger, fontSize: 13, marginHorizontal: space.l, marginBottom: space.s }}>{err}</Text> : null}
         {overlap ? (
@@ -89,10 +132,10 @@ export function SidePanel({ state, lens, onClose, onPick }: {
           </View>
         ) : null}
         <ScrollView contentContainerStyle={{ paddingBottom: space.xl }} keyboardShouldPersistTaps="handled">
-          {text && !overlap && !busy ? (
+          {text && !overlap && !site && !busy ? (
             <Pressable onPress={add} style={({ pressed }) => [st.row, { backgroundColor: pressed ? t.card : "transparent" }]} accessibilityRole="button">
               <Ionicons name="add-circle-outline" size={18} color={t.accent} />
-              <Text style={[st.label, { color: t.ink }]} numberOfLines={1}>Add “{text}”</Text>
+              <Text style={[st.label, { color: t.ink }]} numberOfLines={1}>{isSite ? `Add site “${text}”` : `Add “${text}”`}</Text>
             </Pressable>
           ) : null}
           {interests.map((i) => {

@@ -29,7 +29,7 @@ export async function api<T = any>(path: string, data?: unknown): Promise<T> {
 
 // ---------- types (mirror the server's responses) ----------
 export type SourceView = { id: string; name: string; site: string; newCount?: number; why?: string; about?: string; status?: string; error?: string; perWeek?: number; cadence?: string; followed?: boolean; interestId?: string; interestLabel?: string };
-export type Interest = { id: string; label: string; origin: string; createdAt: number; lastViewedAt: number; newCount: number; subs: string[]; subSuggestions: string[]; clarify: { question: string; options: string[] } | null; merged: string[]; sources: SourceView[]; suggested: SourceView[] };
+export type Interest = { id: string; label: string; origin: string; strict?: boolean; createdAt: number; lastViewedAt: number; newCount: number; subs: string[]; subSuggestions: string[]; clarify: { question: string; options: string[] } | null; merged: string[]; sources: SourceView[]; suggested: SourceView[] };
 export type TuningRule = { id: string; kind: "source" | "topic" | "interest" | "format"; value: string; label: string; at: number };
 export const NEEDS_API_VERSION = 5;
 export type StoryBrief = { gist: string; facts: { label: string; value: string }[]; questions: string[]; from: "article" | "excerpt" };
@@ -38,7 +38,7 @@ export type Usage = { days: number; priced: boolean; rows: UsageRow[]; total: { 
 export type ConceptGroup = { kind: "names" | "terms" | "nearby"; title: string; items: { term: string; why: string }[] };
 export type Overlap = { kind: "narrower"; interestId: string; label: string; focus: string } | { kind: "covered"; interestId: string; label: string };
 export type AppState = { apiVersion?: number; hasKey: boolean; profile?: { name: string; photo: string | null }; tuning: TuningRule[]; interests: Interest[]; topics: { id: string; label: string }[]; lastRefresh: number; refreshing: boolean; itemCount: number; savedCount: number };
-export type FeedItem = { type: "item"; id: string; sourceId: string; title: string; link: string; date: number; excerpt?: string; image?: string; imageLarge?: string; brief?: StoryBrief | null; kind?: "audio" | "video"; duration?: number; mediaUrl?: string; imageCount?: number; why: string; sourceName: string; alsoNames: string[]; saved: boolean; interestIds: string[] };
+export type FeedItem = { type: "item"; id: string; sourceId: string; title: string; link: string; date: number; excerpt?: string; image?: string; imageLarge?: string; brief?: StoryBrief | null; kind?: "audio" | "video"; duration?: number; mediaUrl?: string; opened?: boolean; imageCount?: number; why: string; sourceName: string; alsoNames: string[]; saved: boolean; interestIds: string[] };
 export type CuratorCard =
   | { type: "curator"; kind: "sources"; id: string; interestId: string; title: string; sources: { id: string; name: string; site: string; about: string; interestId: string }[] }
   | { type: "curator"; kind: "deeper"; id: string; itemId: string; title: string; prompt: string; kicker?: string; headline?: string; question?: string; image?: string | null; sourceName?: string }
@@ -77,3 +77,7 @@ export function mediaLabel(it: { kind?: "audio" | "video"; duration?: number }) 
   const len = mins >= 60 ? `${Math.floor(mins / 60)} hr${mins % 60 ? ` ${mins % 60} min` : ""}` : mins ? `${mins} min` : "";
   return [it.kind === "audio" ? "Podcast" : "Video", len].filter(Boolean).join(" · ");
 }
+
+// Typed text that's a site (kottke.org, a URL, a podcast or YouTube link) rather than an interest.
+export const looksLikeSite = (x: string) => /^(https?:\/\/)?([\w-]+\.)+[a-z]{2,}(\/\S*)?$/i.test(x.trim()) && !/\s/.test(x.trim());
+export type SitePreview = { name: string; site: string; kind: "podcast" | "video" | "site"; about: string; guess: string | null; already: string[] };

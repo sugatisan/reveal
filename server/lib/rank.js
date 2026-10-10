@@ -43,7 +43,11 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     let sub = null, subInt = null;
     for (const i of ints) { const m = subMatch(it, i.subs || []); if (m) { sub = m; subInt = i; break; } }
     const coverage = (it.also || []).length;
-    const seenPenalty = ev.expand || ev.open ? 0.5 : 1;
+    const engaged = ev.expand || ev.open || ev.save;
+    // Opened: half weight. Scrolled past on several visits without opening: it sinks, so each visit's
+    // top of the feed is mostly new to you. (Counted once per visit.)
+    const skipped = engaged ? 0 : ev.shown || 0;
+    const seenPenalty = engaged ? 0.5 : skipped >= 5 ? 0.35 : skipped >= 3 ? 0.5 : skipped >= 2 ? 0.7 : 1;
     const tuned = penalty(it, ints.map((i) => i.id)); // explicit "less of" rules
     const score = (recency * 1.0 + (sub ? 0.45 : 0) + coverage * 0.18 + (it.image ? 0.08 : 0)) * aff * seenPenalty * tuned;
 
@@ -56,7 +60,12 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     else why = primary.label;
 
     const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, ...pub } = it; // server-only
-    scored.push({ ...pub, imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save });
+    scored.push({ ...pub, opened: !!(ev.open || ev.expand), imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save });
+  }
+  // One source on its own reads like that site: newest first, nothing reordered.
+  if (sourceId) {
+    scored.sort((a, b) => b.date - a.date);
+    return { items: scored.slice(0, limit), caughtUp: -1 };
   }
   scored.sort((a, b) => b.score - a.score);
 
@@ -94,6 +103,7 @@ export function suggestionsFor({ interestId } = {}) {
   const followed = new Set(d.interests.flatMap((i) => i.sourceIds));
   const out = [];
   for (const i of ints) {
+    if (i.strict) continue; // "just these sources": the curator doesn't propose more
     for (const s of i.suggestedIds || []) {
       if (followed.has(s) || d.dismissed.includes(s) || out.find((o) => o.sourceId === s)) continue;
       const src = d.sources[s];

@@ -33,7 +33,7 @@ export function ItemCard({ item, onOpen, onSave, onLess, inGrid = false }: { ite
   const meta = inGrid ? item.sourceName : [showHero ? null : mediaLabel(item), item.sourceName, item.alsoNames?.length ? `+${item.alsoNames.length}` : "", ago(item.date)].filter(Boolean).join(" · ");
 
   const title = (
-    <Text style={{ color: t.ink, fontFamily: d["card.titleFont"] === "serif" ? serif : undefined, fontWeight: d["card.titleFont"] === "serif" ? "400" : "600",
+    <Text style={{ color: item.opened ? t.muted : t.ink, fontFamily: d["card.titleFont"] === "serif" ? serif : undefined, fontWeight: d["card.titleFont"] === "serif" ? "400" : "600",
       fontSize: layout === "compact" ? Math.round(titleSize * 0.82) : titleSize, lineHeight: Math.round((layout === "compact" ? titleSize * 0.82 : titleSize) * 1.28), letterSpacing: -0.2 }}
       numberOfLines={d["card.titleLines"]}>{item.title}</Text>
   );
