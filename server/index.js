@@ -219,13 +219,18 @@ async function storyBrief(id) {
   const d = load();
   const it = d.items[id];
   if (!it) throw new Error("Item not found");
-  if (it.brief && it.brief.v === agent.BRIEF_VERSION) return it.brief;
+  // Rewrite a gist that was written from a teaser once the full text is available from the feed.
+  if (it.brief && it.brief.v === agent.BRIEF_VERSION && !(it.brief.from === "excerpt" && it.feedText)) return it.brief;
   // A story that just failed isn't retried on every open (that would cost a call each time).
   if (it.briefFailedAt && it.briefFailedV === agent.BRIEF_VERSION && Date.now() - it.briefFailedAt < 864e5) return null;
   const src = d.sources[it.sourceId] || {};
-  await ensurePage(id); // shares the fetch the story view started, if any
-  let text = pageText.get(id) || "";
-  if (!text && it.link && it.lead !== "") { try { text = (await articlePage(it.link)).text; } catch {} }
+  // Full text from the feed when the publisher includes it (no page fetch); else the article page.
+  let text = it.feedText || "";
+  if (!text) {
+    await ensurePage(id); // shares the fetch the story view started, if any
+    text = pageText.get(id) || "";
+    if (!text && it.link && it.lead !== "") { try { text = (await articlePage(it.link)).text; } catch {} }
+  }
   try { it.brief = await agent.storyBrief(it, src.name, text); delete it.briefFailedAt; }
   catch (e) { it.briefFailedAt = Date.now(); it.briefFailedV = agent.BRIEF_VERSION; save(); throw e; }
   if (it.brief) pageText.delete(id);

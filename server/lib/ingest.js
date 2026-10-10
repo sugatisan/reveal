@@ -34,13 +34,19 @@ export async function fetchSource(src) {
   return discoverFeed(src.site || src.feedUrl);
 }
 
+export const FULL_TEXT_MIN = 1200; // characters: longer than any teaser
+
 export function storeItems(sourceId, items) {
   const d = load();
   let added = 0;
   const now = Date.now();
   for (const it of items.slice(0, 40)) {
     const id = hash(it.link || it.guid);
-    if (d.items[id]) continue;
+    // Many feeds carry the whole article, not just a teaser. Keep its text (capped) so the curator's
+    // gist is written from the full story without fetching the publisher's page. Never shown in full.
+    const text = stripTags(it.html || "");
+    const feedText = text.length >= FULL_TEXT_MIN ? text.slice(0, 6000) : "";
+    if (d.items[id]) { if (d.items[id].feedText === undefined) d.items[id].feedText = feedText; continue; }
     const date = it.date && it.date <= now + 36e5 ? it.date : now;
     if (now - date > MAX_AGE_DAYS * 864e5) continue;
     d.items[id] = {
@@ -49,7 +55,8 @@ export function storeItems(sourceId, items) {
       title: it.title.slice(0, 220),
       link: it.link,
       date,
-      excerpt: stripTags(it.html).slice(0, 420),
+      excerpt: text.slice(0, 420),
+      feedText,
       image: it.image || "",
       images: (it.images || []).filter((u) => u !== it.image).slice(0, 9),
       tags: (it.tags || []).slice(0, 8),
@@ -123,6 +130,8 @@ async function doRefresh({ onlyIds } = {}) {
       if (!src.name || src.name === src.site) src.name = f.title || src.name;
       if (!src.about && f.description) src.about = f.description.slice(0, 200);
       src.perWeek = cadence(f.items);
+      // How much of this source's feed is full articles (vs teasers).
+      src.fullTextShare = f.items.length ? f.items.filter((x) => stripTags(x.html || "").length >= FULL_TEXT_MIN).length / f.items.length : 0;
       src.status = "ok";
       src.error = "";
       src.lastFetched = Date.now();
