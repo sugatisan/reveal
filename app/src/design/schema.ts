@@ -58,6 +58,13 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    id: "feed-header", panel: "Feed header", title: "Pill row", hint: "The menu button and interest pills at the top of the feed.",
+    controls: [
+      { key: "header.top", label: "Space above pills", hint: "Added below the status bar.", type: "range", min: 0, max: 40, step: 2, unit: "pt", default: 4 },
+      { key: "header.below", label: "Space below pills", type: "range", min: 0, max: 28, step: 2, unit: "pt", default: 12 },
+    ],
+  },
+  {
     id: "tab-style", panel: "Tab bar", title: "Style", hint: "How the tabs are grouped and shown.",
     controls: [
       choice("tab.style", "Container", "island", [["island", "One island"], ["separate", "Separate"], ["docked", "Docked"]],

@@ -133,7 +133,7 @@ export default function FeedScreen() {
     if (cur) recent.unshift(cur), recent.splice(5);
   }
   const lensBar = (
-    <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.s, paddingHorizontal: space.l, paddingTop: space.s, paddingBottom: space.m, alignItems: "center" }}>
+    <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.s, paddingHorizontal: space.l, paddingTop: design["header.top"], paddingBottom: design["header.below"], alignItems: "center" }}>
       <Pressable onPress={drawer.open} accessibilityLabel="All interests and sources" hitSlop={6}
         style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: t.chip, opacity: pressed ? 0.7 : 1 })}>
         <Ionicons name="menu" size={20} color={t.ink} />

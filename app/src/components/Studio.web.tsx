@@ -5,7 +5,8 @@
 // Two kinds of settings live here:
 //  - App design (app/src/design/schema.ts): shared with the phone, saved to the repo.
 //  - Studio settings (below): how the studio itself looks on this laptop. Kept in this browser only.
-import { ReactNode, useEffect, useState } from "react";
+import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { SafeAreaFrameContext, SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { GROUPS, Control, DEFAULTS, Group } from "@/design/schema";
 import { resetToDefaults, revertDesign, saveDesign, setDesign, useDesign, useDesignRemote } from "@/design/store";
 import { PALETTES, preview } from "@/design/palettes";
@@ -22,17 +23,32 @@ function studioOn(): boolean {
 const ON = typeof window !== "undefined" && studioOn();
 
 // ---------- studio-only settings (this browser) ----------
+// Safe areas match the real devices: status bar + Dynamic Island at the top, home indicator at the bottom.
 const DEVICES = {
-  "17promax": { label: "iPhone 17 Pro Max", w: 440, h: 956 },
-  "17pro": { label: "iPhone 17 Pro", w: 402, h: 874 },
-  "16e": { label: "iPhone 16e", w: 390, h: 844 },
+  "17promax": { label: "iPhone 17 Pro Max", w: 440, h: 956, top: 62, bottom: 34, island: true },
+  "17pro": { label: "iPhone 17 Pro", w: 402, h: 874, top: 62, bottom: 34, island: true },
+  "16e": { label: "iPhone 16e", w: 390, h: 844, top: 47, bottom: 34, island: false },
 } as const;
+type Device = (typeof DEVICES)[keyof typeof DEVICES];
+const DeviceCtx = createContext<{ dev: Device; chrome: boolean } | null>(null);
+
+// Gives the app inside the frame the device's safe area (the browser itself reports none).
+export function StudioInsets({ children }: { children: ReactNode }) {
+  const ctx = useContext(DeviceCtx);
+  if (!ON || !ctx) return <>{children}</>;
+  const { dev } = ctx;
+  return (
+    <SafeAreaFrameContext.Provider value={{ x: 0, y: 0, width: dev.w, height: dev.h }}>
+      <SafeAreaInsetsContext.Provider value={{ top: dev.top, bottom: dev.bottom, left: 0, right: 0 }}>{children}</SafeAreaInsetsContext.Provider>
+    </SafeAreaFrameContext.Provider>
+  );
+}
 type DeviceId = keyof typeof DEVICES;
-type StudioPrefs = { bg: string; device: DeviceId; corners: number; open: Record<string, boolean> };
+type StudioPrefs = { bg: string; device: DeviceId; corners: number; chrome: boolean; open: Record<string, boolean> };
 const BG_SWATCHES = ["#14161B", "#0B0C0E", "#2A2D33", "#5B6170", "#C9CCD2", "#ECEAE4", "#FFFFFF"];
 const PREFS_KEY = "reveal.studio.prefs";
 // 55pt is close to the iPhone 17 Pro Max display corner.
-const defaultPrefs: StudioPrefs = { bg: "#14161B", device: "17promax", corners: 55, open: { "studio": false, "card-layout": true } };
+const defaultPrefs: StudioPrefs = { bg: "#14161B", device: "17promax", corners: 55, chrome: true, open: { "studio": false, "card-layout": true } };
 function loadPrefs(): StudioPrefs {
   try { return { ...defaultPrefs, ...JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") }; } catch { return defaultPrefs; }
 }
@@ -76,7 +92,8 @@ function StudioFrame({ children }: { children: ReactNode }) {
         <div style={{ width: dev.w * fit, height: dev.h * fit, flexShrink: 0 }}>
           {/* The transform also makes this box the containing block, so the app's overlays stay inside it. */}
           <div className="studio-screen" style={{ ...css.screen, width: dev.w, height: dev.h, borderRadius: prefs.corners, transform: `scale(${fit})`, boxShadow: light ? "0 10px 36px rgba(0,0,0,.18)" : "0 12px 40px rgba(0,0,0,.5)" }}>
-            {children}
+            <DeviceCtx.Provider value={{ dev, chrome: prefs.chrome }}>{children}</DeviceCtx.Provider>
+            {prefs.chrome ? <StatusChrome dev={dev} /> : null}
             <div id="studio-layer" style={{ position: "absolute", inset: 0, zIndex: 1000, pointerEvents: "none" }} />
           </div>
         </div>
@@ -85,6 +102,21 @@ function StudioFrame({ children }: { children: ReactNode }) {
         </div>
       </div>
       <Panel prefs={prefs} setPrefs={setPrefs} />
+    </div>
+  );
+}
+
+// Status bar and Dynamic Island drawn over the top of the screen, like the real phone.
+function StatusChrome({ dev }: { dev: Device }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const id = setInterval(() => setNow(new Date()), 30000); return () => clearInterval(id); }, []);
+  const time = now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }).replace(/\s?[AP]M/i, "");
+  return (
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: dev.top, zIndex: 900, pointerEvents: "none", mixBlendMode: "difference", color: "#fff",
+      display: "flex", alignItems: "center", justifyContent: "space-between", padding: `0 ${dev.island ? 34 : 24}px`, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 17, boxSizing: "border-box" }}>
+      <span style={{ width: 60, textAlign: "center" }}>{time}</span>
+      {dev.island ? <span style={{ position: "absolute", left: "50%", top: 11, transform: "translateX(-50%)", width: 125, height: 37, borderRadius: 20, background: "#000", mixBlendMode: "normal" }} /> : null}
+      <span style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>●●● ▲ ▮</span>
     </div>
   );
 }
@@ -133,12 +165,14 @@ function Panel({ prefs, setPrefs }: { prefs: StudioPrefs; setPrefs: (p: Partial<
         <div style={{ marginBottom: 18 }}>
           <div style={css.panelTitle}>Studio</div>
           <Section title="Background and device" hint="How the studio looks on this laptop. Not part of the app and not saved to the repo." open={isOpen("studio")} onToggle={() => toggle("studio")}
-            badge={[prefs.bg !== defaultPrefs.bg, prefs.device !== defaultPrefs.device, prefs.corners !== defaultPrefs.corners].filter(Boolean).length}>
+            badge={[prefs.bg !== defaultPrefs.bg, prefs.device !== defaultPrefs.device, prefs.corners !== defaultPrefs.corners, prefs.chrome !== defaultPrefs.chrome].filter(Boolean).length}>
             <Row c={{ key: "studio.bg", label: "Background", type: "color", swatches: BG_SWATCHES, default: defaultPrefs.bg }} value={prefs.bg} onChange={(v) => setPrefs({ bg: v })} />
             <Row c={{ key: "studio.device", label: "Device size", type: "choice", default: defaultPrefs.device, options: Object.entries(DEVICES).map(([value, x]) => ({ value, label: x.label.replace("iPhone ", "") })) }}
               value={prefs.device} onChange={(v) => setPrefs({ device: v })} />
             <Row c={{ key: "studio.corners", label: "Screen corners", type: "range", min: 0, max: 64, step: 1, unit: "pt", default: defaultPrefs.corners }}
               value={prefs.corners} onChange={(v) => setPrefs({ corners: v })} />
+            <Row c={{ key: "studio.chrome", label: "Status bar and Dynamic Island", hint: "Drawn over the screen so you can judge spacing at the top. The safe area is applied either way.", type: "toggle", default: defaultPrefs.chrome }}
+              value={prefs.chrome} onChange={(v) => setPrefs({ chrome: v })} />
           </Section>
         </div>
 
