@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Reveal</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="top" id="top"></header>
+    <main id="main" class="main"></main>
+    <nav class="tabs" id="tabs" hidden>
+      <button data-tab="feed">Feed</button>
+      <button data-tab="sources">Sources</button>
+      <button data-tab="saved">Saved</button>
+    </nav>
+  </div>
+  <div class="scrim" id="scrim"></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="sheet-body" id="sheetBody"></div></section>
+  <div class="toast" id="toast" role="status"><span id="toastText"></span><button id="toastUndo" hidden>Undo</button></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

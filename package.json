@@ -1,0 +1,12 @@
+{
+  "name": "reveal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Reveal: a discovery feed with a curator agent. v0, runs locally.",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  }
+}

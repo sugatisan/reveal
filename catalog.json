@@ -1,0 +1,151 @@
+{
+  "topics": [
+    {
+      "id": "objects", "label": "Well-made objects",
+      "keywords": ["well.made", "object", "gear", "edc", "everyday carry", "gadget", "product", "tool"],
+      "subs": ["Pocket tools", "Bags", "Desk objects", "Home goods"],
+      "sources": [
+        { "name": "Uncrate", "site": "https://uncrate.com", "feed": "https://uncrate.com/feed/", "why": "Daily product picks with big photography" },
+        { "name": "Cool Material", "site": "https://coolmaterial.com", "feed": "https://coolmaterial.com/feed/", "why": "Product round-ups and gift guides" },
+        { "name": "Gadget Flow", "site": "https://thegadgetflow.com", "feed": "https://thegadgetflow.com/feed/", "why": "New gadgets and crowdfunded launches" },
+        { "name": "Carryology", "site": "https://www.carryology.com", "feed": "https://www.carryology.com/feed/", "why": "Bags and carry gear, tested in depth" },
+        { "name": "HiConsumption", "site": "https://hiconsumption.com", "feed": "https://hiconsumption.com/feed/", "why": "Gear guides and new releases" },
+        { "name": "Gear Patrol", "site": "https://www.gearpatrol.com", "feed": "https://www.gearpatrol.com/feed/", "why": "Reviews across gear, home and style" }
+      ]
+    },
+    {
+      "id": "design", "label": "Industrial design",
+      "keywords": ["industrial design", "design", "product design", "furniture design"],
+      "subs": ["Furniture", "Lighting", "Consumer tech", "Student work"],
+      "sources": [
+        { "name": "Core77", "site": "https://www.core77.com", "feed": null, "why": "Design process and studio stories" },
+        { "name": "designboom", "site": "https://www.designboom.com", "feed": "https://www.designboom.com/feed/", "why": "Design, art and architecture news" },
+        { "name": "Yanko Design", "site": "https://www.yankodesign.com", "feed": "https://www.yankodesign.com/feed/", "why": "Product concepts and new designs" },
+        { "name": "Design Milk", "site": "https://design-milk.com", "feed": "https://design-milk.com/feed/", "why": "Modern design for home and work" },
+        { "name": "Dezeen", "site": "https://www.dezeen.com", "feed": "https://www.dezeen.com/feed/", "why": "Architecture and design news" }
+      ]
+    },
+    {
+      "id": "arch", "label": "Architecture",
+      "keywords": ["architect", "house", "houses", "cabin", "building", "brutalis", "concrete", "interior"],
+      "subs": ["Cabins", "Concrete", "Small homes", "Interiors"],
+      "sources": [
+        { "name": "Dezeen", "site": "https://www.dezeen.com", "feed": "https://www.dezeen.com/feed/", "why": "Architecture and design news" },
+        { "name": "ArchDaily", "site": "https://www.archdaily.com", "feed": null, "why": "Built projects with plans and photos" },
+        { "name": "designboom", "site": "https://www.designboom.com", "feed": "https://www.designboom.com/feed/", "why": "Design, art and architecture news" },
+        { "name": "Colossal", "site": "https://www.thisiscolossal.com", "feed": "https://www.thisiscolossal.com/feed/", "why": "Art, craft and visual culture" }
+      ]
+    },
+    {
+      "id": "watches", "label": "Watches",
+      "keywords": ["watch", "horolog", "chronograph"],
+      "subs": ["Vintage", "Field watches", "Independents", "Divers"],
+      "sources": [
+        { "name": "Hodinkee", "site": "https://www.hodinkee.com", "feed": null, "why": "Long reviews and watch history" },
+        { "name": "Worn & Wound", "site": "https://wornandwound.com", "feed": "https://wornandwound.com/feed/", "why": "Reviews with a focus on value" },
+        { "name": "Fratello", "site": "https://www.fratellowatches.com", "feed": "https://www.fratellowatches.com/feed/", "why": "Vintage and hands-on reviews" },
+        { "name": "Monochrome", "site": "https://monochrome-watches.com", "feed": "https://monochrome-watches.com/feed/", "why": "Watchmaking and technical depth" }
+      ]
+    },
+    {
+      "id": "craft", "label": "Japanese craft",
+      "keywords": ["japan", "kyoto", "craft", "maker", "handmade"],
+      "subs": ["Knives", "Ceramics", "Textiles", "Woodwork"],
+      "sources": [
+        { "name": "Spoon & Tamago", "site": "https://www.spoon-tamago.com", "feed": "https://www.spoon-tamago.com/feed/", "why": "Japanese art, design and craft" },
+        { "name": "Colossal", "site": "https://www.thisiscolossal.com", "feed": "https://www.thisiscolossal.com/feed/", "why": "Art, craft and visual culture" }
+      ]
+    },
+    {
+      "id": "outdoor", "label": "Outdoor & camp",
+      "keywords": ["outdoor", "camp", "hik", "trail", "backpack"],
+      "subs": ["Camp cooking", "Shelters", "Packs", "Trips"],
+      "sources": [
+        { "name": "Field Mag", "site": "https://www.fieldmag.com", "feed": null, "why": "Outdoor gear and design" },
+        { "name": "Gear Patrol", "site": "https://www.gearpatrol.com", "feed": "https://www.gearpatrol.com/feed/", "why": "Reviews across gear, home and style" },
+        { "name": "Treeline Review", "site": "https://www.treelinereview.com", "feed": null, "why": "Independent gear testing" }
+      ]
+    },
+    {
+      "id": "cycling", "label": "Bikes",
+      "keywords": ["bike", "bicycl", "cycling", "gravel"],
+      "subs": ["Steel frames", "Touring", "Gravel", "Builders"],
+      "sources": [
+        { "name": "The Radavist", "site": "https://theradavist.com", "feed": "https://theradavist.com/feed/", "why": "Builders, rides and frame photography" },
+        { "name": "BikeRumor", "site": "https://bikerumor.com", "feed": "https://bikerumor.com/feed/", "why": "New bikes and components" }
+      ]
+    },
+    {
+      "id": "cameras", "label": "Film cameras",
+      "keywords": ["camera", "film", "photo", "lens", "analog"],
+      "subs": ["Rangefinders", "Developing", "Repairs", "Film stocks"],
+      "sources": [
+        { "name": "Kosmo Foto", "site": "https://www.kosmofoto.com", "feed": "https://www.kosmofoto.com/feed/", "why": "Film photography news and reviews" },
+        { "name": "Casual Photophile", "site": "https://casualphotophile.com", "feed": "https://casualphotophile.com/feed/", "why": "Long camera reviews" },
+        { "name": "35mmc", "site": "https://www.35mmc.com", "feed": "https://www.35mmc.com/feed/", "why": "Reader film photos and camera notes" },
+        { "name": "EMULSIVE", "site": "https://emulsive.org", "feed": "https://emulsive.org/feed", "why": "Film stocks and developing" }
+      ]
+    },
+    {
+      "id": "woodworking", "label": "Woodworking",
+      "keywords": ["wood", "joinery", "carpentry", "chair"],
+      "subs": ["Hand tools", "Joinery", "Chairs", "Shop setup"],
+      "sources": [
+        { "name": "Fine Woodworking", "site": "https://www.finewoodworking.com", "feed": null, "why": "Technique and projects" },
+        { "name": "Lost Art Press", "site": "https://blog.lostartpress.com", "feed": "https://blog.lostartpress.com/feed/", "why": "Hand tools and traditional furniture" }
+      ]
+    },
+    {
+      "id": "coffee", "label": "Coffee gear",
+      "keywords": ["coffee", "espresso", "cafe", "café", "grinder"],
+      "subs": ["Grinders", "Espresso", "Cafés", "Pour-over"],
+      "sources": [
+        { "name": "Sprudge", "site": "https://sprudge.com", "feed": "https://sprudge.com/feed", "why": "Coffee culture, gear and cafés" }
+      ]
+    },
+    {
+      "id": "lego", "label": "LEGO",
+      "keywords": ["lego", "brick", "minifig", "moc"],
+      "subs": ["Modular buildings", "Minifigures", "Fan builds", "Retired sets"],
+      "sources": [
+        { "name": "Brickset", "site": "https://brickset.com", "feed": null, "why": "Set news and the set database" },
+        { "name": "The Brothers Brick", "site": "https://www.brothers-brick.com", "feed": "https://www.brothers-brick.com/feed/", "why": "The best fan builds, daily" },
+        { "name": "New Elementary", "site": "https://www.newelementary.com", "feed": null, "why": "New parts and how builders use them" },
+        { "name": "BrickNerd", "site": "https://bricknerd.com", "feed": null, "why": "Builder stories and techniques" },
+        { "name": "Brick Fanatics", "site": "https://www.brickfanatics.com", "feed": "https://www.brickfanatics.com/feed/", "why": "Set news and reviews" },
+        { "name": "Jay's Brick Blog", "site": "https://jaysbrickblog.com", "feed": "https://jaysbrickblog.com/feed/", "why": "Reviews, deals and rumors" }
+      ]
+    },
+    {
+      "id": "midcentury", "label": "Mid-century modern",
+      "keywords": ["mid.?century", "mcm", "eames", "atomic", "modernis"],
+      "subs": ["Furniture", "Houses", "Lighting", "Kitchens"],
+      "sources": [
+        { "name": "Atomic Ranch", "site": "https://www.atomic-ranch.com", "feed": null, "why": "Mid-century homes and restorations" },
+        { "name": "Dwell", "site": "https://www.dwell.com", "feed": null, "why": "Modern homes and furniture" },
+        { "name": "Retro Renovation", "site": "https://retrorenovation.com", "feed": "https://retrorenovation.com/feed/", "why": "Restoring mid-century kitchens and baths" },
+        { "name": "Design Milk", "site": "https://design-milk.com", "feed": "https://design-milk.com/feed/", "why": "Modern design for home and work" }
+      ]
+    },
+    {
+      "id": "comics", "label": "Vintage comics",
+      "keywords": ["comic", "marvel", "silver age", "bronze age", "superhero"],
+      "subs": ["Silver Age", "Bronze Age", "Original art", "Cover art"],
+      "sources": [
+        { "name": "13th Dimension", "site": "https://13thdimension.com", "feed": "https://13thdimension.com/feed/", "why": "Classic comics history and covers" },
+        { "name": "The Beat", "site": "https://www.comicsbeat.com", "feed": "https://www.comicsbeat.com/feed/", "why": "Comics industry news and interviews" },
+        { "name": "Bleeding Cool", "site": "https://bleedingcool.com", "feed": "https://bleedingcool.com/feed/", "why": "Comics news and original art sales" },
+        { "name": "CBR", "site": "https://www.cbr.com", "feed": "https://www.cbr.com/feed/", "why": "Comics features and retrospectives" }
+      ]
+    },
+    {
+      "id": "workspace", "label": "Desks & workspaces",
+      "keywords": ["desk", "workspace", "office", "setup", "keyboard"],
+      "subs": ["Lighting", "Keyboards", "Small desks", "Monitors"],
+      "sources": [
+        { "name": "Design Milk", "site": "https://design-milk.com", "feed": "https://design-milk.com/feed/", "why": "Modern design for home and work" },
+        { "name": "Yanko Design", "site": "https://www.yankodesign.com", "feed": "https://www.yankodesign.com/feed/", "why": "Product concepts and new designs" }
+      ]
+    }
+  ]
+}
