@@ -195,7 +195,8 @@ export default function FeedScreen() {
         <View ref={backingRef} onLayout={(e) => setHeaderH(Math.round(e.nativeEvent.layout.height))}
           style={{ position: "absolute", top: 0, left: 0, right: 0, paddingTop: insets.top,
             backgroundColor: design["header.backing"] ? rgba(t.bg, design["header.opacity"] / 100) : "transparent",
-            borderBottomWidth: design["header.backing"] && design["header.border"] ? 1 : 0, borderBottomColor: t.line }}>
+            borderBottomWidth: design["header.backing"] && design["header.border"] ? 1 : 0, borderBottomColor: t.line,
+            ...(design["header.backing"] && design["header.shadow"] > 0 ? ({ boxShadow: `0px ${design["header.shadowY"]}px ${design["header.shadowRadius"]}px rgba(0,0,0,${design["header.shadow"] / 100})` } as any) : null) }}>
           {lensBar}
         </View>
       ) : null}

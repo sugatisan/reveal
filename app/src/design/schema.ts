@@ -18,47 +18,23 @@ const choice = (key: string, label: string, def: string, options: [string, strin
 
 export const GROUPS: Group[] = [
   {
-    id: "card-layout", panel: "Feed card", title: "Layout", hint: "The overall shape of each story in the feed.",
+    id: "color-palette", panel: "Color", title: "Palette", hint: "Colors for the whole app. Paper follows the phone's light/dark setting; the others are fixed.",
+    controls: [{ key: "color.palette", label: "Palette", type: "palette", default: "paper" }],
+  },
+  {
+    id: "color-custom", panel: "Color", title: "Custom palette", hint: "Used when Palette is set to Custom. Lines, chips and text on the accent are worked out from these.",
     controls: [
-      choice("card.layout", "Layout", "hero", [["hero", "Big image"], ["compact", "Thumbnail"], ["text", "Text only"]]),
-      choice("card.ratio", "Image shape", "16:9", [["16:9", "16:9"], ["3:2", "3:2"], ["4:3", "4:3"], ["1:1", "1:1"]], "Big image layout only."),
-      choice("card.surface", "Surface", "card", [["card", "Card"], ["flush", "Flush"]]),
+      { key: "color.bg", label: "Background", type: "color", default: "#F4F1EA", swatches: ["#FFFFFF", "#F4F1EA", "#EFE6D8", "#E8ECEF", "#151515", "#0E1320"] },
+      { key: "color.card", label: "Cards", type: "color", default: "#FFFFFF", swatches: ["#FFFFFF", "#FBF6EE", "#F3F3F3", "#212121", "#172033"] },
+      { key: "color.ink", label: "Text", type: "color", default: "#1C1A16", swatches: ["#0A0A0A", "#1C1A16", "#2B2118", "#EDEDED", "#E8ECF4"] },
+      { key: "color.muted", label: "Secondary text", type: "color", default: "#6F6A61", swatches: ["#6B6B6B", "#6F6A61", "#7A6B5A", "#9A9A9A", "#94A0B8"] },
+      { key: "color.accent", label: "Accent", type: "color", default: "#D24A1C", swatches: ["#D24A1C", "#C8102E", "#2F6B3F", "#2563EB", "#D9466F", "#F5C542"] },
+      { key: "color.curatorBg", label: "Curator cards", type: "color", default: "#1E2A43", swatches: ["#1E2A43", "#111111", "#1F3A2B", "#3A2A1E", "#F2E8D5"] },
+      { key: "color.curatorAccent", label: "Curator accent", type: "color", default: "#F2B84B", swatches: ["#F2B84B", "#FFFFFF", "#C9E27A", "#FFB3C7", "#6EA8FE"] },
     ],
   },
   {
-    id: "card-arrange", panel: "Feed card", title: "Arrangement", hint: "How stories are laid out across the screen.",
-    controls: [
-      { key: "card.grid", label: "2-column grid", hint: "Two stories per row. Curator cards stay full width.", type: "toggle", default: false },
-      { key: "card.fullBleed", label: "Full-bleed images", hint: "Images run to the screen edges with square corners; text keeps its margins.", type: "toggle", default: false },
-    ],
-  },
-  {
-    id: "card-title", panel: "Feed card", title: "Title",
-    controls: [
-      choice("card.titleFont", "Font", "serif", [["serif", "Serif"], ["sans", "Sans"]]),
-      { key: "card.titleSize", label: "Size", type: "range", min: 15, max: 28, step: 1, unit: "pt", default: 21 },
-      { key: "card.titleLines", label: "Max lines", type: "range", min: 2, max: 5, step: 1, default: 4 },
-    ],
-  },
-  {
-    id: "card-text", panel: "Feed card", title: "Supporting text",
-    controls: [
-      { key: "card.showWhy", label: "Why line", hint: "The orange line saying why a story is here.", type: "toggle", default: true },
-      choice("card.excerpt", "Excerpt", "noImage", [["always", "Always"], ["noImage", "No image only"], ["never", "Never"]]),
-      { key: "card.excerptLines", label: "Excerpt lines", type: "range", min: 1, max: 5, step: 1, default: 3 },
-    ],
-  },
-  {
-    id: "card-spacing", panel: "Feed card", title: "Spacing and corners",
-    controls: [
-      { key: "card.radius", label: "Corner radius", type: "range", min: 0, max: 28, step: 1, unit: "pt", default: 20 },
-      { key: "card.padding", label: "Inner padding", type: "range", min: 8, max: 28, step: 2, unit: "pt", default: 16 },
-      { key: "card.gap", label: "Space between cards", type: "range", min: 0, max: 32, step: 2, unit: "pt", default: 16 },
-      { key: "card.inset", label: "Side margin", type: "range", min: 0, max: 24, step: 2, unit: "pt", default: 16 },
-    ],
-  },
-  {
-    id: "feed-header", panel: "Feed header", title: "Pill row", hint: "The menu button and interest pills at the top of the feed.",
+    id: "feed-header", panel: "Top bar", title: "Position", hint: "The menu button and interest pills at the top of the feed.",
     controls: [
       { key: "header.pinned", label: "Stay pinned while scrolling", hint: "The feed scrolls underneath.", type: "toggle", default: true },
       { key: "header.top", label: "Space above pills", hint: "Added below the status bar.", type: "range", min: 0, max: 40, step: 2, unit: "pt", default: 4 },
@@ -66,16 +42,19 @@ export const GROUPS: Group[] = [
     ],
   },
   {
-    id: "header-backing", panel: "Feed header", title: "Backing", hint: "The surface behind the pinned pills and status bar.",
+    id: "header-backing", panel: "Top bar", title: "Row backing", hint: "The full-width strip behind the pills and the status bar (only when pinned).",
     controls: [
-      { key: "header.backing", label: "Show backing", hint: "Off: pills float straight over the feed.", type: "toggle", default: true },
+      { key: "header.backing", label: "Show row backing", hint: "Off: pills float straight over the feed.", type: "toggle", default: true },
       { key: "header.opacity", label: "Opacity", type: "range", min: 0, max: 100, step: 5, unit: "%", default: 78 },
       { key: "header.blur", label: "Blur", hint: "Shows in the studio; on the phone it needs expo-blur.", type: "range", min: 0, max: 40, step: 2, unit: "px", default: 16 },
+      { key: "header.shadow", label: "Shadow amount", type: "range", min: 0, max: 60, step: 2, unit: "%", default: 0 },
+      { key: "header.shadowRadius", label: "Shadow softness", type: "range", min: 0, max: 40, step: 2, unit: "pt", default: 16 },
+      { key: "header.shadowY", label: "Shadow drop", type: "range", min: 0, max: 20, step: 1, unit: "pt", default: 4 },
       { key: "header.border", label: "Hairline at the bottom", type: "toggle", default: false },
     ],
   },
   {
-    id: "header-pills", panel: "Feed header", title: "Pills",
+    id: "header-pills", panel: "Top bar", title: "Pill size and text",
     controls: [
       { key: "pill.scale", label: "Size", hint: "Scales the menu button and pills together.", type: "range", min: 70, max: 140, step: 5, unit: "%", default: 100 },
       { key: "pill.font", label: "Text size", type: "range", min: 11, max: 18, step: 0.5, unit: "pt", default: 14 },
@@ -86,10 +65,60 @@ export const GROUPS: Group[] = [
     ],
   },
   {
-    id: "header-selected", panel: "Feed header", title: "Selected pill",
+    id: "header-pillfill", panel: "Top bar", title: "Pill fill", hint: "Each unselected pill's own background (and the menu button).",
+    controls: [
+      { key: "pill.fillOpacity", label: "Opacity", type: "range", min: 0, max: 100, step: 5, unit: "%", default: 100 },
+      { key: "pill.blur", label: "Blur", hint: "Shows in the studio; on the phone it needs expo-blur.", type: "range", min: 0, max: 30, step: 2, unit: "px", default: 0 },
+      { key: "pill.shadow", label: "Shadow amount", type: "range", min: 0, max: 60, step: 2, unit: "%", default: 0 },
+      { key: "pill.shadowRadius", label: "Shadow softness", type: "range", min: 0, max: 24, step: 1, unit: "pt", default: 8 },
+      { key: "pill.shadowY", label: "Shadow drop", type: "range", min: 0, max: 12, step: 1, unit: "pt", default: 2 },
+    ],
+  },
+  {
+    id: "header-selected", panel: "Top bar", title: "Selected pill",
     controls: [
       choice("pill.selected", "Color", "ink", [["ink", "Text color"], ["accent", "Accent"], ["custom", "Custom"]]),
       { key: "pill.selectedColor", label: "Custom color", hint: "Used when Color is Custom. The label color is picked automatically for contrast.", type: "color", default: "#2563EB", swatches: ["#2563EB", "#D24A1C", "#2F6B3F", "#D9466F", "#7C3AED", "#F5C542"] },
+    ],
+  },
+  {
+    id: "card-layout", panel: "Feed cards", title: "Layout", hint: "The overall shape of each story in the feed.",
+    controls: [
+      choice("card.layout", "Layout", "hero", [["hero", "Big image"], ["compact", "Thumbnail"], ["text", "Text only"]]),
+      choice("card.ratio", "Image shape", "16:9", [["16:9", "16:9"], ["3:2", "3:2"], ["4:3", "4:3"], ["1:1", "1:1"]], "Big image layout only."),
+      choice("card.surface", "Surface", "card", [["card", "Card"], ["flush", "Flush"]]),
+    ],
+  },
+  {
+    id: "card-arrange", panel: "Feed cards", title: "Arrangement", hint: "How stories are laid out across the screen.",
+    controls: [
+      { key: "card.grid", label: "2-column grid", hint: "Two stories per row. Curator cards stay full width.", type: "toggle", default: false },
+      { key: "card.fullBleed", label: "Full-bleed images", hint: "Images run to the screen edges with square corners; text keeps its margins.", type: "toggle", default: false },
+    ],
+  },
+  {
+    id: "card-title", panel: "Feed cards", title: "Title",
+    controls: [
+      choice("card.titleFont", "Font", "serif", [["serif", "Serif"], ["sans", "Sans"]]),
+      { key: "card.titleSize", label: "Size", type: "range", min: 15, max: 28, step: 1, unit: "pt", default: 21 },
+      { key: "card.titleLines", label: "Max lines", type: "range", min: 2, max: 5, step: 1, default: 4 },
+    ],
+  },
+  {
+    id: "card-text", panel: "Feed cards", title: "Supporting text",
+    controls: [
+      { key: "card.showWhy", label: "Why line", hint: "The orange line saying why a story is here.", type: "toggle", default: true },
+      choice("card.excerpt", "Excerpt", "noImage", [["always", "Always"], ["noImage", "No image only"], ["never", "Never"]]),
+      { key: "card.excerptLines", label: "Excerpt lines", type: "range", min: 1, max: 5, step: 1, default: 3 },
+    ],
+  },
+  {
+    id: "card-spacing", panel: "Feed cards", title: "Spacing and corners",
+    controls: [
+      { key: "card.radius", label: "Corner radius", type: "range", min: 0, max: 28, step: 1, unit: "pt", default: 20 },
+      { key: "card.padding", label: "Inner padding", type: "range", min: 8, max: 28, step: 2, unit: "pt", default: 16 },
+      { key: "card.gap", label: "Space between cards", type: "range", min: 0, max: 32, step: 2, unit: "pt", default: 16 },
+      { key: "card.inset", label: "Side margin", type: "range", min: 0, max: 24, step: 2, unit: "pt", default: 16 },
     ],
   },
   {
@@ -132,22 +161,6 @@ export const GROUPS: Group[] = [
     hint: "Search finds things you already have (a story you scrolled past, a source by name). Discovery stays with the curator.",
     controls: [
       choice("tab.search", "Search entry", "button", [["off", "Off"], ["tab", "A tab"], ["button", "Separate button"]]),
-    ],
-  },
-  {
-    id: "color-palette", panel: "Color", title: "Palette", hint: "Colors for the whole app. Paper follows the phone's light/dark setting; the others are fixed.",
-    controls: [{ key: "color.palette", label: "Palette", type: "palette", default: "paper" }],
-  },
-  {
-    id: "color-custom", panel: "Color", title: "Custom palette", hint: "Used when Palette is set to Custom. Lines, chips and text on the accent are worked out from these.",
-    controls: [
-      { key: "color.bg", label: "Background", type: "color", default: "#F4F1EA", swatches: ["#FFFFFF", "#F4F1EA", "#EFE6D8", "#E8ECEF", "#151515", "#0E1320"] },
-      { key: "color.card", label: "Cards", type: "color", default: "#FFFFFF", swatches: ["#FFFFFF", "#FBF6EE", "#F3F3F3", "#212121", "#172033"] },
-      { key: "color.ink", label: "Text", type: "color", default: "#1C1A16", swatches: ["#0A0A0A", "#1C1A16", "#2B2118", "#EDEDED", "#E8ECF4"] },
-      { key: "color.muted", label: "Secondary text", type: "color", default: "#6F6A61", swatches: ["#6B6B6B", "#6F6A61", "#7A6B5A", "#9A9A9A", "#94A0B8"] },
-      { key: "color.accent", label: "Accent", type: "color", default: "#D24A1C", swatches: ["#D24A1C", "#C8102E", "#2F6B3F", "#2563EB", "#D9466F", "#F5C542"] },
-      { key: "color.curatorBg", label: "Curator cards", type: "color", default: "#1E2A43", swatches: ["#1E2A43", "#111111", "#1F3A2B", "#3A2A1E", "#F2E8D5"] },
-      { key: "color.curatorAccent", label: "Curator accent", type: "color", default: "#F2B84B", swatches: ["#F2B84B", "#FFFFFF", "#C9E27A", "#FFB3C7", "#6EA8FE"] },
     ],
   },
 ];

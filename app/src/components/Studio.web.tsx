@@ -123,64 +123,94 @@ function StatusChrome({ dev }: { dev: Device }) {
 }
 
 // ---------- panel ----------
+// Panels follow the screen from top to bottom. A search box filters every control by name or description.
+const PANEL_ORDER = ["Color", "Top bar", "Feed cards", "Tab bar", "Studio"];
+type Sec = { id: string; panel: string; title: string; hint?: string; controls: Control[]; studio?: boolean };
+
 function Panel({ prefs, setPrefs }: { prefs: StudioPrefs; setPrefs: (p: Partial<StudioPrefs>) => void }) {
   const d = useDesign();
   const remote = useDesignRemote();
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState("");
+  const [q, setQ] = useState("");
   const run = async (k: string, fn: () => Promise<unknown>) => { setBusy(k); try { await fn(); } finally { setBusy(""); } };
   const changed = Object.fromEntries(Object.entries(d).filter(([k, v]) => k in DEFAULTS && DEFAULTS[k] !== v));
   const isOpen = (id: string) => prefs.open[id] ?? false;
   const toggle = (id: string) => setPrefs({ open: { ...prefs.open, [id]: !isOpen(id) } });
-  const panels = [...new Set(GROUPS.map((g) => g.panel))];
+
+  const studioSec: Sec = {
+    id: "studio", panel: "Studio", title: "Background and device", studio: true,
+    hint: "How the studio looks on this laptop. Not part of the app and not saved to the repo.",
+    controls: [
+      { key: "bg", label: "Background", type: "color", swatches: BG_SWATCHES, default: defaultPrefs.bg },
+      { key: "device", label: "Device size", type: "choice", default: defaultPrefs.device, options: Object.entries(DEVICES).map(([value, x]) => ({ value, label: x.label.replace("iPhone ", "") })) },
+      { key: "corners", label: "Screen corners", type: "range", min: 0, max: 64, step: 1, unit: "pt", default: defaultPrefs.corners },
+      { key: "chrome", label: "Status bar and Dynamic Island", hint: "Drawn over the screen so you can judge spacing at the top. The safe area is applied either way.", type: "toggle", default: defaultPrefs.chrome },
+    ],
+  };
+  const all: Sec[] = [...GROUPS, studioSec];
+  const valueOf = (s: Sec, c: Control) => (s.studio ? (prefs as any)[c.key] : d[c.key]);
+  const setValue = (s: Sec, c: Control, v: any) => (s.studio ? setPrefs({ [c.key]: v } as any) : setDesign({ [c.key]: v }));
+
+  // Search: a section matches by its own title/panel (show all its controls) or by individual controls.
+  const needle = q.trim().toLowerCase();
+  const hits = (t?: string) => !!t && t.toLowerCase().includes(needle);
+  const visible = all.map((s) => {
+    if (!needle) return { s, controls: s.controls };
+    if (hits(s.title) || hits(s.panel)) return { s, controls: s.controls };
+    return { s, controls: s.controls.filter((c) => hits(c.label) || hits(c.hint)) };
+  }).filter((x) => x.controls.length);
+  const panels = PANEL_ORDER.filter((p) => visible.some((x) => x.s.panel === p));
+  const jump = (p: string) => document.getElementById("panel-" + p)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   return (
     <aside style={css.panel}>
       <div style={css.panelHead}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, flex: 1 }}>Reveal studio</div>
-          <div style={{ fontSize: 12, color: remote.dirty ? "#F2B84B" : "#8FA0BA" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, flex: 1 }}>Reveal studio</div>
+          <div style={{ fontSize: 12, color: "#9AA3B2", display: "flex", alignItems: "center", gap: 6 }}>
+            {remote.dirty ? <span style={{ width: 7, height: 7, borderRadius: 4, background: "#E6E9EF" }} /> : null}
             {remote.version === 0 ? "Connecting…" : remote.dirty ? "Unsaved · live on phone" : "Saved"}
           </div>
         </div>
         <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
-          <button style={{ ...css.btn, ...css.primary, opacity: remote.dirty ? 1 : 0.45 }} disabled={!remote.dirty || !!busy} onClick={() => run("save", saveDesign)}>{busy === "save" ? "Saving…" : "Save"}</button>
+          <button style={{ ...css.btn, ...css.primary, opacity: remote.dirty ? 1 : 0.4 }} disabled={!remote.dirty || !!busy} onClick={() => run("save", saveDesign)}>{busy === "save" ? "Saving…" : "Save"}</button>
           <button style={css.btn} disabled={!remote.dirty || !!busy} onClick={() => run("revert", revertDesign)} title="Throw away unsaved changes">Revert</button>
           <button style={css.btn} disabled={!!busy} onClick={() => run("reset", resetToDefaults)} title="Back to the built-in values">Defaults</button>
           <button style={css.btn} onClick={() => { navigator.clipboard?.writeText(JSON.stringify(changed, null, 2)); setCopied(true); setTimeout(() => setCopied(false), 1200); }} title="Copy what differs from the defaults">{copied ? "Copied" : "Copy JSON"}</button>
         </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 12, alignItems: "center" }}>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a control (e.g. blur, shadow, padding)" style={css.search} />
+          {q ? <button style={css.link} onClick={() => setQ("")}>clear</button> : null}
+        </div>
+        {!needle ? (
+          <div style={{ display: "flex", gap: 4, marginTop: 10, flexWrap: "wrap", alignItems: "center" }}>
+            {PANEL_ORDER.map((p) => <button key={p} style={css.jump} onClick={() => jump(p)}>{p}</button>)}
+            <div style={{ flex: 1 }} />
+            <button style={css.link} onClick={() => setPrefs({ open: {} })}>Collapse all</button>
+          </div>
+        ) : null}
       </div>
 
       <div style={css.scroll}>
+        {needle && !visible.length ? <div style={css.hint}>No controls match "{q}".</div> : null}
         {panels.map((panel) => (
-          <div key={panel} style={{ marginBottom: 18 }}>
+          <div key={panel} id={"panel-" + panel} style={{ marginBottom: 18, scrollMarginTop: 8 }}>
             <div style={css.panelTitle}>{panel}</div>
-            {GROUPS.filter((g) => g.panel === panel).map((g) => (
-              <Section key={g.id} title={g.title} hint={g.hint} open={isOpen(g.id)} onToggle={() => toggle(g.id)} badge={changedIn(g, d)}>
-                {g.controls.map((c) => <Row key={c.key} c={c} value={d[c.key]} design={d} onChange={(v) => setDesign({ [c.key]: v })} />)}
+            {visible.filter((x) => x.s.panel === panel).map(({ s, controls }) => (
+              <Section key={s.id} title={s.title} hint={s.hint} open={needle ? true : isOpen(s.id)} onToggle={() => toggle(s.id)}
+                badge={s.controls.filter((c) => valueOf(s, c) !== c.default).length}>
+                {controls.map((c) => <Row key={c.key} c={c} value={valueOf(s, c)} design={d} onChange={(v) => setValue(s, c, v)} />)}
               </Section>
             ))}
           </div>
         ))}
-
-        <div style={{ marginBottom: 18 }}>
-          <div style={css.panelTitle}>Studio</div>
-          <Section title="Background and device" hint="How the studio looks on this laptop. Not part of the app and not saved to the repo." open={isOpen("studio")} onToggle={() => toggle("studio")}
-            badge={[prefs.bg !== defaultPrefs.bg, prefs.device !== defaultPrefs.device, prefs.corners !== defaultPrefs.corners, prefs.chrome !== defaultPrefs.chrome].filter(Boolean).length}>
-            <Row c={{ key: "studio.bg", label: "Background", type: "color", swatches: BG_SWATCHES, default: defaultPrefs.bg }} value={prefs.bg} onChange={(v) => setPrefs({ bg: v })} />
-            <Row c={{ key: "studio.device", label: "Device size", type: "choice", default: defaultPrefs.device, options: Object.entries(DEVICES).map(([value, x]) => ({ value, label: x.label.replace("iPhone ", "") })) }}
-              value={prefs.device} onChange={(v) => setPrefs({ device: v })} />
-            <Row c={{ key: "studio.corners", label: "Screen corners", type: "range", min: 0, max: 64, step: 1, unit: "pt", default: defaultPrefs.corners }}
-              value={prefs.corners} onChange={(v) => setPrefs({ corners: v })} />
-            <Row c={{ key: "studio.chrome", label: "Status bar and Dynamic Island", hint: "Drawn over the screen so you can judge spacing at the top. The safe area is applied either way.", type: "toggle", default: defaultPrefs.chrome }}
-              value={prefs.chrome} onChange={(v) => setPrefs({ chrome: v })} />
+        {!needle ? (
+          <Section title={`Changed from defaults (${Object.keys(changed).length})`} open={isOpen("json")} onToggle={() => toggle("json")}>
+            <pre style={css.json}>{JSON.stringify(changed, null, 2)}</pre>
           </Section>
-        </div>
-
-        <Section title={`Changed from defaults (${Object.keys(changed).length})`} open={isOpen("json")} onToggle={() => toggle("json")}>
-          <pre style={css.json}>{JSON.stringify(changed, null, 2)}</pre>
-        </Section>
-        <a href="?studio=0" style={{ color: "#8FA0BA", fontSize: 12, display: "inline-block", marginTop: 14 }}>Leave studio</a>
+        ) : null}
+        <a href="?studio=0" style={{ color: "#9AA3B2", fontSize: 12, display: "inline-block", marginTop: 14 }}>Leave studio</a>
       </div>
     </aside>
   );
@@ -224,13 +254,13 @@ function Row({ c, value, onChange, design }: { c: Control; value: any; onChange:
       ) : null}
       {c.type === "range" ? (
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
-          <input type="range" min={c.min} max={c.max} step={c.step} value={value} style={{ flex: 1, accentColor: "#F2B84B" }} onChange={(e) => onChange(Number(e.target.value))} />
+          <input type="range" min={c.min} max={c.max} step={c.step} value={value} style={{ flex: 1, accentColor: "#AEB6C4" }} onChange={(e) => onChange(Number(e.target.value))} />
           <div style={{ width: 44, textAlign: "right", fontVariantNumeric: "tabular-nums", fontSize: 13 }}>{value}{c.unit ? <span style={{ color: "#8FA0BA" }}>{c.unit}</span> : null}</div>
         </div>
       ) : null}
       {c.type === "toggle" ? (
-        <button onClick={() => onChange(!value)} aria-pressed={!!value} style={{ ...css.toggle, background: value ? "#F2B84B" : "#3A4560" }}>
-          <span style={{ ...css.knob, transform: value ? "translateX(18px)" : "translateX(0)" }} />
+        <button onClick={() => onChange(!value)} aria-pressed={!!value} style={{ ...css.toggle, background: value ? "#D5DAE1" : "#3A4150" }}>
+          <span style={{ ...css.knob, background: value ? "#1B1F27" : "#8A93A3", transform: value ? "translateX(18px)" : "translateX(0)" }} />
         </button>
       ) : null}
       {c.type === "palette" ? (
@@ -240,7 +270,7 @@ function Row({ c, value, onChange, design }: { c: Control; value: any; onChange:
             const on = value === p.id;
             return (
               <button key={p.id} onClick={() => onChange(p.id)} title={p.note} aria-pressed={on}
-                style={{ padding: 6, borderRadius: 10, cursor: "pointer", textAlign: "left", background: "#12151B", border: on ? "2px solid #F2B84B" : "1px solid #2A2E37", color: "#E9ECF2" }}>
+                style={{ padding: 6, borderRadius: 10, cursor: "pointer", textAlign: "left", background: "#12151B", border: on ? "2px solid #E6E9EF" : "1px solid #2A2E37", color: "#E9ECF2" }}>
                 <div style={{ display: "flex", height: 26, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,.08)" }}>
                   {preview(p.id, custom).map((col, i) => <div key={i} style={{ flex: i === 0 ? 2 : 1, background: col }} />)}
                 </div>
@@ -255,7 +285,7 @@ function Row({ c, value, onChange, design }: { c: Control; value: any; onChange:
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
           {c.swatches.map((sw) => (
             <button key={sw} onClick={() => onChange(sw)} title={sw} aria-label={`Background ${sw}`}
-              style={{ width: 24, height: 24, borderRadius: 6, background: sw, cursor: "pointer", border: value.toLowerCase() === sw.toLowerCase() ? "2px solid #F2B84B" : "1px solid #3A4560" }} />
+              style={{ width: 24, height: 24, borderRadius: 6, background: sw, cursor: "pointer", border: value.toLowerCase() === sw.toLowerCase() ? "2px solid #E6E9EF" : "1px solid #3A4150" }} />
           ))}
           <label style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 4, fontSize: 12, color: "#8FA0BA", cursor: "pointer" }}>
             <input type="color" value={value} onChange={(e) => onChange(e.target.value)} style={{ width: 28, height: 24, padding: 0, border: 0, background: "transparent", cursor: "pointer" }} />
@@ -278,16 +308,18 @@ const css: Record<string, React.CSSProperties> = {
   scroll: { flex: 1, overflowY: "auto", padding: "14px 16px 24px" },
   section: { background: "#20252F", border: "1px solid #2A2E37", borderRadius: 10, marginBottom: 8, overflow: "hidden" },
   sectionHead: { width: "100%", display: "flex", alignItems: "center", gap: 6, padding: "11px 14px", background: "transparent", border: 0, color: "#E9ECF2", cursor: "pointer" },
-  badge: { minWidth: 18, height: 18, padding: "0 5px", borderRadius: 9, background: "#F2B84B", color: "#1E2A43", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" },
+  badge: { minWidth: 18, height: 18, padding: "0 5px", borderRadius: 9, background: "#3A4150", color: "#E6E9EF", fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center" },
   row: { padding: "10px 0", borderTop: "1px solid #2A2E37" },
   hint: { fontSize: 12, color: "#8FA0BA", marginTop: 3, lineHeight: 1.4 },
   seg: { display: "flex", gap: 2, marginTop: 8, padding: 3, background: "#12151B", borderRadius: 9 },
   segBtn: { flex: 1, padding: "6px 4px", border: 0, borderRadius: 7, background: "transparent", color: "#B7C1D3", fontSize: 12, cursor: "pointer" },
-  segOn: { background: "#2C3A58", color: "#fff", fontWeight: 600 },
+  segOn: { background: "#3A4150", color: "#fff", fontWeight: 600 },
   toggle: { marginTop: 8, width: 42, height: 24, borderRadius: 12, border: 0, padding: 3, cursor: "pointer", display: "block" },
-  knob: { display: "block", width: 18, height: 18, borderRadius: 9, background: "#fff", transition: "transform .15s" },
-  btn: { flex: 1, padding: "7px 8px", borderRadius: 8, border: "1px solid #3A4560", background: "transparent", color: "#E9ECF2", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" },
-  primary: { background: "#F2B84B", color: "#1E2A43", border: "1px solid #F2B84B", fontWeight: 700 },
+  knob: { display: "block", width: 18, height: 18, borderRadius: 9, background: "#1B1F27", transition: "transform .15s" },
+  btn: { flex: 1, padding: "7px 8px", borderRadius: 8, border: "1px solid #3A4150", background: "transparent", color: "#E9ECF2", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" },
+  primary: { background: "#E6E9EF", color: "#14161B", border: "1px solid #E6E9EF", fontWeight: 700 },
+  search: { flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #3A4150", background: "#12151B", color: "#E9ECF2", fontSize: 13, outline: "none" },
+  jump: { padding: "4px 9px", borderRadius: 999, border: "1px solid #2F3542", background: "transparent", color: "#C3C9D4", fontSize: 12, cursor: "pointer" },
   link: { border: 0, background: "transparent", color: "#8FA0BA", fontSize: 12, cursor: "pointer", textDecoration: "underline" },
   json: { fontSize: 12, background: "#12151B", padding: 12, borderRadius: 8, color: "#B7C1D3", overflowX: "auto", margin: "6px 0" },
 };
