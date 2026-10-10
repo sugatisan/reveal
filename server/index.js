@@ -344,6 +344,37 @@ const routes = {
 
   "POST /api/reset": async () => { reset(); return state(); },
 
+  // ---------- search: find a story, source or interest you already have ----------
+  // Retrieval, not discovery (the curator handles discovery). Stories matching every word come first.
+  "GET /api/search": async (req, url) => {
+    const q = (url.searchParams.get("q") || "").trim();
+    if (!q) return { q, items: [], sources: [], interests: [] };
+    const d = load();
+    const ws = curator.words(q);
+    const low = q.toLowerCase();
+    const hit = (text) => { const t = String(text || "").toLowerCase(); return ws.filter((w) => t.includes(w)).length; };
+    const followed = new Set(d.interests.flatMap((i) => i.sourceIds));
+    const items = Object.values(d.items)
+      .filter((it) => !it.dupOf && followed.has(it.sourceId) && !d.events[it.id]?.less)
+      .map((it) => {
+        const srcName = d.sources[it.sourceId]?.name || "";
+        const inTitle = hit(it.title), inAll = hit(`${it.title} ${it.excerpt || ""} ${(it.tags || []).join(" ")} ${srcName}`);
+        const phrase = it.title.toLowerCase().includes(low) ? 5 : 0;
+        const all = ws.length && inAll === ws.length ? 10 : 0;
+        return { it, srcName, score: phrase + all + inTitle * 2 + inAll + Math.exp(-(Date.now() - it.date) / 864e5 / 14) };
+      })
+      .filter((x) => x.score >= 1 + (ws.length > 1 ? 1 : 0))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 30)
+      .map(({ it, srcName }) => ({ id: it.id, title: it.title, image: it.image, excerpt: it.excerpt, date: it.date, sourceName: srcName, saved: !!d.events[it.id]?.save }));
+    const sources = Object.values(d.sources)
+      .filter((s) => (followed.has(s.id) || d.interests.some((i) => i.suggestedIds.includes(s.id))) && (hit(`${s.name} ${s.site} ${s.about || ""} ${s.why || ""}`) || String(s.name || "").toLowerCase().includes(low)))
+      .slice(0, 8)
+      .map((s) => ({ ...sourceView(s.id, followed.has(s.id)), interestId: d.interests.find((i) => i.sourceIds.includes(s.id) || i.suggestedIds.includes(s.id))?.id }));
+    const interests = d.interests.filter((i) => hit(`${i.label} ${(i.subs || []).join(" ")}`) || i.label.toLowerCase().includes(low)).map((i) => ({ id: i.id, label: i.label }));
+    return { q, items, sources, interests };
+  },
+
   // ---------- design settings (studio) ----------
   // Live values are shared by every open copy of the app (laptop studio + phone), which poll the version.
   // Save writes them to app/src/design/saved.json, which is checked into git. Nothing here touches your feed data.

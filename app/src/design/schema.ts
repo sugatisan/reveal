@@ -56,6 +56,39 @@ export const GROUPS: Group[] = [
       { key: "card.inset", label: "Side margin", type: "range", min: 0, max: 24, step: 2, unit: "pt", default: 16 },
     ],
   },
+  {
+    id: "tab-style", panel: "Tab bar", title: "Style", hint: "How the tabs are grouped and shown.",
+    controls: [
+      choice("tab.style", "Container", "island", [["island", "One island"], ["separate", "Separate"], ["docked", "Docked"]],
+        "One island holds every tab; Separate gives each tab its own; Docked is the classic full-width bar."),
+      { key: "tab.labels", label: "Labels under icons", type: "toggle", default: true },
+      choice("tab.active", "Active tab", "pill", [["pill", "Highlight"], ["tint", "Color only"]]),
+    ],
+  },
+  {
+    id: "tab-size", panel: "Tab bar", title: "Size and position",
+    controls: [
+      { key: "tab.height", label: "Height", type: "range", min: 44, max: 76, step: 2, unit: "pt", default: 62 },
+      { key: "tab.radius", label: "Corner radius", type: "range", min: 8, max: 38, step: 1, unit: "pt", default: 31 },
+      { key: "tab.bottom", label: "Space below", hint: "Above the home indicator. Docked ignores this.", type: "range", min: 0, max: 32, step: 2, unit: "pt", default: 10 },
+      choice("tab.width", "Width", "fit", [["fit", "Fit the tabs"], ["wide", "Nearly full width"]]),
+    ],
+  },
+  {
+    id: "tab-surface", panel: "Tab bar", title: "Surface",
+    controls: [
+      choice("tab.surface", "Fill", "translucent", [["solid", "Solid"], ["translucent", "Translucent"]]),
+      { key: "tab.shadow", label: "Shadow", type: "toggle", default: true },
+      { key: "tab.border", label: "Hairline border", type: "toggle", default: true },
+    ],
+  },
+  {
+    id: "tab-search", panel: "Tab bar", title: "Search",
+    hint: "Search finds things you already have (a story you scrolled past, a source by name). Discovery stays with the curator.",
+    controls: [
+      choice("tab.search", "Search entry", "button", [["off", "Off"], ["tab", "A tab"], ["button", "Separate button"]]),
+    ],
+  },
 ];
 
 export const DEFAULTS: Record<string, string | number | boolean> = Object.fromEntries(GROUPS.flatMap((g) => g.controls.map((c) => [c.key, c.default])));

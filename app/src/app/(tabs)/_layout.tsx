@@ -1,26 +1,16 @@
 import Tabs from "expo-router/js-tabs";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import type { ColorValue } from "react-native";
 import { useTheme } from "@/lib/theme";
 import { DrawerProvider } from "@/components/Drawer";
+import { IslandTabBar, TABS } from "@/components/TabBar";
 
 export default function TabsLayout() {
   const t = useTheme();
-  const icon = (name: keyof typeof Ionicons.glyphMap) => ({ color, size }: { color: ColorValue; size: number }) => <Ionicons name={name} color={color as string} size={size} />;
   return (
     <DrawerProvider>
-    <Tabs screenOptions={{
-      headerShown: false,
-      tabBarActiveTintColor: t.accent,
-      tabBarInactiveTintColor: t.muted,
-      tabBarStyle: { backgroundColor: t.bg, borderTopColor: t.line },
-      sceneStyle: { backgroundColor: t.bg },
-    }}>
-      <Tabs.Screen name="index" options={{ title: "Feed", tabBarIcon: icon("albums-outline") }} />
-      <Tabs.Screen name="curator" options={{ title: "Curator", tabBarIcon: icon("sparkles-outline") }} />
-      <Tabs.Screen name="saved" options={{ title: "Saved", tabBarIcon: icon("bookmark-outline") }} />
-      <Tabs.Screen name="sources" options={{ title: "Sources", tabBarIcon: icon("radio-outline") }} />
-    </Tabs>
+      {/* The tab bar floats over the screens (see components/TabBar.tsx); its look is tuned in the studio. */}
+      <Tabs tabBar={(props: any) => <IslandTabBar {...props} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: t.bg } }}>
+        {TABS.map((x) => <Tabs.Screen key={x.name} name={x.name} options={{ title: x.title }} />)}
+      </Tabs>
     </DrawerProvider>
   );
 }

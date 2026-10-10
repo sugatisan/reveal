@@ -19,6 +19,7 @@ What's settled, what the code already assumes, and what's still open. Update thi
 | **Stories show all their real images.** (2026-10-10) | The story view is a swipeable gallery: feed images plus the article page's own images, with ads, trackers, logos and avatars filtered out. Images stay on the publisher's servers and the story always links out. |
 | **Navigation: a left panel for everything, five pills for what's recent.** (2026-10-10) | The panel sits underneath the app: opening it (menu button before "All," or swipe from the left edge) slides the whole app, tab bar included, to the right. It lists every interest with new-since-last-visit counts and expands to its sources, so you can read one source alone. The pill row shows the five interests you opened most recently; tapping one moves it to the front, selected, and scrolls the row back to show it. |
 | **Stories open full screen.** (2026-10-10) | A standard push (swipe back on iOS), image edge to edge at the top with a back arrow over it. Hide and save sit just under the image on the right, above the title. |
+| **Search is for retrieval; the curator is for discovery.** (2026-10-10) | Search finds things you already have (a story you scrolled past, a source or interest by name) and hands off to the curator when it comes up empty. Default entry: a separate round button beside the tab island (iOS 26 pattern), so it doesn't crowd the main tabs. Can be a tab or off in the studio. |
 | **Differentiation vs. what's out there** | Feedly is fine but uninspired and reactive. Feeeed has a bad UI and makes adding sources hard. Reveal has to win on proactive source discovery and easy setup. |
 
 ## Build (decisions the code already makes)
@@ -41,6 +42,7 @@ What's settled, what the code already assumes, and what's still open. Update thi
 | Less-of rules | Multipliers on a story's score: topic ×0.25, kind of post ×0.3, source ×0.35, interest ×0.5 (only when the story belongs to that interest alone). Topics come from the source's own category tags, then Claude (Haiku, cached per story); without a key, tags only. Kinds of post are keyword patterns. Applied on the next feed load, not mid-scroll. | `server/lib/tuning.js` |
 | Gallery | Up to 10 images per story from the feed entry (largest srcset size, deduped across resized copies), plus up to 12 from the article page (og:image + the marked article body only), fetched once when the story is opened. Feed cards show a count badge when the feed itself has more than one image. | `allImages()`/`articleImages()` in `server/lib/feeds.js` |
 | Design studio (2026-10-10) | One app, not two prototypes. `?studio` on the web wraps the app in a phone frame with a control panel; the phone in Expo Go shows only the app. Settings live on the API server and every open copy polls them (dev only), so laptop changes show on the phone. Save writes `app/src/design/saved.json`, which ships with the app. Controls are defined once in a schema; the panel builds itself. First panel: feed card. | `app/src/design/`, `app/src/components/Studio.web.tsx` |
+| Tab bar (2026-10-10) | Custom floating bar drawn over the screens: one island, separate islands, or docked; labels, active style, size, radius, position, fill, shadow, border are studio settings. Screens pad their bottoms with `useTabBarSpace()`. | `app/src/components/TabBar.tsx` |
 | Explainability | Every card has a "why" line (sub-interest, coverage, new source, a source you open a lot) | `server/lib/rank.js` |
 
 ## Open questions
@@ -63,3 +65,4 @@ These are ordered by how much they'd change what gets built.
 - 2026-10-10 — Left panel for interests and sources; pills capped at the five most recently opened. The dev server now restarts itself when its code changes.
 - 2026-10-10 — Panel now reveals underneath (the app slides right). Tapping a pill brings it to the front. Stories open full screen instead of as a sheet.
 - 2026-10-10 — Design studio on the laptop with live sync to the phone; first panel covers feed card styles.
+- 2026-10-10 — Floating tab bar with its own studio panel; search added as retrieval (separate button by default).

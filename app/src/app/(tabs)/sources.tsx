@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useTabBarSpace } from "@/components/TabBar";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api, AppState, Interest } from "@/lib/api";
 import { bumpFeed, setAppState, useAppState } from "@/lib/store";
@@ -11,6 +12,7 @@ import { Button, Chip, ErrorLine, Header, SourceRow } from "@/components/ui";
 export default function SourcesScreen() {
   const t = useTheme();
   const { state } = useAppState();
+  const tabSpace = useTabBarSpace();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -25,7 +27,7 @@ export default function SourcesScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={["top"]}>
-      <ScrollView contentContainerStyle={{ paddingBottom: space.xxl }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ paddingBottom: tabSpace + space.l }} keyboardShouldPersistTaps="handled">
         <Header title="Sources" subtitle={state ? `${state.interests.length} interests · ${state.interests.reduce((n, i) => n + i.sources.length, 0)} sources followed` : undefined} />
         <View style={{ flexDirection: "row", gap: space.s, paddingHorizontal: space.l, marginBottom: space.m }}>
           <TextInput value={text} onChangeText={setText} placeholder="Add interests, e.g. vintage watches, Danish design" placeholderTextColor={t.faint}

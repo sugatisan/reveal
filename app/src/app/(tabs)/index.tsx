@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, LayoutAnimation, Pressable, RefreshControl, ScrollView, Text, View, ViewToken } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router } from "expo-router";
+import { useTabBarSpace } from "@/components/TabBar";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ago, api, Feed, FeedEntry, FeedItem, Lens, NEEDS_API_VERSION, sendEvents } from "@/lib/api";
 import { chooseLens, reloadState, useAppState, useFeedVersion, useLens } from "@/lib/store";
@@ -20,6 +21,7 @@ export default function FeedScreen() {
   const { state, error: stateError } = useAppState();
   const version = useFeedVersion();
   const lens = useLens();
+  const tabSpace = useTabBarSpace();
   const design = useDesign();
   const drawer = useDrawer();
   const pillScroll = useRef<ScrollView>(null);
@@ -182,7 +184,7 @@ export default function FeedScreen() {
           }
           return card(r);
         }}
-        contentContainerStyle={{ paddingBottom: space.xxl }}
+        contentContainerStyle={{ paddingBottom: tabSpace + space.l }}
       />
       {/* Swipe in from the left edge to open the panel. */}
       <View {...drawer.edgeHandlers} style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 18 }} />

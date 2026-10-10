@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useTabBarSpace } from "@/components/TabBar";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api, Turn } from "@/lib/api";
 import { bumpFeed, reloadState } from "@/lib/store";
@@ -20,6 +21,7 @@ export default function CuratorScreen() {
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState("");
   const scroll = useRef<ScrollView>(null);
+  const tabSpace = useTabBarSpace();
   const handled = useRef<string | undefined>(undefined);
 
   useEffect(() => { api<Thread>("/api/curator").then(setThread).catch((e) => setError(e.message)); }, []);
@@ -103,7 +105,7 @@ export default function CuratorScreen() {
           ) : null}
           <ErrorLine text={error} />
         </ScrollView>
-        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.s, padding: space.m, borderTopWidth: 1, borderTopColor: t.line, backgroundColor: t.bg }}>
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.s, padding: space.m, marginBottom: tabSpace - space.s, borderTopWidth: 1, borderTopColor: t.line, backgroundColor: t.bg }}>
           <TextInput
             value={text} onChangeText={setText} placeholder="More vintage Seiko, a new design blog…" placeholderTextColor={t.faint}
             onSubmitEditing={() => ask(text)} returnKeyType="send" multiline={false}
