@@ -21,7 +21,7 @@ export function affinity(sourceId) {
   return Math.max(0.35, Math.min(1.8, raw));
 }
 
-export function buildFeed({ interestId, sourceId, limit = 120 } = {}) {
+export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } = {}) {
   const d = load();
   const now = Date.now();
   const interests = interestId ? d.interests.filter((i) => i.id === interestId) : d.interests;
@@ -77,10 +77,13 @@ export function buildFeed({ interestId, sourceId, limit = 120 } = {}) {
     if (fresh && fresh < out.length) {
       const freshSet = out.filter((x) => x.fetchedAt > since);
       const rest = out.filter((x) => x.fetchedAt <= since);
-      out.splice(0, out.length, ...freshSet, ...rest);
-      caughtUp = freshSet.length;
+      // Fresh episodes/videos that don't fit among the fresh stories move down into the rest.
+      const top = spaceMedia(freshSet, mediaEvery, sourceId, true);
+      out.splice(0, out.length, ...top.placed, ...spaceMedia([...top.held, ...rest], mediaEvery, sourceId));
+      caughtUp = top.placed.length;
     }
   }
+  if (caughtUp < 0) out.splice(0, out.length, ...spaceMedia(out, mediaEvery, sourceId));
   return { items: out, caughtUp };
 }
 
@@ -102,4 +105,17 @@ export function suggestionsFor({ interestId } = {}) {
   const mixed = [];
   for (let r = 0; mixed.length < out.length; r++) for (const list of byInt) if (list[r]) mixed.push(list[r]);
   return mixed.slice(0, 8);
+}
+
+// Podcasts and videos: at most one in every `every` cards, so long-form doesn't crowd out quick scans
+// (studio: Feed cards › Feed mix). Not applied when you're looking at one source. Leftovers go last.
+function spaceMedia(list, every, sourceId, split = false) {
+  if (sourceId || every <= 1) return split ? { placed: list, held: [] } : list;
+  const res = [], held = [];
+  let last = -Infinity;
+  for (const x of list) {
+    if (x.kind) held.push(x); else res.push(x);
+    while (held.length && res.length - last >= every) { res.push(held.shift()); last = res.length - 1; }
+  }
+  return split ? { placed: res, held } : [...res, ...held];
 }

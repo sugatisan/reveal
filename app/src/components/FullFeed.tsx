@@ -5,7 +5,7 @@ import { ActivityIndicator } from "react-native";
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, ViewToken } from "react-native";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { ago, CuratorCard, FeedEntry, FeedItem, sendEvents } from "@/lib/api";
+import { ago, CuratorCard, FeedEntry, FeedItem, mediaLabel, sendEvents } from "@/lib/api";
 import { serif, space, useTheme } from "@/lib/theme";
 import { rgba } from "@/lib/backdrop";
 import { useDesign } from "@/design/store";
@@ -91,6 +91,12 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
           </View>
         <View style={[st.bottom, { paddingBottom: bottomSpace + space.m }]}>
           <View style={{ flex: 1, gap: space.s }}>
+            {mediaLabel(it) ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", paddingHorizontal: 9, paddingVertical: 4, borderRadius: 999, backgroundColor: img ? "rgba(0,0,0,0.45)" : t.chip }}>
+                <Ionicons name={it.kind === "audio" ? "headset-outline" : "play"} size={12} color={ink} />
+                <Text style={{ color: ink, fontSize: 12, fontWeight: "700" }}>{mediaLabel(it)}</Text>
+              </View>
+            ) : null}
             <Text style={{ color: img ? "#F5C542" : t.accent, fontSize: 11, fontWeight: "800", letterSpacing: 1 }} numberOfLines={1}>{it.why.toUpperCase()}</Text>
             <Pressable onPress={() => openDetails(it)} accessibilityRole="button" accessibilityHint="Opens details">
               <Text style={{ fontFamily: serif, color: ink, fontSize: img ? 28 : 32, lineHeight: img ? 33 : 38, letterSpacing: -0.3 }} numberOfLines={4}>{it.title}</Text>

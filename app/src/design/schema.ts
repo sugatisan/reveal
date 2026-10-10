@@ -168,6 +168,12 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    id: "feed-mix", panel: "Feed cards", title: "Feed mix",
+    controls: [
+      { key: "feed.mediaEvery", label: "Podcasts and videos", hint: "At most one in every N cards, so long-form doesn't crowd out quick scans. 1 = no limit. Doesn't apply when viewing a single source.", type: "range", min: 1, max: 20, step: 1, default: 8 },
+    ],
+  },
+  {
     id: "full-scrim", panel: "Feed cards", title: "Full screen shade",
     hint: "The shade that rises from the bottom of each full-screen story so the text reads over the image.",
     controls: [

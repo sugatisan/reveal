@@ -83,6 +83,43 @@ export function firstImage(html = "", base) {
   return "";
 }
 
+// Episode length: "41:20", "1:02:03" or plain seconds.
+function seconds(v) {
+  if (!v) return null;
+  if (/^\d+$/.test(v)) return +v;
+  const p = v.split(":").map(Number);
+  return p.some(Number.isNaN) ? null : p.reduce((a, b) => a * 60 + b, 0);
+}
+
+// What a feed mostly is: a podcast, a video channel, or written stories.
+export function sourceKind(items = []) {
+  const n = items.length || 1;
+  if (items.filter((i) => i.kind === "audio").length / n >= 0.5) return "podcast";
+  if (items.filter((i) => i.kind === "video").length / n >= 0.5) return "video";
+  return "site";
+}
+
+// Apple Podcasts and YouTube pages don't point at their feeds the usual way.
+async function mediaFeedUrl(url) {
+  const u = new URL(url);
+  if (/podcasts\.apple\.com$/.test(u.hostname)) {
+    const id = (u.pathname.match(/id(\d+)/) || [])[1];
+    if (!id) return null;
+    const r = await fetchText(`https://itunes.apple.com/lookup?id=${id}&entity=podcast`, { timeout: 8000, accept: "application/json" });
+    return JSON.parse(r.text).results?.[0]?.feedUrl || null;
+  }
+  if (/(^|\.)youtube\.com$/.test(u.hostname)) {
+    const direct = (u.pathname.match(/\/channel\/(UC[\w-]{22})/) || [])[1];
+    if (direct) return `https://www.youtube.com/feeds/videos.xml?channel_id=${direct}`;
+    const r = await fetchText(url, { timeout: 9000, accept: "text/html" });
+    // The page's own channel, not one it features: its RSS link, canonical URL or owner id, in that order.
+    const id = (r.text.match(/feeds\/videos\.xml\?channel_id=(UC[\w-]{22})/) || r.text.match(/<link[^>]+rel=["']canonical["'][^>]+\/channel\/(UC[\w-]{22})/) ||
+      r.text.match(/"externalId"\s*:\s*"(UC[\w-]{22})"/) || r.text.match(/<meta[^>]+itemprop=["'](?:channelId|identifier)["'][^>]+content=["'](UC[\w-]{22})/) || [])[1];
+    return id ? `https://www.youtube.com/feeds/videos.xml?channel_id=${id}` : null;
+  }
+  return null;
+}
+
 export function isFeed(text = "") {
   return /<(rss|feed|rdf:RDF)[\s>]/i.test(text.slice(0, 3000));
 }
@@ -98,15 +135,17 @@ export function parseFeed(xml, baseUrl) {
     out.site = absolutize(attr(top, "link", "href", (a) => !/rel\s*=\s*["'](self|hub)["']/i.test(a)), baseUrl);
     const blocks = xml.match(/<entry[\s>][\s\S]*?<\/entry>/gi) || [];
     for (const b of blocks) {
-      const content = tag(b, "content") || tag(b, "summary");
+      const vid = stripTags(tag(b, "yt:videoId"));
+      const content = tag(b, "content") || tag(b, "summary") || tag(b, "media:description");
       const link = absolutize(attr(b, "link", "href", (a) => !/rel\s*=/i.test(a) || /rel\s*=\s*["']alternate["']/i.test(a)) || attr(b, "link", "href"), baseUrl);
       out.items.push({
+        ...(vid ? { kind: "video", image: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg` } : null),
         title: stripTags(tag(b, "title")),
         link,
         guid: stripTags(tag(b, "id")) || link,
         date: Date.parse(stripTags(tag(b, "published") || tag(b, "updated"))) || null,
         html: decode(content),
-        image: absolutize(attr(b, "media:thumbnail", "url") || attr(b, "media:content", "url"), baseUrl) || firstImage(content, baseUrl),
+        ...(vid ? {} : { image: absolutize(attr(b, "media:thumbnail", "url") || attr(b, "media:content", "url"), baseUrl) || firstImage(content, baseUrl) }),
         tags: [...b.matchAll(/<category\b[^>]*term\s*=\s*["']([^"']+)["']/gi)].map((m) => decode(m[1])),
         images: allImages(content, baseUrl, 10),
       });
@@ -117,9 +156,12 @@ export function parseFeed(xml, baseUrl) {
     out.title = stripTags(tag(channel, "title"));
     out.description = stripTags(tag(channel, "description"));
     out.site = absolutize(stripTags(tag(channel, "link")), baseUrl);
+    // Podcast artwork, used for episodes that have none of their own.
+    out.image = absolutize(attr(channel, "itunes:image", "href") || stripTags(tag(tag(channel, "image"), "url")), baseUrl) || "";
     const blocks = xml.match(/<item[\s>][\s\S]*?<\/item>/gi) || [];
     for (const b of blocks) {
-      const content = tag(b, "content:encoded") || tag(b, "description");
+      const audio = attr(b, "enclosure", "url", (a) => /audio\//i.test(a)) || attr(b, "media:content", "url", (a) => /(medium|type)\s*=\s*["']audio/i.test(a));
+      const content = tag(b, "content:encoded") || tag(b, "description") || tag(b, "itunes:summary");
       const link = absolutize(stripTags(tag(b, "link")) || attr(b, "link", "href"), baseUrl);
       const enclosure = attr(b, "enclosure", "url", (a) => /image/i.test(a));
       out.items.push({
@@ -134,8 +176,10 @@ export function parseFeed(xml, baseUrl) {
           firstImage(tag(b, "description"), baseUrl),
         tags: [...b.matchAll(/<category\b[^>]*>([\s\S]*?)<\/category>/gi)].map((m) => stripTags(m[1])),
         images: allImages(content, baseUrl, 10),
+        ...(audio ? { kind: "audio", mediaUrl: absolutize(audio, baseUrl), duration: seconds(stripTags(tag(b, "itunes:duration"))), episodeImage: absolutize(attr(b, "itunes:image", "href"), baseUrl) } : null),
       });
     }
+    for (const i of out.items) if (i.kind === "audio") i.image = i.episodeImage || i.image || out.image;
   }
   out.items = out.items.filter((i) => i.title && i.link);
   return out;
@@ -189,6 +233,20 @@ export async function discoverFeed(input, { timeout = 9000 } = {}) {
       return null;
     }
   };
+  // Podcast and video pages: say which step failed, since these are the easiest to get wrong.
+  let mediaNote = "";
+  try {
+    const m = await mediaFeedUrl(url);
+    if (m) {
+      const r = await tryFeed(m);
+      if (r?.feed) return r.feed;
+      // YouTube's channel feed fails on and off for some channels; its uploads playlist has the same videos.
+      const ch = (m.match(/channel_id=UC([\w-]{22})/) || [])[1];
+      if (ch) { const u = await tryFeed(`https://www.youtube.com/feeds/videos.xml?playlist_id=UU${ch}`); if (u?.feed) return { ...u.feed, title: (u.feed.title || "").replace(/^Uploads from /, "") }; }
+      mediaNote = `Found its feed (${m}) but it didn't load or had no episodes.`;
+      console.log(`  ${mediaNote}`);
+    } else if (/youtube\.com|podcasts\.apple\.com/.test(url)) mediaNote = "Couldn't find the channel or show ID on that page.";
+  } catch (e) { mediaNote = `Looking up the feed failed: ${e.message}`; console.log(`  ${mediaNote}`); }
   const first = await tryFeed(url);
   if (first?.feed) return first.feed;
   let name = "";
@@ -205,7 +263,7 @@ export async function discoverFeed(input, { timeout = 9000 } = {}) {
     const r = await tryFeed(origin + p);
     if (r?.feed) return { ...r.feed, title: r.feed.title || name };
   }
-  throw new Error("Couldn't find a feed on that site");
+  throw new Error(mediaNote ? `Couldn't add it. ${mediaNote}` : "Couldn't find a feed on that site");
 }
 
 export async function ogImage(url, { timeout = 7000 } = {}) {

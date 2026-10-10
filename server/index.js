@@ -14,7 +14,7 @@ try {
 } catch {}
 
 const { load, save, flush, reset, hash, slug, upsertSource, sourceIdFor, followedIds, stat } = await import("./lib/store.js");
-const { discoverFeed, cadence, cadenceLabel, normalizeUrl, articlePage } = await import("./lib/feeds.js");
+const { discoverFeed, cadence, cadenceLabel, normalizeUrl, articlePage, sourceKind } = await import("./lib/feeds.js");
 const { refresh, isRefreshing, fetchSource, storeItems, mergeDuplicates, enrichImages } = await import("./lib/ingest.js");
 const { buildFeed, suggestionsFor, subMatch } = await import("./lib/rank.js");
 const usage = await import("./lib/usage.js");
@@ -429,7 +429,7 @@ const routes = {
     if (!i) throw new Error("Interest not found");
     const f = await discoverFeed(url);
     const id = sourceIdFor(f.site || url);
-    upsertSource({ id, name: f.title || url, site: normalizeUrl(f.site || url), feedUrl: f.feedUrl, status: "ok", perWeek: cadence(f.items), lastFetched: Date.now(), about: f.description?.slice(0, 200), origin: "user", addedAt: Date.now() });
+    upsertSource({ id, name: f.title || url, site: normalizeUrl(f.site || url), feedUrl: f.feedUrl, status: "ok", kind: sourceKind(f.items), perWeek: cadence(f.items), lastFetched: Date.now(), about: f.description?.slice(0, 200), origin: "user", addedAt: Date.now() });
     storeItems(id, f.items);
     mergeDuplicates();
     i.suggestedIds = i.suggestedIds.filter((s) => s !== id);
@@ -471,7 +471,8 @@ const routes = {
   "GET /api/feed": async (req, url) => {
     const interestId = url.searchParams.get("interest") || undefined;
     const sourceId = url.searchParams.get("source") || undefined;
-    const { items, caughtUp } = buildFeed({ interestId, sourceId });
+    const mediaEvery = Number(design.view().values["feed.mediaEvery"] ?? 8);
+    const { items, caughtUp } = buildFeed({ interestId, sourceId, mediaEvery });
     // A single-source view is for reading that source; the curator stays out of it.
     const entries = (sourceId ? items.map((it) => ({ type: "item", ...it })) : curator.weave(items, curator.feedCards(items, { interestId })))
       .map((e) => (e.type === "item" ? { ...e, brief: briefReady(e) ? e.brief : null } : e));

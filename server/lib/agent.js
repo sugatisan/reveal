@@ -37,7 +37,7 @@ function json(text) {
 const catalogSummary = () =>
   catalog.topics.map((t) => `- ${t.label}: ${t.sources.map((s) => `${s.name} (${s.site})`).join(", ")}`).join("\n");
 
-const SOURCE_RULES = `For sources, prefer independent editorial sites, blogs, magazines and newsletters that publish at least a few times a month and offer an RSS or Atom feed. Avoid social networks, forums, shops and generic news aggregators unless one is clearly the best editorial source for the topic. Use a known catalog source when it fits. For each source give: "name", "site" (homepage URL), "feed" (the RSS/Atom URL only if you are confident, else null), and "why" (at most 10 words saying specifically what it's good for).`;
+const SOURCE_RULES = `For sources, prefer independent editorial sites, blogs, magazines and newsletters that publish at least a few times a month and offer an RSS or Atom feed. Avoid social networks, forums, shops and generic news aggregators unless one is clearly the best editorial source for the topic. Use a known catalog source when it fits. For each source give: "name", "site" (homepage URL), "feed" (the RSS/Atom URL only if you are confident, else null), and "why" (at most 10 words saying specifically what it's good for). Also include up to 2 podcasts and 2 YouTube channels when genuinely strong ones exist for the topic: for a podcast give its Apple Podcasts page as "site" (and its RSS feed as "feed" if you're confident); for a YouTube channel give the channel URL as "site" and feed null.`;
 
 export async function parseInterests(text) {
   if (!hasKey()) return catalogParse(text);

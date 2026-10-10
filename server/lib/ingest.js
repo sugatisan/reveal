@@ -1,5 +1,5 @@
 // Pull every followed source, store new items, merge duplicates, fill missing images.
-import { fetchText, isFeed, parseFeed, discoverFeed, ogImage, stripTags, cadence } from "./feeds.js";
+import { fetchText, isFeed, parseFeed, discoverFeed, ogImage, stripTags, cadence, sourceKind } from "./feeds.js";
 import { looksSmall, isGeneratedCard } from "./images.js";
 import { load, save, hash, followedIds } from "./store.js";
 
@@ -57,6 +57,7 @@ export function storeItems(sourceId, items) {
       date,
       excerpt: text.slice(0, 420),
       feedText,
+      ...(it.kind ? { kind: it.kind, mediaUrl: it.mediaUrl || undefined, duration: it.duration || undefined } : null),
       image: it.image || "",
       images: (it.images || []).filter((u) => u !== it.image).slice(0, 9),
       tags: (it.tags || []).slice(0, 8),
@@ -130,6 +131,8 @@ async function doRefresh({ onlyIds } = {}) {
       if (!src.name || src.name === src.site) src.name = f.title || src.name;
       if (!src.about && f.description) src.about = f.description.slice(0, 200);
       src.perWeek = cadence(f.items);
+      src.kind = sourceKind(f.items);
+      if (/^Uploads from /.test(src.name || "")) src.name = src.name.replace(/^Uploads from /, "");
       // How much of this source's feed is full articles (vs teasers).
       src.fullTextShare = f.items.length ? f.items.filter((x) => stripTags(x.html || "").length >= FULL_TEXT_MIN).length / f.items.length : 0;
       src.status = "ok";

@@ -38,7 +38,7 @@ export type Usage = { days: number; priced: boolean; rows: UsageRow[]; total: { 
 export type ConceptGroup = { kind: "names" | "terms" | "nearby"; title: string; items: { term: string; why: string }[] };
 export type Overlap = { kind: "narrower"; interestId: string; label: string; focus: string } | { kind: "covered"; interestId: string; label: string };
 export type AppState = { apiVersion?: number; hasKey: boolean; profile?: { name: string; photo: string | null }; tuning: TuningRule[]; interests: Interest[]; topics: { id: string; label: string }[]; lastRefresh: number; refreshing: boolean; itemCount: number; savedCount: number };
-export type FeedItem = { type: "item"; id: string; sourceId: string; title: string; link: string; date: number; excerpt?: string; image?: string; imageLarge?: string; brief?: StoryBrief | null; imageCount?: number; why: string; sourceName: string; alsoNames: string[]; saved: boolean; interestIds: string[] };
+export type FeedItem = { type: "item"; id: string; sourceId: string; title: string; link: string; date: number; excerpt?: string; image?: string; imageLarge?: string; brief?: StoryBrief | null; kind?: "audio" | "video"; duration?: number; mediaUrl?: string; imageCount?: number; why: string; sourceName: string; alsoNames: string[]; saved: boolean; interestIds: string[] };
 export type CuratorCard =
   | { type: "curator"; kind: "sources"; id: string; interestId: string; title: string; sources: { id: string; name: string; site: string; about: string; interestId: string }[] }
   | { type: "curator"; kind: "deeper"; id: string; itemId: string; title: string; prompt: string; kicker?: string; headline?: string; question?: string; image?: string | null; sourceName?: string }
@@ -69,3 +69,11 @@ export type LessOptions = { item: { id: string; title: string; sourceName?: stri
 
 // What the feed is showing: everything, one interest, or one source.
 export type Lens = null | { kind: "interest"; id: string } | { kind: "source"; id: string; name: string };
+
+// "Podcast · 41 min" / "Video" for episodes and videos; null for stories.
+export function mediaLabel(it: { kind?: "audio" | "video"; duration?: number }) {
+  if (!it.kind) return null;
+  const mins = it.duration ? Math.max(1, Math.round(it.duration / 60)) : 0;
+  const len = mins >= 60 ? `${Math.floor(mins / 60)} hr${mins % 60 ? ` ${mins % 60} min` : ""}` : mins ? `${mins} min` : "";
+  return [it.kind === "audio" ? "Podcast" : "Video", len].filter(Boolean).join(" · ");
+}

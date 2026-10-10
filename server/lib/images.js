@@ -26,6 +26,8 @@ export function upgrade(u) {
     if (x.hostname === "images.brickset.com") x.pathname = x.pathname.replace("/sets/small/", "/sets/images/");
     // Motor1 / Motorsport: /s3/ (medium) -> /s1/ (large)
     if (/motor1\.com|motorsport\.com/.test(x.hostname)) x.pathname = x.pathname.replace(/\/s[2-6]\//, "/s1/");
+    // YouTube thumbnails: the full-HD frame (falls back to the original if a video has none).
+    if (/(^|\.)ytimg\.com$/.test(x.hostname)) x.pathname = x.pathname.replace(/\/(hq|mq|sd)default\.jpg$/, "/maxresdefault.jpg");
     // Ghost: /content/images/size/w300/ -> /content/images/
     x.pathname = x.pathname.replace(/\/size\/w\d+(\/)/, "$1");
     // WordPress resized copies: name-300x200.jpg -> name.jpg (the original upload).

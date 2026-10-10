@@ -6,7 +6,7 @@ import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { api, ItemDetail, sendEvents, StoryBrief } from "@/lib/api";
+import { api, ItemDetail, mediaLabel, sendEvents, StoryBrief } from "@/lib/api";
 import { bumpFeed, reloadState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { useDesign } from "@/design/store";
@@ -66,11 +66,14 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
   const t = useTheme();
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState("");
-  const shown = mode === "gist" ? brief : null; // facts and questions only come with the AI brief
+  const shown0 = mode === "gist" ? brief : null; // facts and questions only come with the AI brief
+  // Episodes and videos: their length leads the key facts.
+  const len = mediaLabel(it)?.split(" · ")[1];
+  const shown = shown0 && len ? { ...shown0, facts: [{ label: "Length", value: len }, ...shown0.facts.filter((f) => !/length|duration|runtime/i.test(f.label))].slice(0, 4) } : shown0;
   const ask = (prompt: string) => { onLeave?.(); router.navigate({ pathname: "/curator", params: { prompt, itemId: it.id, n: String(Date.now()) } }); };
   const open = async () => {
     sendEvents([{ itemId: it.id, type: "open" }]).catch(() => {});
-    await WebBrowser.openBrowserAsync(it.link);
+    await WebBrowser.openBrowserAsync(it.link || it.mediaUrl || "");
   };
   const d = useDesign();
   const gap: number = d["story.sectionGap"], labelGap: number = d["story.labelGap"];
@@ -121,7 +124,8 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
       ) : null}
 
       <View style={{ flexDirection: "row", gap: space.s, flexWrap: "wrap" }}>
-        <Button label={`Read at ${it.sourceName}`} icon="open-outline" onPress={open} />
+        <Button label={it.kind === "audio" ? "Listen" : it.kind === "video" ? (/youtube\.com|youtu\.be/.test(it.link) ? "Watch on YouTube" : "Watch") : `Read at ${it.sourceName}`}
+          icon={it.kind === "audio" ? "headset-outline" : it.kind === "video" ? "play" : "open-outline"} onPress={open} />
         <Button label="More like this" kind="secondary" onPress={() => ask("More like this")} />
       </View>
 
