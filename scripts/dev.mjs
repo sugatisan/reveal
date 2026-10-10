@@ -2,10 +2,16 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 
-if (!fs.existsSync("app/node_modules")) {
-  console.log("First run: installing the app's packages (one time, about a minute)…");
+// Packages include native pieces built per machine, so reinstall if they came from a different OS/CPU.
+const MARK = "app/node_modules/.reveal-platform";
+const here = `${process.platform}-${process.arch}`;
+const installedFor = fs.existsSync(MARK) ? fs.readFileSync(MARK, "utf8").trim() : null;
+if (!fs.existsSync("app/node_modules") || installedFor !== here) {
+  if (fs.existsSync("app/node_modules")) { console.log(`Reinstalling the app's packages for this computer (${here})…`); fs.rmSync("app/node_modules", { recursive: true, force: true }); }
+  else console.log("First run: installing the app's packages (one time, about a minute)…");
   const r = spawn("npm", ["install", "--no-audit", "--no-fund"], { cwd: "app", stdio: "inherit", shell: process.platform === "win32" });
   await new Promise((res, rej) => r.on("exit", (c) => (c === 0 ? res() : rej(new Error("npm install failed")))));
+  fs.writeFileSync(MARK, here);
 }
 
 const procs = [
