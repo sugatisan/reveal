@@ -1,12 +1,15 @@
 {
   "name": "reveal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Reveal: a discovery feed with a curator agent. v0, runs locally.",
+  "description": "Reveal: an AI-native discovery feed with a curator agent. Node API + Expo (React Native) app.",
   "type": "module",
   "engines": { "node": ">=20" },
   "scripts": {
-    "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node scripts/dev.mjs",
+    "server": "node server/index.js",
+    "app": "cd app && npx expo start",
+    "web": "node scripts/dev.mjs --web",
+    "typecheck": "cd app && npx tsc --noEmit"
   }
 }

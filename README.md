@@ -1,55 +1,65 @@
-# Reveal (v0)
+# Reveal
 
-Reveal is an AI-native discovery feed: it helps you find the right sources, follows them, and learns from what you save and skip. This is a local web app for feeling how it works with real sources. The UI is rough on purpose.
+Reveal is an AI-native discovery feed: it helps you find the right sources, follows them, and learns from what you save and skip. A curator agent lives in the feed and in its own tab, ready when you're in the mood for more.
 
-## What it does
-
-- **Type your interests**, separated by commas. Claude splits them into separate interests, merges phrases that mean the same thing, and suggests about 8 sources for each. Every source is checked for a working feed before you see it.
-- **The top 3 sources per interest are followed**; the rest wait as suggestions. Peek inside any source (the eye icon) to see what it publishes and how often.
-- **Narrow an interest** with sub-interests. They change ranking and the "why" line, but never hide anything.
-- **The feed** pulls every followed source every 25 minutes while the app is running. Stories covered by several sources merge into one card.
-- **Learn more** shows a short Claude summary, the link out, related items, and sources that go deeper.
-- **Save** and **Less like this** feed back into ranking.
+This is a working prototype that runs on your Mac and on your iPhone (through Expo Go), with no App Store deploy. See `DECISIONS.md` for what's settled and what's open.
 
 ## Run it
 
-You need Node 20 or newer. Check with `node -v`; if it's missing, install it from https://nodejs.org (the LTS version).
+You need Node 20 or newer (`node -v`). Get it from https://nodejs.org if it's missing.
 
 ```bash
 cd ~/Desktop/Projects/reveal
-cp .env.example .env        # then open .env and paste your Anthropic API key
-npm start
+cp .env.example .env     # first time only: paste your Anthropic API key into .env
+npm run dev
 ```
 
-Open http://localhost:5177.
+The first run installs the app's packages (about a minute). Then:
 
-There are no packages to install. Your data lives in `data/db.json`. Delete that file, or use **Start over** in Sources, to begin again.
+- **In your browser:** press `w` in the terminal, or open http://localhost:8081.
+- **On your iPhone:** install **Expo Go** from the App Store, make sure the phone is on the same Wi-Fi as your Mac, and scan the QR code in the terminal with the Camera app.
 
-Without an API key, the app still runs, but it only knows the built-in topics in `catalog.json`.
+Without an API key, everything still runs, but onboarding uses the built-in topics and the curator works in keyword mode.
 
-## Put it on GitHub
+Your data lives in `data/db.json`. **Start over** in Sources erases it.
 
-One-time setup:
+## What's in it
 
-1. Create an empty repository at https://github.com/new. Name it `reveal`, make it **Private**, and leave every "Add a README / .gitignore / license" box unchecked.
-2. In Terminal:
+- **Onboarding:** type what you like stumbling onto. The curator splits it into interests, finds about 8 sources for each, checks every feed, follows the top 3 and keeps the rest as suggestions.
+- **Feed:** stories from your sources, ranked by recency, sub-interests, how many sources covered them, and what you engage with. Each card says why it's there. Save or "less like this" right from the card. Filter by interest with the chips at the top.
+- **Curator in the feed:** every so often a curator card appears: source bundles for the interest you engage with most, "go deeper" on something you saved or that several sources covered, or prompts to ask for something new.
+- **Curator tab:** ask for anything ("more vintage Seiko," "a design blog I don't know"). It answers from your sources first and suggests new sources (feed-checked) only when they'd add something. "Ask the curator" on any story starts from that story.
+- **Story view:** a short curator summary, read at the source (in-app browser), related stories, and sources that go deeper.
+- **Sources:** interests, sub-interests, followed and suggested sources, "Find more sources."
 
-```bash
-cd ~/Desktop/Projects/reveal
-git remote add origin https://github.com/YOUR-USERNAME/reveal.git
-git push -u origin main
+## How it's built
+
+```
+reveal/
+  server/          Node API (no dependencies): feeds, ingest, ranking, curator, JSON store
+    index.js       routes; also serves the original v0 web UI at http://localhost:5177
+    lib/curator.js in-feed curator cards + curator conversation
+    lib/agent.js   all Claude calls, with a catalog fallback
+  app/             Expo (React Native + TypeScript, Expo Router)
+    src/app/       screens: (tabs)/index (Feed), curator, saved, sources; item/[id]; welcome
+    src/lib/api.ts API client + types; finds your Mac's address automatically on the phone
+  scripts/dev.mjs  runs both
+  data/            your data (not in git)
 ```
 
-If Git asks for a password, it wants a personal access token, not your GitHub password. The easiest fix is to install the GitHub CLI (`brew install gh`), then run `gh auth login` once.
+Feeds and Claude calls stay on the server on purpose: the phone app never holds your API key, and the same API can move to a hosted server later.
+
+## Getting it onto iOS for real (later)
+
+1. Host the `server/` API somewhere (Fly.io, Render, a small VPS) and set `EXPO_PUBLIC_API_URL` to it.
+2. `npx eas-cli@latest build --platform ios` builds a real app in the cloud (needs an Apple Developer account, $99/yr), then `eas submit` sends it to TestFlight.
+
+Nothing in the app needs rewriting for that; it's the same code you're running in Expo Go now.
+
+## Useful commands
+
+- `npm run dev`: API + app
+- `npm run server`: API only (port 5177)
+- `npm run typecheck`: TypeScript check for the app
 
 `.env` (your key) and `data/` are in `.gitignore`, so they never get pushed.
-
-## Files
-
-- `server.js`: the local server and API
-- `lib/feeds.js`: fetching, parsing, and finding feeds
-- `lib/ingest.js`: refreshing sources, merging duplicates, filling images
-- `lib/rank.js`: ranking, why-lines, and in-feed suggestions
-- `lib/agent.js`: the Claude calls, with a catalog fallback
-- `catalog.json`: built-in topics and sources
-- `public/`: the web UI

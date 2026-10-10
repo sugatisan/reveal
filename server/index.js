@@ -1,7 +1,9 @@
-// Reveal v0 — a local web app. Run: npm start, then open http://localhost:5177
+// Reveal API server. Run from the repo root: npm run server (or npm run dev for server + app).
+// Also serves the original v0 web UI at http://localhost:5177 for comparison.
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // Minimal .env loader (no dependencies).
 try {
@@ -16,14 +18,17 @@ const { discoverFeed, cadence, cadenceLabel, normalizeUrl } = await import("./li
 const { refresh, isRefreshing, fetchSource, storeItems, mergeDuplicates } = await import("./lib/ingest.js");
 const { buildFeed, suggestionsFor } = await import("./lib/rank.js");
 const agent = await import("./lib/agent.js");
+const curator = await import("./lib/curator.js");
 
 const PORT = +(process.env.PORT || 5177);
-const PUBLIC = path.resolve("public");
+const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
 const FOLLOW_FIRST = 3; // sources switched on per new interest; the rest wait as suggestions
 
 // ---------- helpers ----------
+// The Expo app runs on another port (and on your phone), so the API allows cross-origin calls.
+const CORS = { "access-control-allow-origin": "*", "access-control-allow-headers": "content-type", "access-control-allow-methods": "GET,POST,OPTIONS" };
 const send = (res, code, data) => {
-  res.writeHead(code, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" });
+  res.writeHead(code, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...CORS });
   res.end(JSON.stringify(data));
 };
 const body = (req) =>
@@ -260,15 +265,8 @@ const routes = {
   "GET /api/feed": async (req, url) => {
     const interestId = url.searchParams.get("interest") || undefined;
     const { items, caughtUp } = buildFeed({ interestId });
-    const sugg = suggestionsFor({ interestId });
-    // One suggestion every 9 cards, never in the first 5.
-    const out = [];
-    let si = 0;
-    items.forEach((it, idx) => {
-      out.push({ type: "item", ...it });
-      if (idx >= 5 && (idx - 5) % 9 === 0 && sugg[si]) out.push({ type: "suggest", ...sugg[si++] });
-    });
-    return { entries: out, caughtUp, lastRefresh: load().meta.lastRefresh, refreshing: isRefreshing() };
+    const entries = curator.weave(items, curator.feedCards(items, { interestId }));
+    return { entries, caughtUp, lastRefresh: load().meta.lastRefresh, refreshing: isRefreshing() };
   },
 
   "GET /api/item": async (req, url) => itemDetail(url.searchParams.get("id")),
@@ -299,6 +297,65 @@ const routes = {
   },
 
   "POST /api/reset": async () => { reset(); return state(); },
+
+  // ---------- curator ----------
+  "GET /api/curator": async () => {
+    const d = load();
+    const t = curator.thread();
+    const starters = d.interests.slice(0, 3).flatMap((i) => [`What's best in ${i.label} this week?`, ...(i.subs?.length ? [`Show me ${i.subs[0]}`] : [])]).slice(0, 4);
+    return { turns: t.turns.slice(-30), starters: [...starters, "Find me a source I don't know"].slice(0, 5), hasKey: agent.hasKey() };
+  },
+
+  "POST /api/curator/ask": async (req) => {
+    const { message, itemId } = await body(req);
+    if (!message?.trim()) throw new Error("Ask the curator something");
+    const d = load();
+    const t = curator.thread();
+    const ctx = itemId ? d.items[itemId] : null;
+    const cands = curator.candidates(message, ctx);
+    const interests = d.interests.map((i) => ({ label: i.label, subs: i.subs, sources: i.sourceIds.map((s) => d.sources[s]?.name).filter(Boolean) }));
+    const listed = cands.list.map((it) => ({ ...it, sourceName: d.sources[it.sourceId]?.name }));
+    let ans;
+    if (agent.hasKey()) {
+      ans = await agent.curate({ message, interests, candidates: listed, history: t.turns, context: ctx && { ...ctx, sourceName: d.sources[ctx.sourceId]?.name } });
+    } else ans = curator.fallbackAnswer(message, cands);
+
+    // New sources: verify the feed, then add them as suggestions to the matching interest (or a new one).
+    const sources = [];
+    for (const p of ans.sources) {
+      let i = d.interests.find((x) => x.label.toLowerCase() === String(p.interest || "").toLowerCase()) || d.interests.find((x) => String(p.interest || "").toLowerCase().includes(x.label.toLowerCase()));
+      if (!i) {
+        i = { id: slug(p.interest || "new") + "-" + hash(Date.now() + p.name).slice(0, 4), label: p.interest || "From the curator", origin: "curator", subs: [], subSuggestions: [], merged: [], sourceIds: [], suggestedIds: [], createdAt: Date.now() };
+        d.interests.push(i);
+      }
+      await addSourcesTo(i, [p]);
+      const id = sourceIdFor(p.site || p.feed);
+      const v = sourceView(id, i.sourceIds.includes(id));
+      if (v && v.status === "ok") sources.push({ ...v, interestId: i.id, interestLabel: i.label });
+    }
+    // Interests created only to hold sources that all failed verification are dropped.
+    d.interests = d.interests.filter((i) => i.origin !== "curator" || i.sourceIds.length || i.suggestedIds.length);
+
+    const valid = new Set(listed.map((x) => x.id));
+    const items = ans.items.filter((id) => valid.has(id)).map((id) => {
+      const it = d.items[id];
+      return { id, title: it.title, image: it.image, excerpt: it.excerpt, link: it.link, date: it.date, sourceName: d.sources[it.sourceId]?.name, saved: !!d.events[id]?.save };
+    });
+    const turnUser = { role: "user", text: message.trim(), itemId: itemId || undefined, at: Date.now() };
+    const turnCurator = { role: "curator", text: ans.reply, items, sources, followups: ans.followups, at: Date.now() };
+    t.turns.push(turnUser, turnCurator);
+    t.turns = t.turns.slice(-40);
+    save();
+    return { turn: turnCurator, state: state() };
+  },
+
+  "POST /api/curator/clear": async () => { curator.thread().turns = []; save(); return { ok: true }; },
+
+  "POST /api/curator/dismiss": async (req) => {
+    const { id, forever } = await body(req);
+    curator.dismissCard(id, !!forever);
+    return { ok: true };
+  },
 };
 
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".svg": "image/svg+xml" };
@@ -306,6 +363,7 @@ const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; ch
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const key = `${req.method} ${url.pathname}`;
+  if (req.method === "OPTIONS") { res.writeHead(204, CORS); res.end(); return; }
   if (routes[key]) {
     try { send(res, 200, await routes[key](req, url)); }
     catch (e) { console.error(key, e.message); send(res, 400, { error: String(e.message || e) }); }
@@ -319,8 +377,8 @@ const server = http.createServer(async (req, res) => {
   fs.createReadStream(file).pipe(res);
 });
 
-server.listen(PORT, () => {
-  console.log(`\n  Reveal is running at http://localhost:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`\n  Reveal API is running at http://localhost:${PORT}`);
   console.log(agent.hasKey() ? "  Curator: on (Claude API key found)\n" : "  Curator: off. Add ANTHROPIC_API_KEY to .env to turn it on. Using the built-in catalog.\n");
 });
 

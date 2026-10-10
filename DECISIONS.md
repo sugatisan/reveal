@@ -1,6 +1,6 @@
 # Reveal — Decisions
 
-What's settled, what the v0 code already assumes, and what's still open. Update this when a decision changes; note the date and why.
+What's settled, what the code already assumes, and what's still open. Update this when a decision changes; note the date and why.
 
 ## Product
 
@@ -14,30 +14,34 @@ What's settled, what the v0 code already assumes, and what's still open. Update 
 | **Reveal is a sister app to Recall, not part of it.** | Keeps Recall from getting bloated. How the two connect is still open (see below). |
 | **The end product is an iOS app.** | Web first to feel the real experience; how it works matters more than polished UI at this stage. |
 | **Personal use first, then others, then money.** | Few people are expected to pay a subscription, so look at other income sources. |
+| **The curator shows up both ways, lightly.** (2026-10-10) | It drops occasional cards into the feed (source bundles, "go deeper," prompts to ask), and has its own tab you can ask anytime. It answers from your sources first and suggests new sources only when they'd add something. |
 | **Differentiation vs. what's out there** | Feedly is fine but uninspired and reactive. Feeeed has a bad UI and makes adding sources hard. Reveal has to win on proactive source discovery and easy setup. |
 
-## v0 build (decisions the code already makes)
+## Build (decisions the code already makes)
 
 | Area | Current choice | Where |
 |---|---|---|
-| Runtime | Local Node 20 web app, no dependencies, JSON file store (`data/db.json`) | `server.js`, `lib/store.js` |
-| Onboarding | Free-text interests → Claude splits/merges → ~8 sources per interest, each feed-verified → **top 3 followed**, rest kept as suggestions | `lib/agent.js`, `FOLLOW_FIRST` in `server.js` |
-| Source quality bar | Independent editorial sites/blogs/newsletters that post at least a few times a month and have RSS/Atom; avoid social, forums, shops, generic aggregators | `SOURCE_RULES` in `lib/agent.js` |
-| Fallback | Without an API key, uses built-in topics in `catalog.json` | `lib/agent.js` |
-| Models | Sonnet for curation, Haiku for summaries (overridable via `.env`) | `lib/agent.js` |
-| Refresh | Every 25 min, **only while the app is running** | `server.js` |
-| Retention | Items older than 45 days dropped; cap 2,500 items | `lib/ingest.js` |
-| Dedup | Stories covered by several sources merge into one card; coverage boosts rank | `lib/ingest.js`, `lib/rank.js` |
-| Ranking | recency (≈60h decay) + sub-interest match + coverage + image, × source affinity, × 0.5 if already seen. Same source never appears twice within 3 slots. | `lib/rank.js` |
-| Implicit learning | Source affinity from opens, expands, saves (+) and "Less like this" (−), clamped 0.35–1.8. **Reorders, never hides a source you chose.** "Less like this" hides that one item. | `lib/rank.js` |
-| Explainability | Every card has a "why" line (sub-interest, coverage, new source, a source you open a lot) | `lib/rank.js` |
+| Stack (2026-10-10) | **Expo (React Native + TypeScript, Expo Router) app + Node API.** Runs in the browser and on iPhone via Expo Go now; the same code becomes the App Store build via EAS. Feeds and Claude calls stay on the server so the app never holds the API key and the API can be hosted later. | `app/`, `server/` |
+| Runtime | Local Node 20 API, no dependencies, JSON file store (`data/db.json`) | `server/index.js`, `server/lib/store.js` |
+| In-feed curator cards | Heuristic, no Claude call per feed load. First at slot 4, then every 10 stories. Kinds: sources (bundle for your most-engaged interest), deeper (a recent save or multi-source story), ask (prompts from sub-interests). "×" hides a card for the day. | `server/lib/curator.js` |
+| Curator conversation | Claude picks only from ~50 candidate stories pre-ranked by keyword match + recency, and may propose up to 4 new sources, each feed-checked before you see it. Without a key it falls back to keyword search. Thread kept (last 40 turns). | `server/lib/curator.js`, `curate()` in `server/lib/agent.js` |
+| Onboarding | Free-text interests → Claude splits/merges → ~8 sources per interest, each feed-verified → **top 3 followed**, rest kept as suggestions | `server/lib/agent.js`, `FOLLOW_FIRST` in `server/index.js` |
+| Source quality bar | Independent editorial sites/blogs/newsletters that post at least a few times a month and have RSS/Atom; avoid social, forums, shops, generic aggregators | `SOURCE_RULES` in `server/lib/agent.js` |
+| Fallback | Without an API key, uses built-in topics in `server/catalog.json` | `server/lib/agent.js` |
+| Models | Sonnet for curation, Haiku for summaries (overridable via `.env`) | `server/lib/agent.js` |
+| Refresh | Every 25 min, **only while the API is running** | `server/index.js` |
+| Retention | Items older than 45 days dropped; cap 2,500 items | `server/lib/ingest.js` |
+| Dedup | Stories covered by several sources merge into one card; coverage boosts rank | `server/lib/ingest.js`, `server/lib/rank.js` |
+| Ranking | recency (≈60h decay) + sub-interest match + coverage + image, × source affinity, × 0.5 if already seen. Same source never appears twice within 3 slots. | `server/lib/rank.js` |
+| Implicit learning | Source affinity from opens, expands, saves (+) and "Less like this" (−), clamped 0.35–1.8. **Reorders, never hides a source you chose.** "Less like this" hides that one item. | `server/lib/rank.js` |
+| Explainability | Every card has a "why" line (sub-interest, coverage, new source, a source you open a lot) | `server/lib/rank.js` |
 
 ## Open questions
 
 These are ordered by how much they'd change what gets built.
 
-1. **What does iOS actually need?** The v0 refreshes only while the app is running and stores everything in a local JSON file. A real iOS app needs a hosted backend (fetching, dedup, ranking) or background fetch on the phone. That means choosing a hosted service vs. on-device before porting any UI. Native SwiftUI vs. PWA comes after.
-2. **Is the curator only an onboarding step, or something you talk to?** Right now the agent shows up at onboarding and in "Learn more." The thesis says it's a curator you turn to "when in the mood." What does that look like in the feed: a prompt, a "go deeper" mode, a weekly digest of new sources?
+1. **Where does the API live when it leaves your Mac?** Client decided (Expo). Still open: hosting for the API (Fly/Render/VPS), swapping the JSON file for a real database, and refreshing on a schedule instead of only while it runs. Needed before TestFlight, not before.
+2. **Is the curator pulling its weight?** Decided: both in-feed and on demand. Open: do the in-feed cards get followed or dismissed? Is a conversation the right form, or would one-tap "more like this" do most of the job? Use it for a week before adding more.
 3. **How does learning from use work beyond source affinity?** Today it's per source. Should topics inside a source learn too (e.g., you love their watches coverage and skip their cars)? Should the app suggest new sources based on what you save?
 4. **What's the hand-off to Recall?** Does saving in Reveal send the item to Recall? Is there a shared account or shared data? Settling this early keeps both apps lean.
 5. **Opening it up to others.** Getting others to use it means accounts, hosted feeds and cost per user (Claude calls on onboarding and summaries). That needs a cost model before you invite anyone.
@@ -47,3 +51,4 @@ These are ordered by how much they'd change what gets built.
 ## Change log
 
 - 2026-10-10 — First version, written from the project conversations and the v0 code.
+- 2026-10-10 — Chose Expo + Node API so it runs on iPhone now and ships later. Curator added to the feed and as its own tab.

@@ -112,3 +112,35 @@ export function catalogParse(text) {
   }
   return out;
 }
+
+// ---------- Curator conversation ----------
+// The curator answers from what's already in your sources first, and only reaches for new sources
+// when you ask for something new or your sources are thin on the topic.
+export async function curate({ message, interests, candidates, history = [], context = null }) {
+  const system = `You are the curator inside Reveal, a personal discovery feed. You talk like a well-read friend who knows the person's taste: short, specific, no hype, no lists of caveats. You only recommend items from the candidate list you're given (use their ids exactly), and you suggest new sources only when they'd genuinely add something. Reply with JSON only.`;
+  const prompt = `The person's interests:
+${interests.map((i) => `- ${i.label}${i.subs?.length ? ` (leaning: ${i.subs.join(", ")})` : ""}; follows: ${i.sources.join(", ") || "nothing yet"}`).join("\n")}
+${context ? `\nThey're asking from this item: "${context.title}" (${context.sourceName}). ${context.excerpt || ""}\n` : ""}
+Recent conversation:
+${history.slice(-6).map((t) => `${t.role === "user" ? "Person" : "Curator"}: ${t.text}`).join("\n") || "(none)"}
+
+Candidate items from their sources (id | source | title | excerpt):
+${candidates.map((c) => `${c.id} | ${c.sourceName} | ${c.title} | ${(c.excerpt || "").slice(0, 140)}`).join("\n") || "(none)"}
+
+The person says: """${message}"""
+
+Return:
+{"reply": "1-3 sentences answering them, pointing at what you picked and why",
+ "items": ["up to 6 candidate ids, best first; [] if none fit"],
+ "sources": [up to 4 NEW sources not in their follows, only if they asked for new/different things or the candidates don't cover it; each {"name","site","feed","why","interest": "which of their interest labels it belongs to, or a new short label"}],
+ "followups": ["2-3 short things they might ask next, in their voice, under 6 words each"]}
+
+${SOURCE_RULES}`;
+  const out = json(await claude({ system, prompt, maxTokens: 1800 }));
+  return {
+    reply: String(out.reply || "").trim(),
+    items: Array.isArray(out.items) ? out.items.map(String) : [],
+    sources: Array.isArray(out.sources) ? out.sources.slice(0, 4) : [],
+    followups: Array.isArray(out.followups) ? out.followups.slice(0, 3).map(String) : [],
+  };
+}
