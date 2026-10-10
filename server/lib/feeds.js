@@ -107,6 +107,7 @@ export function parseFeed(xml, baseUrl) {
         html: decode(content),
         image: absolutize(attr(b, "media:thumbnail", "url") || attr(b, "media:content", "url"), baseUrl) || firstImage(content, baseUrl),
         tags: [...b.matchAll(/<category\b[^>]*term\s*=\s*["']([^"']+)["']/gi)].map((m) => decode(m[1])),
+        images: allImages(content, baseUrl, 10),
       });
     }
   } else {
@@ -131,6 +132,7 @@ export function parseFeed(xml, baseUrl) {
           firstImage(content, baseUrl) ||
           firstImage(tag(b, "description"), baseUrl),
         tags: [...b.matchAll(/<category\b[^>]*>([\s\S]*?)<\/category>/gi)].map((m) => stripTags(m[1])),
+        images: allImages(content, baseUrl, 10),
       });
     }
   }
@@ -233,4 +235,53 @@ export function cadenceLabel(perWeek) {
   if (perWeek >= 1.5) return `About ${Math.round(perWeek)} posts a week`;
   if (perWeek >= 0.7) return "About weekly";
   return "A few posts a month";
+}
+
+// ---------- gallery images ----------
+// Every real image in a chunk of HTML, best version of each, without ads, trackers, logos or icons.
+const JUNK_URL = /doubleclick|googlesyndication|amazon-adsystem|adservice|\/ads?\/|adsrvr|taboola|outbrain|feedburner|pixel|tracking|beacon|gravatar|avatar|emoji|logo|icon|sprite|badge|button|share|social|placeholder|spacer|blank|1x1|\.svg(\?|$)|\.gif(\?|$)|^data:/i;
+const JUNK_ATTR = /\b(class|id|alt)\s*=\s*["'][^"']*\b(logo|icon|avatar|author|byline|ad|ads|advert|sponsor|share|social|badge|related|thumbnail-small|newsletter)\b/i;
+const sizeKey = (u) => u.replace(/[?#].*$/, "").replace(/-\d{2,4}x\d{2,4}(?=\.\w+$)/, "").replace(/(_|-)(small|medium|large|thumb|\d{2,4}w)(?=\.\w+$)/i, "").toLowerCase();
+
+export function allImages(html = "", base, limit = 12) {
+  const out = [];
+  const keys = new Set();
+  const src = decode(html);
+  for (const m of src.matchAll(/<img\b[^>]*>/gi)) {
+    const t = m[0];
+    if (JUNK_ATTR.test(t)) continue;
+    const w = +((t.match(/\bwidth\s*=\s*["']?(\d+)/i) || [])[1] || 0);
+    const h = +((t.match(/\bheight\s*=\s*["']?(\d+)/i) || [])[1] || 0);
+    if ((w && w < 240) || (h && h < 160)) continue;
+    // Prefer the largest srcset candidate, then lazy-load attributes, then src.
+    const srcset = (t.match(/\b(?:data-)?srcset\s*=\s*["']([^"']+)["']/i) || [])[1];
+    let best = "";
+    if (srcset) {
+      const cands = srcset.split(",").map((c) => c.trim().split(/\s+/)).map(([u, d]) => ({ u, n: parseFloat(d) || 0 })).filter((c) => c.u);
+      best = cands.sort((a, b) => b.n - a.n)[0]?.u || "";
+    }
+    const raw = best || (t.match(/\bdata-(?:lazy-)?src\s*=\s*["']([^"']+)["']/i) || [])[1] || (t.match(/\bsrc\s*=\s*["']([^"']+)["']/i) || [])[1];
+    const u = absolutize(raw, base);
+    if (!u || JUNK_URL.test(u)) continue;
+    const k = sizeKey(u);
+    if (keys.has(k)) continue;
+    keys.add(k);
+    out.push(u);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+// Images from the article page itself: the main article body if the page marks one, plus og:image.
+export async function articleImages(url, { timeout = 7000 } = {}) {
+  const { text, url: finalUrl } = await fetchText(url, { timeout, accept: "text/html" });
+  const og = (text.match(/<meta[^>]+property\s*=\s*["']og:image(?::url)?["'][^>]*>/i) || [])[0];
+  const ogUrl = og ? absolutize((og.match(/content\s*=\s*["']([^"']+)["']/i) || [])[1], finalUrl) : "";
+  const body =
+    (text.match(/<article\b[\s\S]*?<\/article>/i) || [])[0] ||
+    (text.match(/<main\b[\s\S]*?<\/main>/i) || [])[0] ||
+    (text.match(/<div[^>]+(?:class|id)\s*=\s*["'][^"']*(?:entry-content|post-content|article-body|story-body|post-body)[^"']*["'][\s\S]*?<\/div>\s*<\/div>/i) || [])[0] ||
+    "";
+  // Without a marked article body, the whole page is mostly navigation and ads; only trust og:image.
+  return [ogUrl, ...(body ? allImages(body, finalUrl, 12) : [])].filter(Boolean);
 }

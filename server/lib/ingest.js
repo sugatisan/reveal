@@ -50,6 +50,7 @@ export function storeItems(sourceId, items) {
       date,
       excerpt: stripTags(it.html).slice(0, 420),
       image: it.image || "",
+      images: (it.images || []).filter((u) => u !== it.image).slice(0, 9),
       tags: (it.tags || []).slice(0, 8),
       also: [],
       dupOf: null,

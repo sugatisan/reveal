@@ -7,6 +7,7 @@ import { reloadState, useAppState, useFeedVersion } from "@/lib/store";
 import { space, useTheme } from "@/lib/theme";
 import { Chip, Empty, ErrorLine, Header, useToast } from "@/components/ui";
 import { CuratorCardView, ItemCard } from "@/components/FeedCards";
+import { LessResult, LessSheet, lessToast } from "@/components/LessSheet";
 
 type Row = FeedEntry | { type: "divider"; id: string };
 
@@ -19,6 +20,7 @@ export default function FeedScreen() {
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const toast = useToast();
+  const [lessFor, setLessFor] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try { setFeed(await api<Feed>(`/api/feed${lens ? `?interest=${encodeURIComponent(lens)}` : ""}`)); setError(""); }
@@ -61,11 +63,17 @@ export default function FeedScreen() {
     await sendEvents([{ itemId: it.id, type: "save" }]).catch(() => patch(it.id, (x) => ({ ...x, saved: it.saved })));
     if (!it.saved) toast.show("Saved");
   };
-  const less = async (it: FeedItem) => {
+  // "Less of this": the sheet records the choice; here we remove the story and offer an undo.
+  const onLess = (r: LessResult) => {
+    setLessFor(null);
     const snapshot = feed;
-    patch(it.id, () => null);
-    await sendEvents([{ itemId: it.id, type: "less" }]).catch(() => {});
-    toast.show(`Got it. Less from ${it.sourceName}.`, async () => { await sendEvents([{ itemId: it.id, type: "less" }]); setFeed(snapshot); });
+    patch(r.itemId, () => null);
+    toast.show(lessToast(r), async () => {
+      if (r.type === "unfollow") await api("/api/sources/follow", { interestId: r.interestId, sourceId: r.sourceId, follow: true });
+      await api("/api/less/remove", { ruleId: r.type === "rule" ? r.rule?.id : undefined, itemId: r.itemId });
+      setFeed(snapshot);
+      reloadState();
+    });
   };
   const dismissCard = (id: string) => {
     setFeed((f) => f && { ...f, entries: f.entries.filter((e) => !(e.type === "curator" && e.id === id)) });
@@ -117,10 +125,11 @@ export default function FeedScreen() {
             </View>
           );
           if (r.type === "curator") return <CuratorCardView card={r} onFollow={follow} onAsk={ask} onDismiss={() => dismissCard(r.id)} />;
-          return <ItemCard item={r} onOpen={() => { sendEvents([{ itemId: r.id, type: "expand" }]).catch(() => {}); router.push({ pathname: "/item/[id]", params: { id: r.id } }); }} onSave={() => save(r)} onLess={() => less(r)} />;
+          return <ItemCard item={r} onOpen={() => { sendEvents([{ itemId: r.id, type: "expand" }]).catch(() => {}); router.push({ pathname: "/item/[id]", params: { id: r.id } }); }} onSave={() => save(r)} onLess={() => setLessFor(r.id)} />;
         }}
         contentContainerStyle={{ paddingBottom: space.xxl }}
       />
+      <LessSheet itemId={lessFor} onClose={() => setLessFor(null)} onDone={onLess} />
       {toast.node}
     </SafeAreaView>
   );

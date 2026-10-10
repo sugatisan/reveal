@@ -28,8 +28,9 @@ export async function api<T = any>(path: string, data?: unknown): Promise<T> {
 // ---------- types (mirror the server's responses) ----------
 export type SourceView = { id: string; name: string; site: string; why?: string; about?: string; status?: string; error?: string; perWeek?: number; cadence?: string; followed?: boolean; interestId?: string; interestLabel?: string };
 export type Interest = { id: string; label: string; origin: string; subs: string[]; subSuggestions: string[]; clarify: { question: string; options: string[] } | null; merged: string[]; sources: SourceView[]; suggested: SourceView[] };
-export type AppState = { hasKey: boolean; interests: Interest[]; topics: { id: string; label: string }[]; lastRefresh: number; refreshing: boolean; itemCount: number; savedCount: number };
-export type FeedItem = { type: "item"; id: string; sourceId: string; title: string; link: string; date: number; excerpt?: string; image?: string; why: string; sourceName: string; alsoNames: string[]; saved: boolean; interestIds: string[] };
+export type TuningRule = { id: string; kind: "source" | "topic" | "interest" | "format"; value: string; label: string; at: number };
+export type AppState = { hasKey: boolean; tuning: TuningRule[]; interests: Interest[]; topics: { id: string; label: string }[]; lastRefresh: number; refreshing: boolean; itemCount: number; savedCount: number };
+export type FeedItem = { type: "item"; id: string; sourceId: string; title: string; link: string; date: number; excerpt?: string; image?: string; imageCount?: number; why: string; sourceName: string; alsoNames: string[]; saved: boolean; interestIds: string[] };
 export type CuratorCard =
   | { type: "curator"; kind: "sources"; id: string; interestId: string; title: string; sources: { id: string; name: string; site: string; about: string; interestId: string }[] }
   | { type: "curator"; kind: "deeper"; id: string; itemId: string; title: string; prompt: string }
@@ -38,7 +39,7 @@ export type FeedEntry = FeedItem | CuratorCard;
 export type Feed = { entries: FeedEntry[]; caughtUp: number; lastRefresh: number; refreshing: boolean };
 export type MiniItem = { id: string; title: string; image?: string; excerpt?: string; link?: string; date?: number; sourceName?: string; saved?: boolean };
 export type Turn = { role: "user" | "curator"; text: string; itemId?: string; items?: MiniItem[]; sources?: SourceView[]; followups?: string[]; at: number };
-export type ItemDetail = FeedItem & { aiSummary?: string | null; interests: { id: string; label: string }[]; related: MiniItem[]; deeper: SourceView[] };
+export type ItemDetail = FeedItem & { gallery?: string[]; aiSummary?: string | null; interests: { id: string; label: string }[]; related: MiniItem[]; deeper: SourceView[] };
 
 export const sendEvents = (events: { itemId: string; type: "shown" | "expand" | "open" | "save" | "less" }[]) => api<{ ok: boolean; saved?: boolean }>("/api/events", { events });
 
@@ -51,3 +52,8 @@ export function ago(ts?: number) {
   if (h < 24) return `${h}h`;
   return `${Math.round(h / 24)}d`;
 }
+
+// "Less of this" sheet
+export type LessKind = "item" | "topic" | "format" | "source" | "interest";
+export type LessOption = { kind: LessKind; value: string; label: string; hint: string };
+export type LessOptions = { item: { id: string; title: string; sourceName?: string }; options: LessOption[]; unfollow: { interestId: string; sourceId: string; label: string; interestLabel: string }[] };

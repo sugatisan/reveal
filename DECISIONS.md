@@ -15,6 +15,8 @@ What's settled, what the code already assumes, and what's still open. Update thi
 | **The end product is an iOS app.** | Web first to feel the real experience; how it works matters more than polished UI at this stage. |
 | **Personal use first, then others, then money.** | Few people are expected to pay a subscription, so look at other income sources. |
 | **The curator shows up both ways, lightly.** (2026-10-10) | It drops occasional cards into the feed (source bundles, "go deeper," prompts to ask), and has its own tab you can ask anytime. It answers from your sources first and suggests new sources only when they'd add something. |
+| **"Less of this" is granular and never a wall.** (2026-10-10) | The eye icon opens a sheet: this story only, a topic, a kind of post (deals, roundups, sponsored, rumors), the source, the whole interest, or unfollow. Everything except the single story is down-ranking, not hiding, and every rule is listed in Sources and can be removed. |
+| **Stories show all their real images.** (2026-10-10) | The story view is a swipeable gallery: feed images plus the article page's own images, with ads, trackers, logos and avatars filtered out. Images stay on the publisher's servers and the story always links out. |
 | **Differentiation vs. what's out there** | Feedly is fine but uninspired and reactive. Feeeed has a bad UI and makes adding sources hard. Reveal has to win on proactive source discovery and easy setup. |
 
 ## Build (decisions the code already makes)
@@ -34,6 +36,8 @@ What's settled, what the code already assumes, and what's still open. Update thi
 | Dedup | Stories covered by several sources merge into one card; coverage boosts rank | `server/lib/ingest.js`, `server/lib/rank.js` |
 | Ranking | recency (≈60h decay) + sub-interest match + coverage + image, × source affinity, × 0.5 if already seen. Same source never appears twice within 3 slots. | `server/lib/rank.js` |
 | Implicit learning | Source affinity from opens, expands, saves (+) and "Less like this" (−), clamped 0.35–1.8. **Reorders, never hides a source you chose.** "Less like this" hides that one item. | `server/lib/rank.js` |
+| Less-of rules | Multipliers on a story's score: topic ×0.25, kind of post ×0.3, source ×0.35, interest ×0.5 (only when the story belongs to that interest alone). Topics come from the source's own category tags, then Claude (Haiku, cached per story); without a key, tags only. Kinds of post are keyword patterns. Applied on the next feed load, not mid-scroll. | `server/lib/tuning.js` |
+| Gallery | Up to 10 images per story from the feed entry (largest srcset size, deduped across resized copies), plus up to 12 from the article page (og:image + the marked article body only), fetched once when the story is opened. Feed cards show a count badge when the feed itself has more than one image. | `allImages()`/`articleImages()` in `server/lib/feeds.js` |
 | Explainability | Every card has a "why" line (sub-interest, coverage, new source, a source you open a lot) | `server/lib/rank.js` |
 
 ## Open questions
@@ -46,9 +50,10 @@ These are ordered by how much they'd change what gets built.
 4. **What's the hand-off to Recall?** Does saving in Reveal send the item to Recall? Is there a shared account or shared data? Settling this early keeps both apps lean.
 5. **Opening it up to others.** Getting others to use it means accounts, hosted feeds and cost per user (Claude calls on onboarding and summaries). That needs a cost model before you invite anyone.
 6. **Where the money comes from.** Subscriptions are unlikely, so the options are affiliate links on "things to buy," sponsored sources, or a paid tier for power users. The affiliate option pulls against "buying is not the first priority," so pick a stance before it bleeds into the ranking.
-7. **Content rights.** "Reformat for readability" plus Claude summaries of publishers' content: keep summaries short and always link out, and decide whether full-text reformatting is ever in scope.
+7. **Content rights.** "Reformat for readability," Claude summaries, and now article-image galleries. Today: summaries are short, images are hotlinked from the publisher and every story links out. Before others use it, decide whether galleries and full-text reformatting stay in scope.
 
 ## Change log
 
 - 2026-10-10 — First version, written from the project conversations and the v0 code.
 - 2026-10-10 — Chose Expo + Node API so it runs on iPhone now and ships later. Curator added to the feed and as its own tab.
+- 2026-10-10 — "Less of this" became a sheet of reversible options. Story view got a swipeable image gallery.

@@ -144,3 +144,14 @@ ${SOURCE_RULES}`;
     followups: Array.isArray(out.followups) ? out.followups.slice(0, 3).map(String) : [],
   };
 }
+
+// Topics someone might want less of, for the "less of this" sheet. Cached on the story by the caller.
+export async function topicsFor(item, sourceName) {
+  if (!hasKey()) return [];
+  const prompt = `Story from ${sourceName}: "${item.title}"${item.excerpt ? `\n${item.excerpt.slice(0, 300)}` : ""}
+
+Name the 2 most specific things this story is about that a reader might want to see less of: a brand, product, franchise, person, or subject. 1-3 words each, as a reader would say them (e.g. "Tesla", "Cybertruck", "Hello Kitty", "EV sales"). Never a generic word like "news" or "products".
+Return JSON only: {"topics": ["", ""]}`;
+  const out = json(await claude({ system: "You label stories for a discovery feed. Reply with JSON only.", prompt, model: FAST(), maxTokens: 100 }));
+  return (out.topics || []).map((t) => String(t).trim()).filter((t) => t && t.length <= 30).slice(0, 2);
+}

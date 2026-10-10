@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Image } from "expo-image";
 import * as WebBrowser from "expo-web-browser";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ago, api, ItemDetail, sendEvents } from "@/lib/api";
 import { bumpFeed, reloadState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
-import { Button, ErrorLine, MiniItemRow, SourceRow } from "@/components/ui";
+import { Button, ErrorLine, MiniItemRow, SourceRow, useToast } from "@/components/ui";
+import { LessSheet, lessToast } from "@/components/LessSheet";
+import { Gallery } from "@/components/Gallery";
 
 export default function ItemScreen() {
   const t = useTheme();
@@ -17,10 +18,11 @@ export default function ItemScreen() {
   const [error, setError] = useState("");
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState("");
-  const [imgFailed, setImgFailed] = useState(false);
+  const [lessOpen, setLessOpen] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
-    setIt(null); setImgFailed(false);
+    setIt(null);
     api<ItemDetail>(`/api/item?id=${encodeURIComponent(id)}`).then(setIt).catch((e) => setError(e.message));
   }, [id]);
 
@@ -41,12 +43,17 @@ export default function ItemScreen() {
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={["top", "bottom"]}>
       <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: space.l, paddingVertical: space.s }}>
         <Pressable onPress={close} hitSlop={12} accessibilityLabel="Close"><Ionicons name="chevron-down" size={26} color={t.ink} /></Pressable>
-        {it ? <Pressable onPress={save} hitSlop={12} accessibilityLabel={it.saved ? "Unsave" : "Save"}><Ionicons name={it.saved ? "bookmark" : "bookmark-outline"} size={24} color={it.saved ? t.accent : t.ink} /></Pressable> : null}
+        {it ? (
+          <View style={{ flexDirection: "row", gap: space.xl }}>
+            <Pressable onPress={() => setLessOpen(true)} hitSlop={12} accessibilityLabel="Show me less of…"><Ionicons name="eye-off-outline" size={23} color={t.ink} /></Pressable>
+            <Pressable onPress={save} hitSlop={12} accessibilityLabel={it.saved ? "Unsave" : "Save"}><Ionicons name={it.saved ? "bookmark" : "bookmark-outline"} size={24} color={it.saved ? t.accent : t.ink} /></Pressable>
+          </View>
+        ) : null}
       </View>
       <ErrorLine text={error} />
       {!it ? (!error ? <ActivityIndicator style={{ marginTop: 80 }} color={t.muted} /> : null) : (
         <ScrollView contentContainerStyle={{ paddingBottom: space.xxl }}>
-          {it.image && !imgFailed ? <Image source={{ uri: it.image }} style={{ width: "100%", aspectRatio: 16 / 10, backgroundColor: t.chip }} contentFit="cover" transition={200} onError={() => setImgFailed(true)} /> : null}
+          <Gallery key={it.id} images={it.gallery?.length ? it.gallery : it.image ? [it.image] : []} />
           <View style={{ padding: space.l, gap: space.m }}>
             <Text style={{ color: t.muted, fontSize: 13 }}>
               {[it.sourceName, ...(it.alsoNames || [])].join(" · ")} · {ago(it.date)}
@@ -83,6 +90,8 @@ export default function ItemScreen() {
           ) : null}
         </ScrollView>
       )}
+      <LessSheet itemId={lessOpen && it ? it.id : null} onClose={() => setLessOpen(false)} onDone={(r) => { setLessOpen(false); bumpFeed(); toast.show(lessToast(r)); setTimeout(close, 900); }} />
+      {toast.node}
     </SafeAreaView>
   );
 }

@@ -14,11 +14,12 @@ try {
 } catch {}
 
 const { load, save, flush, reset, hash, slug, upsertSource, sourceIdFor, followedIds, stat } = await import("./lib/store.js");
-const { discoverFeed, cadence, cadenceLabel, normalizeUrl } = await import("./lib/feeds.js");
+const { discoverFeed, cadence, cadenceLabel, normalizeUrl, articleImages } = await import("./lib/feeds.js");
 const { refresh, isRefreshing, fetchSource, storeItems, mergeDuplicates } = await import("./lib/ingest.js");
 const { buildFeed, suggestionsFor } = await import("./lib/rank.js");
 const agent = await import("./lib/agent.js");
 const curator = await import("./lib/curator.js");
+const tuning = await import("./lib/tuning.js");
 
 const PORT = +(process.env.PORT || 5177);
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
@@ -110,6 +111,7 @@ function state() {
     refreshing: isRefreshing(),
     itemCount: Object.keys(d.items).length,
     savedCount: Object.values(d.events).filter((e) => e.save).length,
+    tuning: tuning.rules().map((r) => ({ id: r.id, kind: r.kind, value: r.value, label: r.label, at: r.at })),
   };
 }
 
@@ -136,9 +138,23 @@ async function itemDetail(id) {
   const it = d.items[id];
   if (!it) throw new Error("Item not found");
   const src = d.sources[it.sourceId] || {};
-  if (it.aiSummary === undefined && agent.hasKey()) {
-    try { it.aiSummary = await agent.summarize(it, src.name); save(); } catch (e) { it.aiSummaryError = String(e.message || e); }
-  }
+  // Summary and the article's own images load together, once per story, then stay cached.
+  await Promise.all([
+    (async () => {
+      if (it.aiSummary === undefined && agent.hasKey()) {
+        try { it.aiSummary = await agent.summarize(it, src.name); } catch (e) { it.aiSummaryError = String(e.message || e); }
+      }
+    })(),
+    (async () => {
+      if (it.pageImages === undefined) {
+        try { it.pageImages = (await articleImages(it.link)).slice(0, 12); } catch { it.pageImages = []; }
+      }
+    })(),
+  ]);
+  save();
+  const gk = (u) => u.replace(/[?#].*$/, "").replace(/-\d{2,4}x\d{2,4}(?=\.\w+$)/, "").toLowerCase();
+  const gallery = [];
+  for (const u of [it.image, ...(it.images || []), ...(it.pageImages || [])]) if (u && !gallery.some((g) => gk(g) === gk(u))) gallery.push(u);
   const ints = d.interests.filter((i) => i.sourceIds.includes(it.sourceId) || (it.also || []).some((s) => i.sourceIds.includes(s)));
   const intSources = new Set(ints.flatMap((i) => i.sourceIds));
   const t = tok(it.title + " " + it.excerpt);
@@ -152,7 +168,7 @@ async function itemDetail(id) {
   const deeper = ints.flatMap((i) => i.suggestedIds.filter((s) => !i.sourceIds.includes(s)).map((s) => ({ ...sourceView(s, false), interestId: i.id }))).filter((s) => s.id).slice(0, 4);
   return {
     ...it, sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s),
-    interests: ints.map((i) => ({ id: i.id, label: i.label })), related, deeper, saved: !!d.events[id]?.save,
+    interests: ints.map((i) => ({ id: i.id, label: i.label })), related, deeper, saved: !!d.events[id]?.save, gallery: gallery.slice(0, 12),
   };
 }
 
@@ -297,6 +313,19 @@ const routes = {
   },
 
   "POST /api/reset": async () => { reset(); return state(); },
+
+  // ---------- "less of this" ----------
+  "GET /api/less/options": async (req, url) => tuning.optionsFor(url.searchParams.get("itemId")),
+  "POST /api/less": async (req) => {
+    const { itemId, kind, value } = await body(req);
+    const rule = tuning.addRule({ itemId, kind, value });
+    return { rule, state: state() };
+  },
+  "POST /api/less/remove": async (req) => {
+    const { ruleId, itemId } = await body(req);
+    tuning.removeRule({ ruleId, itemId });
+    return { state: state() };
+  },
 
   // ---------- curator ----------
   "GET /api/curator": async () => {

@@ -13,7 +13,14 @@ export function ItemCard({ item, onOpen, onSave, onLess }: { item: FeedItem; onO
   const meta = [item.sourceName, item.alsoNames?.length ? `+${item.alsoNames.length}` : "", ago(item.date)].filter(Boolean).join(" · ");
   return (
     <Pressable onPress={onOpen} style={({ pressed }) => [st.card, { backgroundColor: t.card, opacity: pressed ? 0.85 : 1 }]}>
-      {showImg ? <Image source={{ uri: item.image }} style={[st.hero, { backgroundColor: t.chip }]} contentFit="cover" transition={200} recyclingKey={item.id} onError={() => setImgFailed(true)} /> : null}
+      {showImg ? (
+        <View>
+          <Image source={{ uri: item.image }} style={[st.hero, { backgroundColor: t.chip }]} contentFit="cover" transition={200} recyclingKey={item.id} onError={() => setImgFailed(true)} />
+          {(item.imageCount || 0) > 1 ? (
+            <View style={st.badge}><Ionicons name="images-outline" size={12} color="#fff" /><Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>{item.imageCount}</Text></View>
+          ) : null}
+        </View>
+      ) : null}
       <View style={st.body}>
         <Text style={[st.why, { color: t.accent }]} numberOfLines={1}>{item.why}</Text>
         <Text style={[st.title, { color: t.ink }]} numberOfLines={4}>{item.title}</Text>
@@ -68,6 +75,7 @@ export function CuratorCardView({ card, onFollow, onAsk, onDismiss }: { card: Cu
 const st = StyleSheet.create({
   card: { marginHorizontal: space.l, marginBottom: space.l, borderRadius: radius.l, overflow: "hidden" },
   hero: { width: "100%", aspectRatio: 16 / 9 },
+  badge: { position: "absolute", top: 10, right: 10, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.55)" },
   body: { padding: space.l, gap: space.s },
   why: { fontSize: 12, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
   title: { fontFamily: serif, fontSize: 21, lineHeight: 27, letterSpacing: -0.2 },

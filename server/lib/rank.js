@@ -1,6 +1,7 @@
 // Ranking: recency, how you treat each source, sub-interest matches, and coverage across sources.
 // Implicit signal reorders. It never hides a source you chose.
 import { load, stat } from "./store.js";
+import { penalty } from "./tuning.js";
 
 const singular = (w) => w.toLowerCase().replace(/ies$/, "y").replace(/s$/, "");
 function subMatch(item, subs) {
@@ -41,7 +42,8 @@ export function buildFeed({ interestId, limit = 120 } = {}) {
     for (const i of ints) { const m = subMatch(it, i.subs || []); if (m) { sub = m; subInt = i; break; } }
     const coverage = (it.also || []).length;
     const seenPenalty = ev.expand || ev.open ? 0.5 : 1;
-    const score = (recency * 1.0 + (sub ? 0.45 : 0) + coverage * 0.18 + (it.image ? 0.08 : 0)) * aff * seenPenalty;
+    const tuned = penalty(it, ints.map((i) => i.id)); // explicit "less of" rules
+    const score = (recency * 1.0 + (sub ? 0.45 : 0) + coverage * 0.18 + (it.image ? 0.08 : 0)) * aff * seenPenalty * tuned;
 
     let why;
     const primary = subInt || ints[0];
@@ -51,7 +53,7 @@ export function buildFeed({ interestId, limit = 120 } = {}) {
     else if (aff > 1.15) why = `You open a lot from ${src.name}`;
     else why = primary.label;
 
-    scored.push({ ...it, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save });
+    scored.push({ ...it, imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save });
   }
   scored.sort((a, b) => b.score - a.score);
 

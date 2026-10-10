@@ -35,6 +35,21 @@ export default function SourcesScreen() {
         </View>
         {busy === "add" ? <Text style={{ color: t.muted, paddingHorizontal: space.l, marginBottom: space.m }}>Finding sources and checking each feed. This can take half a minute.</Text> : null}
         <ErrorLine text={error} />
+        {state?.tuning?.length ? (
+          <View style={{ marginHorizontal: space.l, marginBottom: space.l, padding: space.l, backgroundColor: t.card, borderRadius: radius.l, gap: space.s }}>
+            <Text style={{ fontFamily: serif, fontSize: 20, color: t.ink }}>Showing you less of</Text>
+            <Text style={{ color: t.faint, fontSize: 12 }}>These push matching stories down. They never hide them.</Text>
+            {state.tuning.map((r) => (
+              <View key={r.id} style={{ flexDirection: "row", alignItems: "center", gap: space.m, paddingVertical: 6 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: t.ink, fontSize: 15, fontWeight: "500" }}>{r.label}</Text>
+                  <Text style={{ color: t.muted, fontSize: 12 }}>{{ topic: "Topic", format: "Kind of post", source: "Source", interest: "Interest" }[r.kind]}</Text>
+                </View>
+                <Button label="Remove" kind="ghost" busy={busy === r.id} onPress={() => run(r.id, () => api("/api/less/remove", { ruleId: r.id }))} style={{ paddingVertical: 6 }} />
+              </View>
+            ))}
+          </View>
+        ) : null}
         {!state ? <ActivityIndicator color={t.muted} /> : state.interests.map((i) => (
           <InterestBlock key={i.id} i={i} busy={busy} confirm={confirm === i.id}
             onSub={(subs) => run(`sub-${i.id}`, () => api("/api/interests/update", { id: i.id, subs }))}
