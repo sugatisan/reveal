@@ -11,6 +11,7 @@ import { rgba } from "@/lib/backdrop";
 import { useDesign } from "@/design/store";
 import { StorySheet } from "./StorySheet";
 import { BestImage } from "./BestImage";
+import { prefetchStory } from "./StoryDetails";
 
 // A soft fade, built from bands (no gradient dependency). Studio: Feed cards › Full screen shade.
 function Fade({ from, height, max, curve = 1.6, color = "#000000", blend = "normal" }: { from: "top" | "bottom"; height: number; max: number; curve?: number; color?: string; blend?: string }) {
@@ -41,10 +42,17 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
   const [details, setDetails] = useState<string | null>(null);
   // Preload the next two stories' large images so swiping doesn't show them loading.
   const entriesRef = useRef(entries); entriesRef.current = entries;
+  // Dwell on a story for a couple of seconds and its details (and the curator's brief) load in the
+  // background, so Details opens instantly.
+  const dwell = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const modeRef = useRef(d["story.body"]); modeRef.current = d["story.body"];
   const onView = useRef((info: { viewableItems: ViewToken[] }) => {
     onViewable(info);
     const i = info.viewableItems[0]?.index ?? -1;
+    if (dwell.current) clearTimeout(dwell.current);
     if (i < 0) return;
+    const here = entriesRef.current[i];
+    if (here?.type === "item") dwell.current = setTimeout(() => prefetchStory(here.id, modeRef.current), 2000);
     const next = entriesRef.current.slice(i + 1, i + 3).flatMap((e) => (e.type === "item" ? [e.imageLarge || e.image] : [])).filter(Boolean) as string[];
     if (next.length) Image.prefetch(next).catch(() => {});
   }).current;
@@ -73,6 +81,14 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
         {img ? <BestImage large={it.imageLarge} small={it.image} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} priority="high" /> : null}
         {img && d["full.topDark"] > 0 ? <Fade from="top" height={topSpace + 40} max={d["full.topDark"] / 100} color={shade.color} /> : null}
         {img && d["full.scrimDark"] > 0 ? <Fade from="bottom" height={height * d["full.scrimHeight"] / 100} max={d["full.scrimDark"] / 100} {...shade} /> : null}
+        <View style={[st.rail, { top: topSpace + 30 }]}>
+            <Pressable onPress={() => onSave(it)} hitSlop={8} accessibilityLabel={it.saved ? "Unsave" : "Save"} style={[st.round, { backgroundColor: img ? "rgba(0,0,0,0.35)" : t.chip }]}>
+              <Ionicons name={it.saved ? "bookmark" : "bookmark-outline"} size={22} color={it.saved ? "#F5C542" : ink} />
+            </Pressable>
+            <Pressable onPress={() => onLess(it.id)} hitSlop={8} accessibilityLabel="Show me less of…" style={[st.round, { backgroundColor: img ? "rgba(0,0,0,0.35)" : t.chip }]}>
+              <Ionicons name="eye-off-outline" size={21} color={ink} />
+            </Pressable>
+          </View>
         <View style={[st.bottom, { paddingBottom: bottomSpace + space.m }]}>
           <View style={{ flex: 1, gap: space.s }}>
             <Text style={{ color: img ? "#F5C542" : t.accent, fontSize: 11, fontWeight: "800", letterSpacing: 1 }} numberOfLines={1}>{it.why.toUpperCase()}</Text>
@@ -87,14 +103,6 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
                 <Text style={{ color: ink, fontWeight: "600", fontSize: 14 }}>Details</Text>
               </Pressable>
             </View>
-          </View>
-          <View style={st.rail}>
-            <Pressable onPress={() => onSave(it)} hitSlop={8} accessibilityLabel={it.saved ? "Unsave" : "Save"} style={[st.round, { backgroundColor: img ? "rgba(0,0,0,0.35)" : t.chip }]}>
-              <Ionicons name={it.saved ? "bookmark" : "bookmark-outline"} size={22} color={it.saved ? "#F5C542" : ink} />
-            </Pressable>
-            <Pressable onPress={() => onLess(it.id)} hitSlop={8} accessibilityLabel="Show me less of…" style={[st.round, { backgroundColor: img ? "rgba(0,0,0,0.35)" : t.chip }]}>
-              <Ionicons name="eye-off-outline" size={21} color={ink} />
-            </Pressable>
           </View>
         </View>
       </View>
@@ -223,7 +231,7 @@ const st = StyleSheet.create({
   srcRow: { flexDirection: "row", alignItems: "center", gap: space.m, padding: space.m, borderRadius: 16 },
   follow: { minWidth: 92, height: 38, borderRadius: 19, borderWidth: 1.5, alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
   bottom: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "row", alignItems: "flex-end", gap: space.m, paddingHorizontal: space.l },
-  rail: { gap: space.m, paddingBottom: 44 },
+  rail: { position: "absolute", right: space.l, gap: space.m },
   round: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
   details: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
 });

@@ -217,7 +217,43 @@ Return JSON only: {"names":[{"term":"","why":""}],"terms":[...],"nearby":[...]}`
 
 // Everything the story page needs, in one fast call. It depends only on the story, never on the
 // reader, so it's computed once and shared by everyone who opens it.
-export const BRIEF_VERSION = 2; // bump to refresh stored briefs after changing the prompt
+export const BRIEF_VERSION = 3; // bump to refresh stored briefs after changing the prompt
+
+// Structured output: Claude fills in a typed form (a forced tool call) instead of writing JSON text,
+// so a quote inside a title can't break parsing.
+export async function claudeForm({ system, prompt, schema, model = MODEL(), maxTokens = 800, purpose = "other" }) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model, max_tokens: maxTokens, system, messages: [{ role: "user", content: prompt }],
+      tools: [{ name: "respond", description: "Give your answer.", input_schema: schema }],
+      tool_choice: { type: "tool", name: "respond" },
+    }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error?.message || `Claude API error ${res.status}`);
+  const u = body.usage || {};
+  record({ purpose, model, input: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), output: u.output_tokens || 0, cached: u.cache_read_input_tokens || 0 });
+  const call = (body.content || []).find((c) => c.type === "tool_use");
+  if (!call) throw new Error("The curator didn't answer");
+  return call.input || {};
+}
+
+const BRIEF_SCHEMA = {
+  type: "object",
+  properties: {
+    gist: { type: "string", description: "1-2 plain sentences: what happened or what this is, and the one detail that makes it worth reading. Facts only, in your own words. No commentary on the writing, tone or author. Nothing that isn't in the text." },
+    facts: {
+      type: "array", maxItems: 4,
+      description: "Only prices, dates, places to buy or see it, sizes, specs or other numbers stated in the text. Never a brand, company, person or category name. Empty for news and opinion without such facts (that's normal).",
+      items: { type: "object", properties: { label: { type: "string", description: "1-2 words" }, value: { type: "string" } }, required: ["label", "value"] },
+    },
+    questions: { type: "array", maxItems: 3, items: { type: "string" }, description: "2-3 questions a curious reader might ask next, 3-5 words each, in their voice, e.g. Who else makes these? When does it ship?" },
+  },
+  required: ["gist", "facts", "questions"],
+};
+
 export async function storyBrief(item, sourceName, articleText = "") {
   if (!hasKey()) return null;
   const body = (articleText || item.excerpt || "").slice(0, 6000);
@@ -227,15 +263,8 @@ Title: ${item.title}
 ${articleText ? "Article text" : "Excerpt"}:
 """${body}"""
 
-Return JSON only:
-{"gist": "1-2 plain sentences: what happened or what this is, and the one detail that makes it worth reading. Facts only, in your own words. No commentary on the writing, tone or author. Don't add anything that isn't in the text.",
- "facts": [up to 4 {"label": "", "value": ""}: only prices, dates, places to buy or see it, sizes, specs or other numbers stated in the text. Never a brand, company, person or category name. Labels 1-2 words. [] when there are none, which is normal for news and opinion],
- "questions": [2-3 questions a curious reader might ask next, 3-5 words each, in their voice, e.g. "Who else makes these?", "When does it ship?"]}`;
-  const system = "You brief readers on stories in a discovery feed. Reply with valid JSON only. Inside strings, use single quotes or escape double quotes (\\\").";
-  // One retry: the fast model occasionally returns JSON with an unescaped quote from a title.
-  let out;
-  try { out = json(await claude({ system, prompt, model: FAST(), maxTokens: 450, purpose: "story-brief" })); }
-  catch (e) { if (!/JSON|unreadable|position/i.test(String(e.message))) throw e; out = json(await claude({ system, prompt, model: FAST(), maxTokens: 450, purpose: "story-brief" })); }
+Brief a reader deciding whether to open this story.`;
+  const out = await claudeForm({ system: "You brief readers on stories in a discovery feed.", prompt, schema: BRIEF_SCHEMA, model: FAST(), maxTokens: 500, purpose: "story-brief" });
   return {
     gist: String(out.gist || "").trim(),
     facts: (Array.isArray(out.facts) ? out.facts : []).filter((f) => f?.label && f?.value).slice(0, 4).map((f) => ({ label: String(f.label).slice(0, 24), value: String(f.value).slice(0, 60) })),

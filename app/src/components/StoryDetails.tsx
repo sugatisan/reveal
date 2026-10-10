@@ -14,6 +14,25 @@ import { Button, Chip, MiniItemRow, SourceRow } from "@/components/ui";
 
 export type DescMode = "gist" | "excerpt" | "lead";
 
+// Story details and briefs, cached for the session and shared by every request for the same story,
+// so a prefetch (e.g. after you dwell on a story) makes opening it instant.
+const details = new Map<string, Promise<ItemDetail>>();
+const briefs = new Map<string, Promise<StoryBrief | null>>();
+const loadDetail = (id: string) => {
+  if (!details.has(id)) details.set(id, api<ItemDetail>(`/api/item?id=${encodeURIComponent(id)}`).catch((e) => { details.delete(id); throw e; }));
+  return details.get(id)!;
+};
+const loadBrief = (id: string, d: ItemDetail) => {
+  if (d.brief) return Promise.resolve(d.brief);
+  if (!briefs.has(id)) briefs.set(id, api<{ brief: StoryBrief | null }>("/api/item/brief", { id }).then((r) => r.brief).catch((e) => { briefs.delete(id); throw e; }));
+  return briefs.get(id)!;
+};
+export function prefetchStory(id: string, mode: DescMode) {
+  loadDetail(id).then((d) => { if (mode === "gist") loadBrief(id, d).catch(() => {}); }).catch(() => {});
+}
+// Something about the story changed (saved, less-of): drop the cached copy.
+export function forgetStory(id: string) { details.delete(id); }
+
 // Loads a story and, in AI gist mode, its shared brief (the first reader waits for it; later readers get it instantly).
 export function useStoryDetail(id: string | null) {
   const mode: DescMode = useDesign()["story.body"];
@@ -25,12 +44,11 @@ export function useStoryDetail(id: string | null) {
     setIt(null); setBrief(undefined); setBriefError(""); setError("");
     if (!id) return;
     let live = true;
-    api<ItemDetail>(`/api/item?id=${encodeURIComponent(id)}`).then((x) => {
+    loadDetail(id).then((x) => {
       if (!live) return;
       setIt(x);
-      if (x.brief) setBrief(x.brief);
-      else if (mode !== "gist") setBrief(null); // no AI: don't ask the curator at all
-      else api<{ brief: StoryBrief | null }>("/api/item/brief", { id: x.id }).then((r) => live && setBrief(r.brief)).catch((e) => { if (live) { setBrief(null); setBriefError(e.message); } });
+      if (mode !== "gist" && !x.brief) { setBrief(null); return; } // no AI: don't ask the curator at all
+      loadBrief(id, x).then((b) => live && setBrief(b)).catch((e) => { if (live) { setBrief(null); setBriefError(e.message); } });
     }).catch((e) => live && setError(e.message));
     return () => { live = false; };
   }, [id, mode]);

@@ -196,6 +196,24 @@ function forYou(it, ints) {
   return ints[0] ? `From ${ints[0].label}` : null;
 }
 
+// One fetch of a story's article page at a time, shared by the story view and the brief.
+const pageInflight = new Map();
+function ensurePage(id) {
+  const it = load().items[id];
+  if (!it || (it.pageImages !== undefined && it.shopLinks !== undefined && it.lead !== undefined)) return null;
+  if (pageInflight.has(id)) return pageInflight.get(id);
+  const p = (async () => {
+    try {
+      const pg = await articlePage(it.link); it.pageImages = pg.images.slice(0, 12); it.shopLinks = pg.shops; if (pg.text) pageText.set(id, pg.text);
+      // The article's opening, for comparing against the AI gist (studio: Story page › Description). Short, never the full text.
+      it.lead = leadOf(pg.text);
+    } catch { it.pageImages ||= []; it.shopLinks ||= []; it.lead = ""; }
+    save();
+  })().finally(() => pageInflight.delete(id));
+  pageInflight.set(id, p);
+  return p;
+}
+
 // Gist, key facts and next questions for a story: one fast call, stored on the story for every reader.
 async function storyBrief(id) {
   const d = load();
@@ -203,12 +221,13 @@ async function storyBrief(id) {
   if (!it) throw new Error("Item not found");
   if (it.brief && it.brief.v === agent.BRIEF_VERSION) return it.brief;
   // A story that just failed isn't retried on every open (that would cost a call each time).
-  if (it.briefFailedAt && Date.now() - it.briefFailedAt < 864e5) return null;
+  if (it.briefFailedAt && it.briefFailedV === agent.BRIEF_VERSION && Date.now() - it.briefFailedAt < 864e5) return null;
   const src = d.sources[it.sourceId] || {};
+  await ensurePage(id); // shares the fetch the story view started, if any
   let text = pageText.get(id) || "";
-  if (!text && it.link) { try { text = (await articlePage(it.link)).text; } catch {} }
+  if (!text && it.link && it.lead !== "") { try { text = (await articlePage(it.link)).text; } catch {} }
   try { it.brief = await agent.storyBrief(it, src.name, text); delete it.briefFailedAt; }
-  catch (e) { it.briefFailedAt = Date.now(); save(); throw e; }
+  catch (e) { it.briefFailedAt = Date.now(); it.briefFailedV = agent.BRIEF_VERSION; save(); throw e; }
   if (it.brief) pageText.delete(id);
   save();
   return it.brief;
@@ -220,16 +239,10 @@ async function itemDetail(id) {
   const it = d.items[id];
   if (!it) throw new Error("Item not found");
   const src = d.sources[it.sourceId] || {};
-  // The article page is fetched once: images go in the gallery, text is held briefly for the brief.
-  if (it.pageImages === undefined || it.shopLinks === undefined || it.lead === undefined) {
-    try {
-      const pg = await articlePage(it.link); it.pageImages = pg.images.slice(0, 12); it.shopLinks = pg.shops; if (pg.text) pageText.set(id, pg.text);
-      // The article's opening, for comparing against the AI gist (studio: Story page › Description). Short, never the full text.
-      it.lead = leadOf(pg.text);
-    }
-    catch { it.pageImages ||= []; it.shopLinks ||= []; it.lead = ""; }
-    save();
-  }
+  // The article page (gallery images, shop links, text for the brief) can take seconds on slow sites.
+  // Wait for it briefly; if it's slower, answer now and let it finish in the background.
+  const page = ensurePage(id);
+  if (page) await Promise.race([page, new Promise((r) => setTimeout(r, 1200))]);
   const gk = (u) => u.replace(/[?#].*$/, "").replace(/-\d{2,4}x\d{2,4}(?=\.\w+$)/, "").toLowerCase();
   const gallery = [];
   // Largest version first: the share image or upgraded URL, then the rest.
