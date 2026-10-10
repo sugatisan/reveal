@@ -86,7 +86,7 @@ export function LessSheet({ itemId, onClose, onDone }: { itemId: string | null; 
         ))}
         {data?.options.filter((o) => o.kind === "interest").slice(0, 1).map((o) => (
           <Pressable key="tune" onPress={() => { onClose(); router.push(`/interest/${o.value}`); }} style={({ pressed }) => [st.row, { borderTopWidth: 1, borderTopColor: t.line, marginTop: space.xs, backgroundColor: pressed ? t.chip : "transparent" }]} accessibilityRole="button">
-            <EditGlyph size={20} color={t.muted} cut={t.card} />
+            <EditGlyph size={20} color={t.muted} />
             <Text style={{ color: t.muted, fontSize: 15, flex: 1 }}>{o.label.replace(/^Less (.*) overall$/, "Tune $1…")}</Text>
             <Ionicons name="chevron-forward" size={16} color={t.faint} />
           </Pressable>

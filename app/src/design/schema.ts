@@ -87,13 +87,9 @@ export const GROUPS: Group[] = [
     ],
   },
   {
-    id: "edit-icon", panel: "Top bar", title: "Edit icon", hint: "The tuner mark on the selected pill, the left panel and the less-of sheet.",
+    id: "edit-icon", panel: "Top bar", title: "Edit icon", hint: "The tuner on the selected pill, in the left panel and in the less-of sheet.",
     controls: [
-      choice("icon.edit", "Style", "mixed", [["mixed", "Filled on pill"], ["outline", "Outline"], ["filled", "Filled"]], "Filled on pill: solid on the selected pill, outline in lists."),
-      choice("icon.editShape", "Shape", "circle", [["circle", "Circle"], ["squircle", "Rounded square"], ["square", "Square"], ["none", "No container"]]),
-      { key: "icon.editSize", label: "Size", hint: "Scales the whole mark, everywhere it appears.", type: "range", min: 70, max: 160, step: 5, unit: "%", default: 100 },
-      { key: "icon.editGlyph", label: "Tuner size", hint: "The sliders inside, relative to the shape.", type: "range", min: 40, max: 90, step: 2, unit: "%", default: 58 },
-      { key: "icon.editStroke", label: "Outline weight", hint: "Outline style only.", type: "range", min: 1, max: 3, step: 0.25, unit: "pt", default: 1.5 },
+      { key: "icon.editSize", label: "Size", hint: "Relative to the text beside it.", type: "range", min: 70, max: 140, step: 5, unit: "%", default: 100 },
     ],
   },
   {

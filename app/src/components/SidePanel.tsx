@@ -58,7 +58,7 @@ export function SidePanel({ state, lens, onClose, onPick }: {
                     <Count n={i.newCount} />
                   </Pressable>
                   <Pressable onPress={() => { onClose(); router.push(`/interest/${i.id}`); }} hitSlop={8} style={{ padding: 4 }} accessibilityLabel={`Edit ${i.label}`}>
-                    <EditGlyph size={18} color={t.muted} cut={activeI ? t.card : t.chip} />
+                    <EditGlyph size={18} color={t.muted} />
                   </Pressable>
                   {i.sources.length ? (
                     <Pressable onPress={() => setExpanded((e) => ({ ...e, [i.id]: !isOpen }))} hitSlop={10} style={{ padding: 4 }} accessibilityLabel={isOpen ? `Hide ${i.label} sources` : `Show ${i.label} sources`}>

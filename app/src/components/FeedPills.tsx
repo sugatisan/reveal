@@ -38,8 +38,8 @@ export function Pill({ label, active, onPress, onLongPress, onEdit, icon }: { la
       {onEdit ? (
         // Its own target so tapping the pencil edits, and tapping the label still toggles the pill.
         <Pressable onPress={(e) => { e.stopPropagation?.(); onEdit(); }} hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }} accessibilityLabel={`Edit ${label}`}
-          style={{ marginLeft: 3 * p.k, marginRight: -3 * p.k }}>
-          <EditGlyph size={Math.round(p.font * 1.2)} color={fg} cut={p.selBg} selected />
+          style={{ marginLeft: 2 * p.k, marginRight: -2 * p.k }}>
+          <EditGlyph size={p.font + 1} color={fg} />
         </Pressable>
       ) : null}
     </Pressable>
