@@ -58,7 +58,8 @@ export function ItemCard({ item, onOpen, onSave, onLess, inGrid = false }: { ite
       marginHorizontal: inGrid || fullWidth ? 0 : d["card.inset"], marginBottom: flush ? 0 : d["card.gap"], borderRadius: rad, overflow: "hidden",
       ...(inGrid ? { flex: 1 } : null),
       backgroundColor: flush ? "transparent" : t.card, opacity: pressed ? 0.85 : 1,
-      ...(flush ? { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.line, paddingBottom: d["card.gap"] / 2, paddingTop: d["card.gap"] / 2 } : null),
+      // Flush: no card and no divider lines; "Space between cards" alone separates stories.
+      ...(flush ? { paddingBottom: d["card.gap"] / 2, paddingTop: d["card.gap"] / 2 } : null),
     }]}>
       {showHero ? (
         <View style={flush && !bleed ? { paddingHorizontal: pad } : null}>
