@@ -73,7 +73,7 @@ export default function SearchScreen() {
         ) : null}
         {q.trim() ? (
           <Pressable onPress={askCurator} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.m, marginTop: space.l, padding: space.l, borderRadius: radius.m, backgroundColor: t.curatorBg, opacity: pressed ? 0.85 : 1 })}>
-            <Ionicons name="sparkles" size={18} color={t.curatorAccent} />
+            <Ionicons name="chatbubble-ellipses-outline" size={18} color={t.curatorAccent} />
             <View style={{ flex: 1 }}>
               <Text style={{ color: t.curatorInk, fontWeight: "600" }}>{empty ? "Nothing in your sources yet." : "Want something new?"} Ask the curator</Text>
               <Text style={{ color: t.curatorMuted, fontSize: 13, marginTop: 2 }} numberOfLines={1}>"{q.trim()}"</Text>

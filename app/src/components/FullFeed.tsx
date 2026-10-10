@@ -167,11 +167,8 @@ function CuratorPage({ card, height, topSpace, bottomSpace, follow, ask, dismiss
   return (
     <View style={{ height, backgroundColor: img ? "#000" : t.curatorBg }}>
       {img ? <Image source={{ uri: img }} style={[StyleSheet.absoluteFill, { opacity: 0.55 }]} contentFit="cover" blurRadius={2} /> : null}
-      {img ? <Fade from="bottom" height={height * 0.75} max={0.92} /> : null}
-      {!img ? <Ionicons name="sparkles" size={220} color={t.curatorAccent} style={{ position: "absolute", top: topSpace + 24, right: -40, opacity: 0.08 }} /> : null}
-      <View style={[st.curatorBody, { paddingBottom: bottomSpace + space.m, paddingTop: topSpace }]}>
+      {img ? <Fade from="bottom" height={height * 0.75} max={0.92} /> : null}      <View style={[st.curatorBody, { paddingBottom: bottomSpace + space.m, paddingTop: topSpace }]}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <Ionicons name="sparkles" size={14} color={accent} />
           <Text style={{ color: accent, fontSize: 12, fontWeight: "800", letterSpacing: 1.2 }}>CURATOR</Text>
         </View>
 

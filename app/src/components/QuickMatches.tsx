@@ -29,7 +29,7 @@ export function QuickMatches({ query, onAsk }: { query: string; onAsk: () => voi
       ...({ boxShadow: "0px 8px 24px rgba(0,0,0,0.18)" } as any) }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: space.m, gap: 2 }}>
         <Pressable onPress={onAsk} style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: space.s, paddingVertical: 8, opacity: pressed ? 0.7 : 1 })}>
-          <Ionicons name="sparkles" size={16} color={t.accent} />
+          <Ionicons name="chatbubble-ellipses-outline" size={16} color={t.accent} />
           <Text style={{ color: t.ink, fontWeight: "600", flex: 1 }} numberOfLines={1}>Ask the curator: "{query.trim()}"</Text>
           <Text style={{ color: t.faint, fontSize: 12 }}>return</Text>
         </Pressable>

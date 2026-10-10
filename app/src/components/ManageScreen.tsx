@@ -86,7 +86,6 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
         {overlap ? (
           <View style={{ marginHorizontal: space.l, marginBottom: space.m, padding: space.l, borderRadius: radius.l, backgroundColor: t.curatorBg, gap: space.s }}>
             <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
-              <Ionicons name="sparkles" size={14} color={t.curatorAccent} />
               <Text style={{ color: t.curatorInk, fontWeight: "600", flex: 1 }}>
                 {overlap.kind === "narrower" ? `You already follow ${overlap.label}.` : `${overlap.label} already covers this.`}
               </Text>

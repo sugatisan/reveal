@@ -96,7 +96,6 @@ export function CuratorCardView({ card, onFollow, onAsk, onDismiss }: { card: Cu
   return (
     <View style={[st.curator, { backgroundColor: t.curatorBg }]}>
       <View style={st.curatorTop}>
-        <Ionicons name="sparkles" size={14} color={t.curatorAccent} />
         <Text style={[st.curatorLabel, { color: t.curatorAccent }]}>CURATOR</Text>
         <View style={{ flex: 1 }} />
         <Pressable hitSlop={12} onPress={onDismiss} accessibilityLabel="Not now">

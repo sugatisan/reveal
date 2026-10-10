@@ -83,10 +83,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
       {/* Why it's here, then the description. Gist when we have it; the publisher's excerpt while it's on the way. */}
       <View style={{ gap: 10 }}>
         {it.forYou ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Ionicons name="sparkles" size={13} color={t.curatorAccent} />
-            <Text style={{ color: t.muted, fontSize: 14, flex: 1 }}>{it.forYou}</Text>
-          </View>
+          <Text style={{ color: t.muted, fontSize: 14 }}>{it.forYou}</Text>
         ) : null}
         {mode !== "gist" ? (
           <>
@@ -186,24 +183,19 @@ function GistBlock({ it, brief, briefError, facts }: { it: ItemDetail; brief: St
   return (
     <Animated.View style={{ opacity: fade }}>
       <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{brief.gist}</Text>
-      {facts}
-      <View style={{ minHeight: 30, flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <Ionicons name="sparkles" size={12} color={t.curatorAccent} />
-        <Text style={{ color: t.faint, fontSize: 12 }}>Gist by the curator</Text>
-        {original ? (
-          <Pressable onPress={() => setShowOriginal((x) => !x)} hitSlop={8} accessibilityRole="button" style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-            <Text style={{ color: t.faint, fontSize: 12 }}>·</Text>
-            <Text style={{ color: t.muted, fontSize: 12, fontWeight: "600" }}> {showOriginal ? "Hide original" : "Show original"}</Text>
-            <Ionicons name={showOriginal ? "chevron-up" : "chevron-down"} size={12} color={t.muted} />
-          </Pressable>
-        ) : null}
-      </View>
+      {original ? (
+        <Pressable onPress={() => setShowOriginal((x) => !x)} hitSlop={8} accessibilityRole="button" style={{ flexDirection: "row", alignItems: "center", gap: 3, alignSelf: "flex-start", marginTop: 8 }}>
+          <Text style={{ color: t.muted, fontSize: 13, fontWeight: "600" }}>{showOriginal ? "Hide original" : "Show original"}</Text>
+          <Ionicons name={showOriginal ? "chevron-up" : "chevron-down"} size={13} color={t.muted} />
+        </Pressable>
+      ) : null}
       {showOriginal ? (
-        <View style={{ borderLeftWidth: 2, borderLeftColor: t.line, paddingLeft: space.m, marginTop: 6 }}>
+        <View style={{ borderLeftWidth: 2, borderLeftColor: t.line, paddingLeft: space.m, marginTop: 10 }}>
           <Text style={{ color: t.muted, fontSize: 15, lineHeight: 23 }}>{original}</Text>
           <Text style={{ color: t.faint, fontSize: 12, marginTop: 4 }}>From {it.sourceName}</Text>
         </View>
       ) : null}
+      {facts}
     </Animated.View>
   );
 }

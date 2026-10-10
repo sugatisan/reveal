@@ -83,7 +83,6 @@ export default function CuratorScreen() {
           ) : (
             <View key={i} style={{ backgroundColor: t.curatorBg, borderRadius: radius.l, padding: space.l, gap: space.s }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Ionicons name="sparkles" size={13} color={t.curatorAccent} />
                 <Text style={{ color: t.curatorAccent, fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }}>CURATOR</Text>
               </View>
               <Text style={{ color: t.curatorInk, fontFamily: serif, fontSize: 18, lineHeight: 25 }}>{turn.text}</Text>

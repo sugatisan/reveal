@@ -10,7 +10,7 @@ import { useTheme } from "@/lib/theme";
 type Glyph = keyof typeof Ionicons.glyphMap;
 export const TABS: { name: string; title: string; icon: Glyph; active: Glyph }[] = [
   { name: "index", title: "Feed", icon: "albums-outline", active: "albums" },
-  { name: "curator", title: "Curator", icon: "sparkles-outline", active: "sparkles" },
+  { name: "curator", title: "Curator", icon: "chatbubble-ellipses-outline", active: "chatbubble-ellipses" },
   { name: "saved", title: "Saved", icon: "bookmark-outline", active: "bookmark" },
   { name: "sources", title: "Sources", icon: "radio-outline", active: "radio" },
   { name: "search", title: "Search", icon: "search-outline", active: "search" },

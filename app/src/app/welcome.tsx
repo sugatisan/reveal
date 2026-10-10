@@ -30,7 +30,7 @@ export default function Welcome() {
           <Text style={{ color: t.muted, fontSize: 16, lineHeight: 23 }}>Type a few things, separated by commas. The curator finds the best sources for each, checks that they work, and builds your feed.</Text>
           <TextInput value={text} onChangeText={setText} multiline placeholder="mid-century furniture, Japanese craft, LEGO, vintage watches" placeholderTextColor={t.faint}
             style={{ minHeight: 96, color: t.ink, backgroundColor: t.card, borderRadius: radius.m, padding: space.l, fontSize: 18, borderWidth: 1, borderColor: t.line, textAlignVertical: "top" }} />
-          <Button label="Build my feed" icon="sparkles" busy={busy === "parse"} disabled={!text.trim() || !!busy} onPress={() => go("parse", () => api("/api/interests/parse", { text }))} />
+          <Button label="Build my feed" busy={busy === "parse"} disabled={!text.trim() || !!busy} onPress={() => go("parse", () => api("/api/interests/parse", { text }))} />
           {busy ? (
             <View style={{ flexDirection: "row", gap: space.s, alignItems: "center" }}>
               <ActivityIndicator size="small" color={t.muted} />

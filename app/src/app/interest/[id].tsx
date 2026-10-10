@@ -104,7 +104,6 @@ export default function InterestScreen() {
           ) : <Text style={{ color: t.muted }}>Nothing added yet. Add names, terms or ideas you like.</Text>}
           <Field value={sub} onChange={setSub} onSubmit={addSub} placeholder="Add something you like, e.g. Knoll, teak, Eichler" action="Add" busy={busy === "subs"} />
           <View style={[st.ideasHead, { borderTopColor: t.line }]}>
-            <Ionicons name="sparkles" size={14} color={t.curatorAccent} />
             <Text style={{ color: t.ink, fontWeight: "600", flex: 1 }}>Ideas from the curator</Text>
           </View>
           {ideas === null || (ideasBusy && !ideas?.length) ? (
@@ -150,7 +149,7 @@ export default function InterestScreen() {
           ))}
           <View style={st.chips}>
             {i.suggested.length > 3 ? <Button label={moreOpen ? "Show fewer" : `Show ${i.suggested.length - 3} more`} kind="ghost" onPress={() => setMoreOpen(!moreOpen)} /> : null}
-            <Button label="Find more sources" kind="curator" icon="sparkles-outline" busy={busy === "more"}
+            <Button label="Find more sources" kind="curator" busy={busy === "more"}
               onPress={() => run("more", () => api("/api/interests/more", { id: i.id })).then((r: any) => r && setNote(r.added ? `Added ${r.added} suggestion${r.added === 1 ? "" : "s"}.` : "No new sources found this time."))} />
           </View>
           {busy === "more" ? <Text style={{ color: t.muted, fontSize: 13 }}>The curator is looking and checking each feed. This can take half a minute.</Text> : note ? <Text style={{ color: t.muted, fontSize: 13 }}>{note}</Text> : null}
