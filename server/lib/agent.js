@@ -160,6 +160,28 @@ Return JSON only: {"topics": ["", ""]}`;
   return (out.topics || []).map((t) => String(t).trim()).filter((t) => t && t.length <= 30).slice(0, 2);
 }
 
+const KINDS = {
+  names: "proper nouns: makers, brands, designers, people, studios, series",
+  terms: "styles, techniques, materials, eras and vocabulary insiders use (no people, brands or other proper names)",
+  nearby: "adjacent subjects or movements this person would likely also enjoy, each broad enough to be its own interest (no people, brands or designers)",
+};
+
+// More of one kind, skipping everything already shown.
+export async function moreConcepts(interest, kind, exclude = [], titles = []) {
+  if (!hasKey() || !KINDS[kind]) return [];
+  const prompt = `Interest: "${interest.label}"${interest.subs?.length ? `. Already focused on: ${interest.subs.join(", ")}` : ""}.
+Recent story titles from their sources:
+${titles.slice(0, 15).map((x) => `- ${x}`).join("\n") || "(none yet)"}
+
+Suggest 6 more ${KINDS[kind]} that would help refine this interest, most useful first. Go a level deeper or more specialist than the obvious picks. Do NOT repeat any of: ${[...exclude, ...(interest.subs || [])].join(", ") || "(none)"}.
+Each 1-3 words as they'd appear in a headline; "why" at most 8 words.
+Return JSON only: {"items":[{"term":"","why":""}]}`;
+  const out = json(await claude({ system: "You are the curator inside a personal discovery feed. Reply with JSON only.", prompt, maxTokens: 500 }));
+  const seen = new Set([...exclude, ...(interest.subs || [])].map((x) => x.toLowerCase()));
+  return (out.items || []).map((x) => ({ term: String(x.term || x).trim(), why: String(x.why || "").trim() }))
+    .filter((x) => x.term && x.term.length <= 32 && !seen.has(x.term.toLowerCase())).slice(0, 6);
+}
+
 // Ideas to refine an interest with: names, terms and nearby topics a person could add as focus areas.
 // Grounded in recent story titles from the interest's own sources. Focus areas boost stories that mention them.
 export async function concepts(interest, titles = []) {
@@ -173,9 +195,10 @@ Recent story titles from their sources:
 ${titles.slice(0, 15).map((x) => `- ${x}`).join("\n") || "(none yet)"}
 
 Suggest ways to refine this interest: specific things a knowledgeable fan would want more of. Group them:
-- "names": makers, brands, designers, people, studios, series (proper nouns)
-- "terms": styles, techniques, materials, eras, vocabulary insiders use
-- "nearby": adjacent topics this person would likely also enjoy
+- "names": ${KINDS.names}
+- "terms": ${KINDS.terms}
+- "nearby": ${KINDS.nearby}
+Never put the same thing in two groups.
 Each 1-3 words, as they'd appear in a headline. 4-6 per group, most useful first. Skip anything already in their focus. "why" is at most 8 words.
 Return JSON only: {"names":[{"term":"","why":""}],"terms":[...],"nearby":[...]}`;
   const out = json(await claude({ system: "You are the curator inside a personal discovery feed. Reply with JSON only.", prompt, maxTokens: 900 }));

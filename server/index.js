@@ -262,10 +262,21 @@ const routes = {
 
   "POST /api/interests/concepts": async (req) => {
     // Cached on the interest; refresh: true asks the curator again.
-    const { id, refresh: again } = await body(req);
+    const { id, refresh: again, kind } = await body(req);
     const d = load();
     const i = d.interests.find((x) => x.id === id);
     if (!i) throw new Error("Interest not found");
+    if (kind && i.concepts) {
+      // "More" on one group: append to that group only.
+      const g = i.concepts.groups.find((x) => x.kind === kind);
+      const ids = new Set(i.sourceIds);
+      const titles = Object.values(d.items).filter((x) => ids.has(x.sourceId)).sort((a, b) => (b.date || 0) - (a.date || 0)).map((x) => x.title);
+      // Exclude every idea already shown in any group, so groups don't repeat each other.
+      const extra = await agent.moreConcepts(i, kind, i.concepts.groups.flatMap((x) => x.items.map((y) => y.term)), titles);
+      if (g) g.items.push(...extra);
+      save();
+      return { groups: i.concepts.groups, at: i.concepts.at, added: extra.length };
+    }
     if (!again && i.concepts && Date.now() - i.concepts.at < 7 * 864e5) return { groups: i.concepts.groups, at: i.concepts.at };
     const ids = new Set(i.sourceIds);
     const titles = Object.values(d.items).filter((x) => ids.has(x.sourceId)).sort((a, b) => (b.date || 0) - (a.date || 0)).map((x) => x.title);

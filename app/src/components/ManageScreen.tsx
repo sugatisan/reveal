@@ -90,7 +90,7 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
             </View>
             <Text style={{ color: t.curatorMuted }}>
               {overlap.kind === "narrower"
-                ? `Add “${overlap.focus}” as a focus there, so those stories rank higher in ${overlap.label}. Or keep it as its own interest with its own pill.`
+                ? `Add “${overlap.focus}” to ${overlap.label} as something you like: its stories get more weight there, and you still see the rest. Or keep it as its own interest with its own pill.`
                 : `Open it to refine what it covers, or create a separate interest anyway.`}
             </Text>
             <View style={{ flexDirection: "row", gap: space.s, flexWrap: "wrap" }}>

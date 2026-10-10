@@ -29,11 +29,19 @@ export default function InterestScreen() {
   const [note, setNote] = useState("");
   const [ideas, setIdeas] = useState<ConceptGroup[] | null>(null);
   const [ideasBusy, setIdeasBusy] = useState(false);
-  const loadIdeas = (again = false) => {
+  const [moreBusy, setMoreBusy] = useState("");
+  const [spent, setSpent] = useState<Record<string, boolean>>({});
+  const loadIdeas = () => {
     if (!id) return;
     setIdeasBusy(true);
-    api<{ groups: ConceptGroup[] }>("/api/interests/concepts", { id, refresh: again })
+    api<{ groups: ConceptGroup[] }>("/api/interests/concepts", { id })
       .then((r) => setIdeas(r.groups)).catch(() => setIdeas((g) => g || [])).finally(() => setIdeasBusy(false));
+  };
+  const moreIdeas = (kind: string) => {
+    setMoreBusy(kind);
+    api<{ groups: ConceptGroup[]; added: number }>("/api/interests/concepts", { id, kind })
+      .then((r) => { setIdeas(r.groups); if (!r.added) setSpent((x) => ({ ...x, [kind]: true })); })
+      .catch(() => setSpent((x) => ({ ...x, [kind]: true }))).finally(() => setMoreBusy(""));
   };
   useEffect(() => { loadIdeas(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -82,23 +90,22 @@ export default function InterestScreen() {
             </Pressable>
           )}
           <Text style={{ color: t.muted, marginTop: 4 }}>
-            {i.sources.length} source{i.sources.length === 1 ? "" : "s"}{i.newCount ? ` · ${i.newCount} new` : ""}{i.subs.length ? ` · focused on ${i.subs.length}` : ""}
+            {i.sources.length} source{i.sources.length === 1 ? "" : "s"}{i.newCount ? ` · ${i.newCount} new` : ""}{i.subs.length ? ` · ${i.subs.length} things you like` : ""}
           </Text>
         </View>
         <ErrorLine text={error} />
 
-        <Section title="Refine" hint="What this interest is about. Stories that mention a focus rank higher; nothing is hidden.">
+        <Section title="Refine" hint="Things you especially like here. Stories about them get more weight; you still see everything else.">
           {i.clarify ? <Text style={{ color: t.ink }}>{i.clarify.question}</Text> : null}
           {i.subs.length ? (
             <View style={st.chips}>
               {i.subs.map((s) => <Chip key={s} label={s} active icon="close" onPress={() => setSubs(i.subs.filter((x) => x !== s))} />)}
             </View>
-          ) : <Text style={{ color: t.muted }}>No focus yet. Add names, terms or ideas you want more of.</Text>}
-          <Field value={sub} onChange={setSub} onSubmit={addSub} placeholder="Add a focus, e.g. Knoll, teak, Eichler" action="Add" busy={busy === "subs"} />
+          ) : <Text style={{ color: t.muted }}>Nothing added yet. Add names, terms or ideas you like.</Text>}
+          <Field value={sub} onChange={setSub} onSubmit={addSub} placeholder="Add something you like, e.g. Knoll, teak, Eichler" action="Add" busy={busy === "subs"} />
           <View style={[st.ideasHead, { borderTopColor: t.line }]}>
             <Ionicons name="sparkles" size={14} color={t.curatorAccent} />
             <Text style={{ color: t.ink, fontWeight: "600", flex: 1 }}>Ideas from the curator</Text>
-            {ideas?.length ? <Pressable onPress={() => loadIdeas(true)} disabled={ideasBusy} hitSlop={8}><Text style={{ color: t.muted, fontSize: 13 }}>{ideasBusy ? "Thinking…" : "More ideas"}</Text></Pressable> : null}
           </View>
           {ideas === null || (ideasBusy && !ideas?.length) ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
@@ -106,13 +113,22 @@ export default function InterestScreen() {
               <Text style={{ color: t.muted, fontSize: 13 }}>Thinking of names, terms and nearby topics…</Text>
             </View>
           ) : null}
-          {(ideas || []).map((g) => {
-            const left = g.items.filter((x) => !i.subs.some((s) => s.toLowerCase() === x.term.toLowerCase()));
-            return left.length ? (
+          {(ideas || []).map((g, gi, all) => {
+            // Hide ideas already in focus, and any an earlier group already shows.
+            const earlier = new Set(all.slice(0, gi).flatMap((x) => x.items.map((y) => y.term.toLowerCase())));
+            const left = g.items.filter((x) => !earlier.has(x.term.toLowerCase()) && !i.subs.some((s) => s.toLowerCase() === x.term.toLowerCase()));
+            // Keep a group with nothing left if it can still offer More.
+            return left.length || (state.hasKey && !spent[g.kind]) ? (
               <View key={g.kind} style={{ gap: 6 }}>
                 <Text style={[st.label, { color: t.muted }]}>{g.title.toUpperCase()}</Text>
                 <View style={st.chips}>
                   {left.map((x) => <Chip key={x.term} label={x.term} icon="add" tone="curator" onPress={() => setSubs([...i.subs, x.term])} />)}
+                  {state.hasKey && !spent[g.kind] ? (
+                    <Pressable onPress={() => moreIdeas(g.kind)} disabled={!!moreBusy} hitSlop={6} accessibilityLabel={`More ${g.title.toLowerCase()}`}
+                      style={[st.more, { borderColor: t.line, opacity: moreBusy && moreBusy !== g.kind ? 0.5 : 1 }]}>
+                      {moreBusy === g.kind ? <ActivityIndicator size="small" color={t.muted} /> : <Text style={{ color: t.muted, fontSize: 13, fontWeight: "600" }}>More</Text>}
+                    </Pressable>
+                  ) : null}
                 </View>
               </View>
             ) : null;
@@ -211,6 +227,7 @@ const st = StyleSheet.create({
   section: { marginHorizontal: space.l, marginBottom: space.l, padding: space.l, borderRadius: radius.l, gap: space.s },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   label: { fontSize: 12, fontWeight: "700", letterSpacing: 0.6 },
+  more: { borderWidth: 1, borderStyle: "dashed", borderRadius: 999, paddingHorizontal: 12, minHeight: 30, minWidth: 56, alignItems: "center", justifyContent: "center" },
   ideasHead: { flexDirection: "row", alignItems: "center", gap: 6, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: space.m, marginTop: space.s },
   rule: { flexDirection: "row", alignItems: "center", gap: space.m, paddingVertical: 4 },
 });
