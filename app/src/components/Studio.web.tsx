@@ -17,7 +17,7 @@ const ON = typeof window !== "undefined" && studioOn();
 
 // Shrink the phone to fit short windows (like the desktop app's browser pane); never enlarge it.
 function useFit() {
-  const calc = () => (typeof window === "undefined" ? 1 : Math.min(1, (window.innerHeight - 70) / (844 + 24), (window.innerWidth - 360 - 48) / (390 + 24)));
+  const calc = () => (typeof window === "undefined" ? 1 : Math.min(1, (window.innerHeight - 60) / 844, (window.innerWidth - 360 - 32) / 390));
   const [s, setS] = useState(calc);
   useEffect(() => { const on = () => setS(calc()); window.addEventListener("resize", on); return () => window.removeEventListener("resize", on); }, []);
   return Math.max(0.4, s);
@@ -32,12 +32,14 @@ function StudioFrame({ children }: { children: ReactNode }) {
   const fit = useFit();
   return (
     <div style={css.page}>
+      <style>{`.studio-screen *{scrollbar-width:none}.studio-screen *::-webkit-scrollbar{display:none;width:0;height:0}`}</style>
       <div style={css.stage}>
         {/* The box keeps the scaled phone's real footprint so the caption sits right under it. */}
-        <div style={{ width: (390 + 24) * fit, height: (844 + 24) * fit, flexShrink: 0 }}>
-        <div style={{ ...css.phone, transform: `scale(${fit})`, transformOrigin: "top left" }}>
-          <div style={css.screen}>{children}<div id="studio-layer" style={{ position: "absolute", inset: 0, zIndex: 1000, pointerEvents: "none" }} /></div>
-        </div>
+        <div style={{ width: 390 * fit, height: 844 * fit, flexShrink: 0 }}>
+          <div className="studio-screen" style={{ ...css.screen, transform: `scale(${fit})`, transformOrigin: "top left" }}>
+            {children}
+            <div id="studio-layer" style={{ position: "absolute", inset: 0, zIndex: 1000, pointerEvents: "none" }} />
+          </div>
         </div>
         <div style={css.caption}>390 × 844{fit < 1 ? ` shown at ${Math.round(fit * 100)}%` : ""} · your phone in Expo Go mirrors these settings</div>
       </div>
@@ -121,9 +123,8 @@ function Row({ c, value }: { c: Control; value: any }) {
 const css: Record<string, React.CSSProperties> = {
   page: { position: "fixed", inset: 0, display: "flex", background: "#14161B", color: "#E9ECF2", fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter', sans-serif" },
   stage: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, minWidth: 0, overflow: "auto", padding: 16 },
-  phone: { width: 390 + 24, height: 844 + 24, padding: 12, borderRadius: 60, background: "#0A0B0E", boxShadow: "0 30px 80px rgba(0,0,0,.55), inset 0 0 0 2px #2A2E37", flexShrink: 0 },
   // transform makes this the containing block, so the app's absolutely positioned layers stay inside the phone
-  screen: { width: 390, height: 844, borderRadius: 48, overflow: "hidden", position: "relative", transform: "translateZ(0)", display: "flex" },
+  screen: { width: 390, height: 844, overflow: "hidden", position: "relative", display: "flex", boxShadow: "0 12px 40px rgba(0,0,0,.45)" },
   caption: { fontSize: 12, color: "#8FA0BA" },
   panel: { width: 360, flexShrink: 0, display: "flex", flexDirection: "column", background: "#1B1F27", borderLeft: "1px solid #2A2E37" },
   panelHead: { padding: 20, borderBottom: "1px solid #2A2E37" },
