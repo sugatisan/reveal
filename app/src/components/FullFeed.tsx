@@ -2,7 +2,7 @@
 // Full-bleed image, the essentials at the bottom, and a Details control that opens a sheet with the rest.
 import { useState } from "react";
 import { ActivityIndicator } from "react-native";
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View, ViewToken } from "react-native";
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, ViewToken } from "react-native";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ago, CuratorCard, FeedEntry, FeedItem, sendEvents } from "@/lib/api";
@@ -22,8 +22,8 @@ function Fade({ from, height, max }: { from: "top" | "bottom"; height: number; m
   );
 }
 
-export function FullFeed({ entries, height, topSpace, bottomSpace, onSave, onLess, onViewable, refreshing, onRefresh, curator }: {
-  entries: FeedEntry[]; height: number; topSpace: number; bottomSpace: number;
+export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpace, onSave, onLess, onViewable, refreshing, onRefresh, curator }: {
+  entries: FeedEntry[]; loaded: boolean; listKey: string; height: number; topSpace: number; bottomSpace: number;
   onSave: (it: FeedItem) => void; onLess: (id: string) => void;
   onViewable: (info: { viewableItems: ViewToken[] }) => void;
   refreshing: boolean; onRefresh: () => void;
@@ -33,6 +33,17 @@ export function FullFeed({ entries, height, topSpace, bottomSpace, onSave, onLes
   const [details, setDetails] = useState<string | null>(null);
   const openDetails = (it: FeedItem) => { sendEvents([{ itemId: it.id, type: "expand" }]).catch(() => {}); setDetails(it.id); };
   if (!height) return null;
+  // Nothing to page through: say so instead of showing a black screen.
+  if (loaded && !entries.length) return (
+    <ScrollView contentContainerStyle={{ height, alignItems: "center", justifyContent: "center", paddingHorizontal: space.xl, gap: space.s }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" progressViewOffset={topSpace} />}>
+      <Ionicons name="albums-outline" size={36} color="rgba(255,255,255,0.5)" />
+      <Text style={{ color: "#fff", fontFamily: serif, fontSize: 24, textAlign: "center" }}>Nothing here yet</Text>
+      <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 15, textAlign: "center", lineHeight: 21 }}>
+        No stories from this interest's sources so far. Pull down to check again, or open the interest to add sources.
+      </Text>
+    </ScrollView>
+  );
 
   const page = (e: FeedEntry) => {
     if (e.type === "curator") return <CuratorPage card={e} height={height} topSpace={topSpace} bottomSpace={bottomSpace} {...curator} />;
@@ -76,6 +87,8 @@ export function FullFeed({ entries, height, topSpace, bottomSpace, onSave, onLes
   return (
     <>
       <FlatList
+        // A new interest starts at the top. Keeping the old scroll position past the new list's end left a black screen.
+        key={listKey}
         data={entries}
         keyExtractor={(e) => (e.type === "curator" ? "c-" + e.id : e.id)}
         renderItem={({ item }) => page(item)}
@@ -87,8 +100,8 @@ export function FullFeed({ entries, height, topSpace, bottomSpace, onSave, onLes
         onViewableItemsChanged={onViewable}
         viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" progressViewOffset={topSpace} />}
-        windowSize={3}
-        initialNumToRender={2}
+        windowSize={5}
+        initialNumToRender={3}
         maxToRenderPerBatch={2}
       />
       <StorySheet itemId={details} onClose={() => setDetails(null)} onPick={(id) => setDetails(id)} />

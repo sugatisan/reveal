@@ -173,7 +173,7 @@ export default function FeedScreen() {
       onLayout={(e) => setPageH(Math.round(e.nativeEvent.layout.height))}>
       {full ? (
         <>
-          <FullFeed entries={(feed?.entries || [])} height={pageH} topSpace={headerH || insets.top + 50} bottomSpace={tabSpace}
+          <FullFeed entries={(feed?.entries || [])} loaded={!!feed} listKey={lens ? `${lens.kind}:${lens.id}` : "all"} height={pageH} topSpace={headerH || insets.top + 50} bottomSpace={tabSpace}
             onSave={save} onLess={setLessFor} onViewable={onViewable} refreshing={refreshing} onRefresh={pull}
             curator={{ follow, ask, dismiss: dismissCard }} />
           {!feed || error || stateError ? (
