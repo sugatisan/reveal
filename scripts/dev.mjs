@@ -14,16 +14,37 @@ if (!fs.existsSync("app/node_modules") || installedFor !== here) {
   fs.writeFileSync(MARK, here);
 }
 
-const procs = [
-  ["api", "node", ["--watch-path=server", "server/index.js"], {}],
-  ["app", "npx", ["expo", "start", ...process.argv.slice(2)], { cwd: "app" }],
-].map(([name, cmd, args, opts]) => {
-  const p = spawn(cmd, args, { ...opts, stdio: name === "app" ? "inherit" : ["ignore", "pipe", "pipe"], env: process.env });
-  if (p.stdout) p.stdout.on("data", (d) => process.stdout.write(`[api] ${d}`));
-  if (p.stderr) p.stderr.on("data", (d) => process.stderr.write(`[api] ${d}`));
-  p.on("exit", (code) => { console.log(`[${name}] stopped (${code})`); stop(); });
-  return p;
+// The API restarts itself when server code changes, and after a crash (node --watch would sit and wait
+// for the next edit, leaving the app saying "can't reach the server").
+let api = null, stopping = false, restarting = false, backoff = 1000, debounce = null;
+function startApi() {
+  api = spawn("node", ["server/index.js"], { stdio: ["ignore", "pipe", "pipe"], env: process.env });
+  const started = Date.now();
+  api.stdout.on("data", (d) => process.stdout.write(`[api] ${d}`));
+  api.stderr.on("data", (d) => process.stderr.write(`[api] ${d}`));
+  api.on("exit", (code) => {
+    if (stopping) return;
+    if (restarting) { restarting = false; startApi(); return; }
+    backoff = Date.now() - started > 10000 ? 1000 : Math.min(backoff * 2, 8000);
+    console.log(`[api] stopped (${code}). Restarting in ${backoff / 1000}s…`);
+    setTimeout(() => !stopping && startApi(), backoff);
+  });
+}
+function restartApi() {
+  if (!api || api.exitCode !== null) return startApi();
+  restarting = true;
+  api.kill("SIGTERM");
+  setTimeout(() => { if (restarting && api.exitCode === null) api.kill("SIGKILL"); }, 3000);
+}
+startApi();
+fs.watch("server", { recursive: true }, (_, file) => {
+  if (!file || !/\.(m?js|json)$/.test(file)) return;
+  clearTimeout(debounce);
+  debounce = setTimeout(() => { console.log(`[api] ${file} changed, restarting…`); restartApi(); }, 400);
 });
-function stop() { for (const p of procs) if (!p.killed) p.kill("SIGINT"); setTimeout(() => process.exit(0), 500); }
+
+const app = spawn("npx", ["expo", "start", ...process.argv.slice(2)], { cwd: "app", stdio: "inherit", env: process.env });
+app.on("exit", (code) => { console.log(`[app] stopped (${code})`); stop(); });
+function stop() { stopping = true; for (const p of [api, app]) if (p && p.exitCode === null) p.kill("SIGINT"); setTimeout(() => process.exit(0), 500); }
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);

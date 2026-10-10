@@ -94,6 +94,10 @@ export function feedCards(items, { interestId } = {}) {
       type: "curator", kind: "deeper", id, itemId: it.id,
       title: savedIds.includes(it.id) ? `You saved “${short}”. Want more like it?` : `${(it.also || []).length + 1} of your sources covered “${short}”.`,
       prompt: `More like “${short}”`,
+      // Parts for layouts that have room (full screen): kicker, the story's full title, the question, and its image.
+      kicker: savedIds.includes(it.id) ? "Because you saved" : `Covered by ${(it.also || []).length + 1} of your sources`,
+      headline: it.title, question: savedIds.includes(it.id) ? "Want more like it?" : "Want the bigger picture?",
+      image: it.image || (it.images || [])[0] || null, sourceName: d.sources[it.sourceId]?.name || "",
     });
     if (cards.filter((c) => c.kind === "deeper").length >= 2) break;
   }
