@@ -4,7 +4,7 @@ import { load, stat } from "./store.js";
 import { penalty } from "./tuning.js";
 
 const singular = (w) => w.toLowerCase().replace(/ies$/, "y").replace(/s$/, "");
-function subMatch(item, subs) {
+export function subMatch(item, subs) {
   const hay = (item.title + " " + item.excerpt + " " + (item.tags || []).join(" ")).toLowerCase();
   for (const s of subs) {
     const words = s.toLowerCase().split(/\s+/).filter((w) => w.length > 2).map(singular);

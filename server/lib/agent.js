@@ -1,6 +1,7 @@
 // The curator: Claude turns typed interests into structured interests and finds sources.
 // Without an API key, everything falls back to the built-in catalog.
 import fs from "node:fs";
+import { record } from "./usage.js";
 
 export const catalog = JSON.parse(fs.readFileSync(new URL("../catalog.json", import.meta.url), "utf8"));
 
@@ -8,7 +9,7 @@ const MODEL = () => process.env.DF_MODEL || "claude-sonnet-5-5";
 const FAST = () => process.env.DF_FAST_MODEL || "claude-haiku-5-5";
 export const hasKey = () => !!process.env.ANTHROPIC_API_KEY;
 
-export async function claude({ system, prompt, model = MODEL(), maxTokens = 2500 }) {
+export async function claude({ system, prompt, model = MODEL(), maxTokens = 2500, purpose = "other" }) {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -20,6 +21,8 @@ export async function claude({ system, prompt, model = MODEL(), maxTokens = 2500
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body?.error?.message || `Claude API error ${res.status}`);
+  const u = body.usage || {};
+  record({ purpose, model, input: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), output: u.output_tokens || 0, cached: u.cache_read_input_tokens || 0 });
   return (body.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
 }
 
@@ -55,7 +58,7 @@ Known catalog sources (reuse when they fit):
 ${catalogSummary()}
 
 Return: {"interests":[{"label":"","merged":[],"clarify":null,"subs":[],"sources":[{"name":"","site":"","feed":null,"why":""}]}]}`;
-  const out = json(await claude({ system, prompt, maxTokens: 4000 }));
+  const out = json(await claude({ system, prompt, maxTokens: 4000, purpose: "interests" }));
   return (out.interests || []).filter((i) => i.label);
 }
 
@@ -73,7 +76,7 @@ Find 8 more sources they don't have, best first. Include a few specialist or sma
 ${SOURCE_RULES}
 
 Return: {"sources":[{"name":"","site":"","feed":null,"why":""}]}`;
-  const out = json(await claude({ system, prompt }));
+  const out = json(await claude({ system, prompt, purpose: "sources" }));
   return out.sources || [];
 }
 
@@ -84,7 +87,7 @@ Title: ${item.title}
 Excerpt: ${item.excerpt}
 
 Write 2 or 3 plain sentences on what this piece is about and what makes it interesting. Use your own words; don't copy sentences from the excerpt, and don't add facts that aren't in it. No preamble.`;
-  return (await claude({ system: "You write short, plain summaries for a discovery feed.", prompt, model: FAST(), maxTokens: 300 })).trim();
+  return (await claude({ system: "You write short, plain summaries for a discovery feed.", prompt, model: FAST(), maxTokens: 300, purpose: "summary" })).trim();
 }
 
 function sameHost(a, b) {
@@ -140,7 +143,7 @@ Return:
  "followups": ["2-3 short things they might ask next, in their voice, under 6 words each"]}
 
 ${SOURCE_RULES}`;
-  const out = json(await claude({ system, prompt, maxTokens: 1800 }));
+  const out = json(await claude({ system, prompt, maxTokens: 1800, purpose: "curator" }));
   return {
     reply: String(out.reply || "").trim(),
     items: Array.isArray(out.items) ? out.items.map(String) : [],
@@ -156,7 +159,7 @@ export async function topicsFor(item, sourceName) {
 
 Name the 2 most specific things this story is about that a reader might want to see less of: a brand, product, franchise, person, or subject. 1-3 words each, as a reader would say them (e.g. "Tesla", "Cybertruck", "Hello Kitty", "EV sales"). Never a generic word like "news" or "products".
 Return JSON only: {"topics": ["", ""]}`;
-  const out = json(await claude({ system: "You label stories for a discovery feed. Reply with JSON only.", prompt, model: FAST(), maxTokens: 100 }));
+  const out = json(await claude({ system: "You label stories for a discovery feed. Reply with JSON only.", prompt, model: FAST(), maxTokens: 100, purpose: "less-topics" }));
   return (out.topics || []).map((t) => String(t).trim()).filter((t) => t && t.length <= 30).slice(0, 2);
 }
 
@@ -176,7 +179,7 @@ ${titles.slice(0, 15).map((x) => `- ${x}`).join("\n") || "(none yet)"}
 Suggest 6 more ${KINDS[kind]} that would help refine this interest, most useful first. Go a level deeper or more specialist than the obvious picks. Do NOT repeat any of: ${[...exclude, ...(interest.subs || [])].join(", ") || "(none)"}.
 Each 1-3 words as they'd appear in a headline; "why" at most 8 words.
 Return JSON only: {"items":[{"term":"","why":""}]}`;
-  const out = json(await claude({ system: "You are the curator inside a personal discovery feed. Reply with JSON only.", prompt, maxTokens: 500 }));
+  const out = json(await claude({ system: "You are the curator inside a personal discovery feed. Reply with JSON only.", prompt, maxTokens: 500, purpose: "ideas" }));
   const seen = new Set([...exclude, ...(interest.subs || [])].map((x) => x.toLowerCase()));
   return (out.items || []).map((x) => ({ term: String(x.term || x).trim(), why: String(x.why || "").trim() }))
     .filter((x) => x.term && x.term.length <= 32 && !seen.has(x.term.toLowerCase())).slice(0, 6);
@@ -201,7 +204,7 @@ Suggest ways to refine this interest: specific things a knowledgeable fan would 
 Never put the same thing in two groups.
 Each 1-3 words, as they'd appear in a headline. 4-6 per group, most useful first. Skip anything already in their focus. "why" is at most 8 words.
 Return JSON only: {"names":[{"term":"","why":""}],"terms":[...],"nearby":[...]}`;
-  const out = json(await claude({ system: "You are the curator inside a personal discovery feed. Reply with JSON only.", prompt, maxTokens: 900 }));
+  const out = json(await claude({ system: "You are the curator inside a personal discovery feed. Reply with JSON only.", prompt, maxTokens: 900, purpose: "ideas" }));
   const have = new Set((interest.subs || []).map((s) => s.toLowerCase()));
   const clean = (a) => (Array.isArray(a) ? a : []).map((x) => ({ term: String(x.term || x).trim(), why: String(x.why || "").trim() }))
     .filter((x) => x.term && x.term.length <= 32 && !have.has(x.term.toLowerCase())).slice(0, 6);
@@ -210,4 +213,30 @@ Return JSON only: {"names":[{"term":"","why":""}],"terms":[...],"nearby":[...]}`
     { kind: "terms", title: "Ideas and terms", items: clean(out.terms) },
     { kind: "nearby", title: "Nearby", items: clean(out.nearby) },
   ].filter((g) => g.items.length);
+}
+
+// Everything the story page needs, in one fast call. It depends only on the story, never on the
+// reader, so it's computed once and shared by everyone who opens it.
+export const BRIEF_VERSION = 2; // bump to refresh stored briefs after changing the prompt
+export async function storyBrief(item, sourceName, articleText = "") {
+  if (!hasKey()) return null;
+  const body = (articleText || item.excerpt || "").slice(0, 6000);
+  if (!body) return null;
+  const prompt = `Source: ${sourceName}
+Title: ${item.title}
+${articleText ? "Article text" : "Excerpt"}:
+"""${body}"""
+
+Return JSON only:
+{"gist": "1-2 plain sentences: what happened or what this is, and the one detail that makes it worth reading. Facts only, in your own words. No commentary on the writing, tone or author. Don't add anything that isn't in the text.",
+ "facts": [up to 4 {"label": "", "value": ""}: only prices, dates, places to buy or see it, sizes, specs or other numbers stated in the text. Never a brand, company, person or category name. Labels 1-2 words. [] when there are none, which is normal for news and opinion],
+ "questions": [2-3 questions a curious reader might ask next, 3-5 words each, in their voice, e.g. "Who else makes these?", "When does it ship?"]}`;
+  const out = json(await claude({ system: "You brief readers on stories in a discovery feed. Reply with JSON only.", prompt, model: FAST(), maxTokens: 450, purpose: "story-brief" }));
+  return {
+    gist: String(out.gist || "").trim(),
+    facts: (Array.isArray(out.facts) ? out.facts : []).filter((f) => f?.label && f?.value).slice(0, 4).map((f) => ({ label: String(f.label).slice(0, 24), value: String(f.value).slice(0, 60) })),
+    questions: (Array.isArray(out.questions) ? out.questions : []).map(String).filter((q) => q.length <= 40).slice(0, 3),
+    from: articleText ? "article" : "excerpt",
+    v: BRIEF_VERSION,
+  };
 }

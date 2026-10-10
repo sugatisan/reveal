@@ -14,9 +14,10 @@ try {
 } catch {}
 
 const { load, save, flush, reset, hash, slug, upsertSource, sourceIdFor, followedIds, stat } = await import("./lib/store.js");
-const { discoverFeed, cadence, cadenceLabel, normalizeUrl, articleImages } = await import("./lib/feeds.js");
+const { discoverFeed, cadence, cadenceLabel, normalizeUrl, articlePage } = await import("./lib/feeds.js");
 const { refresh, isRefreshing, fetchSource, storeItems, mergeDuplicates } = await import("./lib/ingest.js");
-const { buildFeed, suggestionsFor } = await import("./lib/rank.js");
+const { buildFeed, suggestionsFor, subMatch } = await import("./lib/rank.js");
+const usage = await import("./lib/usage.js");
 const agent = await import("./lib/agent.js");
 const curator = await import("./lib/curator.js");
 const tuning = await import("./lib/tuning.js");
@@ -36,7 +37,7 @@ const design = (() => {
 })();
 
 const PORT = +(process.env.PORT || 5177);
-const API_VERSION = 4; // bump when the app starts relying on new routes
+const API_VERSION = 5; // bump when the app starts relying on new routes
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
 const FOLLOW_FIRST = 3; // sources switched on per new interest; the rest wait as suggestions
 
@@ -160,26 +161,49 @@ async function peek(sourceId) {
   return data;
 }
 
+// Article text from the last page fetch, kept in memory only (never stored or shown in full).
+const pageText = new Map();
+
+// "Why it's here for you", from what you've told us. No AI: it's free, so it can go anywhere.
+function forYou(it, ints) {
+  const liked = [];
+  for (const i of ints) for (const s of i.subs || []) if (subMatch(it, [s]) && !liked.some((x) => x.like === s)) liked.push({ like: s, label: i.label });
+  if (liked.length) {
+    const names = liked.slice(0, 2).map((x) => x.like);
+    return `You like ${names.join(" and ")}${liked.length > 2 ? ` and ${liked.length - 2} more` : ""} in ${liked[0].label}`;
+  }
+  const also = (it.also || []).length;
+  if (also) return `Covered by ${also + 1} of your sources`;
+  return ints[0] ? `From ${ints[0].label}` : null;
+}
+
+// Gist, key facts and next questions for a story: one fast call, stored on the story for every reader.
+async function storyBrief(id) {
+  const d = load();
+  const it = d.items[id];
+  if (!it) throw new Error("Item not found");
+  if (it.brief && it.brief.v === agent.BRIEF_VERSION) return it.brief;
+  const src = d.sources[it.sourceId] || {};
+  let text = pageText.get(id) || "";
+  if (!text && it.link) { try { text = (await articlePage(it.link)).text; } catch {} }
+  it.brief = await agent.storyBrief(it, src.name, text);
+  if (it.brief) pageText.delete(id);
+  save();
+  return it.brief;
+}
+
 const tok = (s) => new Set(String(s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3));
 async function itemDetail(id) {
   const d = load();
   const it = d.items[id];
   if (!it) throw new Error("Item not found");
   const src = d.sources[it.sourceId] || {};
-  // Summary and the article's own images load together, once per story, then stay cached.
-  await Promise.all([
-    (async () => {
-      if (it.aiSummary === undefined && agent.hasKey()) {
-        try { it.aiSummary = await agent.summarize(it, src.name); } catch (e) { it.aiSummaryError = String(e.message || e); }
-      }
-    })(),
-    (async () => {
-      if (it.pageImages === undefined) {
-        try { it.pageImages = (await articleImages(it.link)).slice(0, 12); } catch { it.pageImages = []; }
-      }
-    })(),
-  ]);
-  save();
+  // The article page is fetched once: images go in the gallery, text is held briefly for the brief.
+  if (it.pageImages === undefined) {
+    try { const pg = await articlePage(it.link); it.pageImages = pg.images.slice(0, 12); if (pg.text) pageText.set(id, pg.text); }
+    catch { it.pageImages = []; }
+    save();
+  }
   const gk = (u) => u.replace(/[?#].*$/, "").replace(/-\d{2,4}x\d{2,4}(?=\.\w+$)/, "").toLowerCase();
   const gallery = [];
   for (const u of [it.image, ...(it.images || []), ...(it.pageImages || [])]) if (u && !gallery.some((g) => gk(g) === gk(u))) gallery.push(u);
@@ -197,6 +221,7 @@ async function itemDetail(id) {
   return {
     ...it, sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s),
     interests: ints.map((i) => ({ id: i.id, label: i.label })), related, deeper, saved: !!d.events[id]?.save, gallery: gallery.slice(0, 12),
+    brief: it.brief?.v === agent.BRIEF_VERSION ? it.brief : null, forYou: forYou(it, ints),
   };
 }
 
@@ -367,6 +392,8 @@ const routes = {
   },
 
   "GET /api/item": async (req, url) => itemDetail(url.searchParams.get("id")),
+  "POST /api/item/brief": async (req) => { const { id } = await body(req); return { brief: await storyBrief(id) }; },
+  "GET /api/usage": async (req, url) => usage.summary(Number(url.searchParams.get("days")) || 7),
 
   "POST /api/events": async (req) => {
     const { events = [] } = await body(req);

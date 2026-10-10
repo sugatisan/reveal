@@ -273,7 +273,20 @@ export function allImages(html = "", base, limit = 12) {
 }
 
 // Images from the article page itself: the main article body if the page marks one, plus og:image.
-export async function articleImages(url, { timeout = 7000 } = {}) {
+export async function articleImages(url, opts) { return (await articlePage(url, opts)).images; }
+
+// Readable text of the article body: its paragraphs, minus scripts, figures and asides. Used only to
+// brief the reader (never shown in full), so a rough extraction is fine.
+function articleText(body) {
+  const clean = body.replace(/<(script|style|noscript|figure|figcaption|aside|nav|footer|form|svg|iframe)\b[\s\S]*?<\/\1>/gi, " ");
+  const paras = [...clean.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/gi)]
+    .map((m) => decode(m[1].replace(/<[^>]+>/g, "")).replace(/\s+/g, " ").trim())
+    .filter((t) => t.length > 40 && !/^(advertisement|sign up|subscribe|related:|read more)/i.test(t));
+  return paras.join("\n").slice(0, 8000);
+}
+
+// One fetch of the article page: its images (for the gallery) and its text (for the brief).
+export async function articlePage(url, { timeout = 7000 } = {}) {
   const { text, url: finalUrl } = await fetchText(url, { timeout, accept: "text/html" });
   const og = (text.match(/<meta[^>]+property\s*=\s*["']og:image(?::url)?["'][^>]*>/i) || [])[0];
   const ogUrl = og ? absolutize((og.match(/content\s*=\s*["']([^"']+)["']/i) || [])[1], finalUrl) : "";
@@ -283,5 +296,7 @@ export async function articleImages(url, { timeout = 7000 } = {}) {
     (text.match(/<div[^>]+(?:class|id)\s*=\s*["'][^"']*(?:entry-content|post-content|article-body|story-body|post-body)[^"']*["'][\s\S]*?<\/div>\s*<\/div>/i) || [])[0] ||
     "";
   // Without a marked article body, the whole page is mostly navigation and ads; only trust og:image.
-  return [ogUrl, ...(body ? allImages(body, finalUrl, 12) : [])].filter(Boolean);
+  // No marked body: fall back to the page's longer paragraphs, if there are enough of them to be an article.
+  const fallback = body ? "" : articleText(text).split("\n").filter((p) => p.length > 80).join("\n");
+  return { images: [ogUrl, ...(body ? allImages(body, finalUrl, 12) : [])].filter(Boolean), text: body ? articleText(body) : fallback.length > 400 ? fallback : "" };
 }

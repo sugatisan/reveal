@@ -31,7 +31,10 @@ export async function api<T = any>(path: string, data?: unknown): Promise<T> {
 export type SourceView = { id: string; name: string; site: string; newCount?: number; why?: string; about?: string; status?: string; error?: string; perWeek?: number; cadence?: string; followed?: boolean; interestId?: string; interestLabel?: string };
 export type Interest = { id: string; label: string; origin: string; createdAt: number; lastViewedAt: number; newCount: number; subs: string[]; subSuggestions: string[]; clarify: { question: string; options: string[] } | null; merged: string[]; sources: SourceView[]; suggested: SourceView[] };
 export type TuningRule = { id: string; kind: "source" | "topic" | "interest" | "format"; value: string; label: string; at: number };
-export const NEEDS_API_VERSION = 4;
+export const NEEDS_API_VERSION = 5;
+export type StoryBrief = { gist: string; facts: { label: string; value: string }[]; questions: string[]; from: "article" | "excerpt" };
+export type UsageRow = { purpose: string; calls: number; input: number; output: number; cost: number; today: number };
+export type Usage = { days: number; priced: boolean; rows: UsageRow[]; total: { calls: number; input: number; output: number; cost: number } };
 export type ConceptGroup = { kind: "names" | "terms" | "nearby"; title: string; items: { term: string; why: string }[] };
 export type Overlap = { kind: "narrower"; interestId: string; label: string; focus: string } | { kind: "covered"; interestId: string; label: string };
 export type AppState = { apiVersion?: number; hasKey: boolean; tuning: TuningRule[]; interests: Interest[]; topics: { id: string; label: string }[]; lastRefresh: number; refreshing: boolean; itemCount: number; savedCount: number };
@@ -44,7 +47,7 @@ export type FeedEntry = FeedItem | CuratorCard;
 export type Feed = { entries: FeedEntry[]; caughtUp: number; lastRefresh: number; refreshing: boolean };
 export type MiniItem = { id: string; title: string; image?: string; excerpt?: string; link?: string; date?: number; sourceName?: string; saved?: boolean };
 export type Turn = { role: "user" | "curator"; text: string; itemId?: string; items?: MiniItem[]; sources?: SourceView[]; followups?: string[]; at: number };
-export type ItemDetail = FeedItem & { gallery?: string[]; aiSummary?: string | null; interests: { id: string; label: string }[]; related: MiniItem[]; deeper: SourceView[] };
+export type ItemDetail = FeedItem & { gallery?: string[]; aiSummary?: string | null; brief?: StoryBrief | null; forYou?: string | null; interests: { id: string; label: string }[]; related: MiniItem[]; deeper: SourceView[] };
 
 export const sendEvents = (events: { itemId: string; type: "shown" | "expand" | "open" | "save" | "less" }[]) => api<{ ok: boolean; saved?: boolean }>("/api/events", { events });
 

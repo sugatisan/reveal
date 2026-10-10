@@ -1,13 +1,13 @@
 // Everything across interests: add interests, every source in one list, feed-wide "less of" rules,
 // refresh and reset. Per-interest editing lives on the interest page (interest/[id]).
 // Used by the optional Sources tab and by the left panel's "All sources and settings".
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/components/TabBar";
-import { api, AppState, Overlap } from "@/lib/api";
+import { api, AppState, Overlap, Usage } from "@/lib/api";
 import { bumpFeed, setAppState, useAppState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Button, ErrorLine, Header } from "@/components/ui";
@@ -21,6 +21,8 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
   const [error, setError] = useState("");
   const [confirm, setConfirm] = useState("");
   const [overlap, setOverlap] = useState<Overlap | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
+  useEffect(() => { api<Usage>("/api/usage?days=7").then(setUsage).catch(() => {}); }, []);
 
   const run = async (key: string, fn: () => Promise<AppState | { state: AppState }>) => {
     setBusy(key); setError("");
@@ -147,6 +149,23 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
           </Card>
         ) : null}
 
+        {usage?.rows.length ? (
+          <Card title="AI usage, last 7 days" hint={usage.priced ? "Estimated from the prices in .env (DF_PRICES)." : "Tokens only. Add DF_PRICES to .env for cost estimates."}>
+            {usage.rows.map((r) => (
+              <View key={r.purpose} style={{ flexDirection: "row", alignItems: "baseline", gap: space.s, paddingVertical: 5 }}>
+                <Text style={{ color: t.ink, fontSize: 14, flex: 1 }}>{PURPOSE[r.purpose] || r.purpose}</Text>
+                <Text style={{ color: t.muted, fontSize: 12 }}>{r.calls} call{r.calls === 1 ? "" : "s"} · {k(r.input + r.output)} tokens</Text>
+                {usage.priced ? <Text style={{ color: t.ink, fontSize: 13, fontWeight: "600", minWidth: 52, textAlign: "right" }}>${r.cost.toFixed(r.cost < 1 ? 3 : 2)}</Text> : null}
+              </View>
+            ))}
+            <View style={{ flexDirection: "row", gap: space.s, paddingTop: 6, borderTopWidth: 1, borderTopColor: t.line, marginTop: 4 }}>
+              <Text style={{ color: t.ink, fontWeight: "700", flex: 1 }}>Total</Text>
+              <Text style={{ color: t.muted, fontSize: 12 }}>{usage.total.calls} calls · {k(usage.total.input + usage.total.output)} tokens</Text>
+              {usage.priced ? <Text style={{ color: t.ink, fontWeight: "700", minWidth: 52, textAlign: "right" }}>${usage.total.cost.toFixed(2)}</Text> : null}
+            </View>
+          </Card>
+        ) : null}
+
         {state ? (
           <View style={{ padding: space.l, gap: space.m, marginHorizontal: space.l }}>
             <Text style={{ color: t.muted, fontSize: 13 }}>Curator: {state.hasKey ? "on (Claude)" : "keyword mode, no API key in .env"} · {state.itemCount} stories stored</Text>
@@ -161,6 +180,12 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
     </SafeAreaView>
   );
 }
+
+const PURPOSE: Record<string, string> = {
+  curator: "Curator conversations", "story-brief": "Story gists", ideas: "Interest ideas", sources: "Finding sources",
+  interests: "Setting up interests", "less-topics": "\u201cLess of\u201d topics", summary: "Summaries (old)", other: "Other",
+};
+const k = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
 
 function Card({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   const t = useTheme();

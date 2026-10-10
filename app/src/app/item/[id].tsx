@@ -4,10 +4,10 @@ import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { ago, api, ItemDetail, sendEvents } from "@/lib/api";
+import { ago, api, ItemDetail, sendEvents, StoryBrief } from "@/lib/api";
 import { bumpFeed, reloadState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
-import { Button, ErrorLine, MiniItemRow, SourceRow, useToast } from "@/components/ui";
+import { Button, Chip, ErrorLine, MiniItemRow, SourceRow, useToast } from "@/components/ui";
 import { LessSheet, lessToast } from "@/components/LessSheet";
 import { Gallery } from "@/components/Gallery";
 
@@ -20,11 +20,18 @@ export default function ItemScreen() {
   const [busy, setBusy] = useState("");
   const [lessOpen, setLessOpen] = useState(false);
   const toast = useToast();
+  const [brief, setBrief] = useState<StoryBrief | null | undefined>(undefined);
 
   useEffect(() => {
-    setIt(null);
-    api<ItemDetail>(`/api/item?id=${encodeURIComponent(id)}`).then(setIt).catch((e) => setError(e.message));
+    setIt(null); setBrief(undefined);
+    api<ItemDetail>(`/api/item?id=${encodeURIComponent(id)}`).then((x) => {
+      setIt(x);
+      // The brief is shared across readers; the first reader waits for it, everyone after gets it instantly.
+      if (x.brief) setBrief(x.brief);
+      else api<{ brief: StoryBrief | null }>("/api/item/brief", { id: x.id }).then((r) => setBrief(r.brief)).catch(() => setBrief(null));
+    }).catch((e) => setError(e.message));
   }, [id]);
+  const ask = (prompt: string) => router.navigate({ pathname: "/curator", params: { prompt, itemId: it!.id, n: String(Date.now()) } });
 
   const open = async () => {
     if (!it) return;
@@ -63,13 +70,38 @@ export default function ItemScreen() {
           </View>
           <View style={{ paddingHorizontal: space.l, paddingTop: space.s, gap: space.m }}>
             <Text style={{ fontFamily: serif, fontSize: 28, lineHeight: 34, color: t.ink, letterSpacing: -0.3 }}>{it.title}</Text>
-            <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{it.aiSummary || it.excerpt || ""}</Text>
-            {it.aiSummary ? <Text style={{ color: t.faint, fontSize: 12 }}>Summary by the curator, from the source's excerpt.</Text> : null}
+            {it.forYou ? (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="sparkles" size={13} color={t.curatorAccent} />
+                <Text style={{ color: t.muted, fontSize: 14, flex: 1 }}>{it.forYou}</Text>
+              </View>
+            ) : null}
+            {/* Gist when we have it; the publisher's excerpt while it's on the way or if there's no curator. */}
+            <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26, opacity: brief === undefined ? 0.6 : 1 }} numberOfLines={brief?.gist ? undefined : 6}>{brief?.gist || it.excerpt || ""}</Text>
+            {brief === undefined ? <Text style={{ color: t.faint, fontSize: 12 }}>The curator is reading the article…</Text>
+              : brief?.gist ? <Text style={{ color: t.faint, fontSize: 12 }}>Gist by the curator{brief.from === "excerpt" ? ", from the source's excerpt" : ""}.</Text> : null}
+            {brief?.facts?.length ? (
+              <View style={[st.facts, { borderColor: t.line }]}>
+                {brief.facts.map((f) => (
+                  <View key={f.label} style={st.fact}>
+                    <Text style={{ color: t.muted, fontSize: 12, fontWeight: "600" }}>{f.label}</Text>
+                    <Text style={{ color: t.ink, fontSize: 15, fontWeight: "600" }}>{f.value}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
             <View style={{ flexDirection: "row", gap: space.s, flexWrap: "wrap", marginTop: space.s }}>
               <Button label={`Read at ${it.sourceName}`} icon="open-outline" onPress={open} />
-              <Button label="Ask the curator" kind="secondary" icon="sparkles-outline" onPress={() => router.navigate({ pathname: "/curator", params: { prompt: `More like this`, itemId: it.id, n: String(Date.now()) } })} />
+              <Button label="More like this" kind="secondary" icon="sparkles-outline" onPress={() => ask("More like this")} />
             </View>
-            {it.interests?.length ? <Text style={{ color: t.muted, fontSize: 13 }}>In {it.interests.map((i) => i.label).join(", ")}</Text> : null}
+            {brief?.questions?.length ? (
+              <View style={{ gap: 6 }}>
+                <Text style={{ color: t.muted, fontSize: 12, fontWeight: "700", letterSpacing: 0.6 }}>ASK THE CURATOR</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  {brief.questions.map((q) => <Chip key={q} label={q} tone="curator" onPress={() => ask(q)} />)}
+                </View>
+              </View>
+            ) : null}
           </View>
 
           {it.related?.length ? (
@@ -104,6 +136,8 @@ export default function ItemScreen() {
 }
 
 const st = StyleSheet.create({
+  facts: { flexDirection: "row", flexWrap: "wrap", borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: space.s, rowGap: space.s },
+  fact: { width: "50%", gap: 2, paddingRight: space.s },
   back: { position: "absolute", left: space.l, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
   action: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
 });
