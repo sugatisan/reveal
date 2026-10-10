@@ -88,7 +88,8 @@ export function ItemCard({ item, onOpen, onSave, onLess, inGrid = false }: { ite
           {footer}
         </View>
       ) : (
-        <View style={{ paddingVertical: pad, paddingHorizontal: textPad, gap: inGrid ? 6 : space.s, flex: inGrid ? 1 : undefined, justifyContent: "space-between" }}>
+        <View style={{ paddingVertical: pad, paddingHorizontal: textPad, gap: inGrid ? 6 : space.s, flex: inGrid ? 1 : undefined, justifyContent: inGrid && !showHero ? "flex-end" : "space-between" }}>
+          {/* Grid card without an image: the kicker and title sit at the bottom, just above the source line. */}
           <View style={{ gap: inGrid ? 4 : space.s }}>{why}{title}{excerpt}</View>{footer}
         </View>
       )}
