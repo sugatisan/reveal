@@ -1,6 +1,7 @@
 // Floating tab bar ("island"), driven by the Tab bar settings in the studio.
 // Screens add bottom padding with useTabBarSpace() so their last row isn't hidden under it.
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesign } from "@/design/store";
@@ -19,6 +20,23 @@ const rgba = (hex: string, a: number) => {
   const n = parseInt(hex.replace("#", ""), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 };
+
+// Background blur. On the web it's a CSS backdrop-filter set on the element directly;
+// on the phone it needs expo-blur, which isn't installed yet, so it has no effect there.
+function useBackdrop(blur: number) {
+  const ref = useRef<View>(null);
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const el = ref.current as unknown as HTMLElement | null;
+    if (el?.style) { el.style.setProperty("backdrop-filter", blur ? `blur(${blur}px)` : "none"); el.style.setProperty("-webkit-backdrop-filter", blur ? `blur(${blur}px)` : "none"); }
+  });
+  return ref;
+}
+
+function Glass({ blur, style, children }: { blur: number; style: any; children: React.ReactNode }) {
+  const ref = useBackdrop(blur);
+  return <View ref={ref} style={style}>{children}</View>;
+}
 
 // How much room the bar takes at the bottom of the screen.
 export function useTabBarSpace() {
@@ -41,14 +59,19 @@ export function IslandTabBar({ state, navigation }: BarProps) {
   const h: number = d["tab.height"];
   const radius: number = docked ? 0 : d["tab.radius"];
   const search: string = d["tab.search"];
-  const fill = d["tab.surface"] === "translucent" ? rgba(t.card, docked ? 0.92 : 0.82) : t.card;
+  const fill = rgba(t.card, d["tab.opacity"] / 100);
+  const shadowOn = !docked && d["tab.shadowOpacity"] > 0;
   const surface = {
     backgroundColor: fill,
     borderColor: t.line,
     borderWidth: d["tab.border"] && !docked ? StyleSheet.hairlineWidth : 0,
-    ...(d["tab.shadow"] && !docked ? { shadowColor: "#000", shadowOpacity: 0.16, shadowRadius: 18, shadowOffset: { width: 0, height: 6 }, elevation: 8 } : null),
-    ...(d["tab.surface"] === "translucent" ? ({ backdropFilter: "blur(18px)" } as any) : null),
+    // boxShadow works on the web and on the phone (React Native's new architecture).
+    ...(shadowOn ? ({ boxShadow: `${d["tab.shadowX"]}px ${d["tab.shadowY"]}px ${d["tab.shadowRadius"]}px rgba(0,0,0,${d["tab.shadowOpacity"] / 100})` } as any) : null),
   };
+  const blur: number = d["tab.blur"];
+  const islandRef = useBackdrop(blur);
+  const dockRef = useBackdrop(blur);
+  const searchRef = useBackdrop(blur);
 
   const current = state.routes[state.index]?.name;
   const go = (name: string) => {
@@ -66,7 +89,8 @@ export function IslandTabBar({ state, navigation }: BarProps) {
     const size = labels ? 22 : 24;
     return (
       <Pressable key={x.name} onPress={() => go(x.name)} accessibilityRole="tab" accessibilityState={{ selected: on }} accessibilityLabel={x.title}
-        style={[{ alignItems: "center", justifyContent: "center", height: h }, solo ? { width: h, borderRadius: radius, ...surface } : { flex: style === "island" && d["tab.width"] === "fit" ? undefined : 1, paddingHorizontal: labels ? 10 : 14 }]}>
+        style={[{ alignItems: "center", justifyContent: "center", height: h }, solo ? { width: h } : { flex: style === "island" && d["tab.width"] === "fit" ? undefined : 1, paddingHorizontal: labels ? 10 : 14 }]}>
+        <Glass blur={solo ? blur : 0} style={solo ? [{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, borderRadius: radius }, surface] : { display: "none" }}>{null}</Glass>
         <View style={{ alignItems: "center", justifyContent: "center", gap: 2, paddingHorizontal: labels ? 12 : 10, paddingVertical: labels ? 5 : 8,
           borderRadius: Math.max(10, radius - 8), backgroundColor: highlight ? rgba(t.accent, 0.14) : "transparent" }}>
           <Ionicons name={on ? x.active : x.icon} size={size} color={color} />
@@ -77,7 +101,7 @@ export function IslandTabBar({ state, navigation }: BarProps) {
   };
 
   const searchButton = search === "button" ? (
-    <Pressable onPress={() => go("search")} accessibilityLabel="Search" accessibilityRole="button"
+    <Pressable ref={searchRef} onPress={() => go("search")} accessibilityLabel="Search" accessibilityRole="button"
       style={{ width: h, height: h, borderRadius: Math.min(radius, h / 2), alignItems: "center", justifyContent: "center", ...surface }}>
       <Ionicons name={current === "search" ? "search" : "search-outline"} size={24} color={current === "search" ? t.accent : t.ink} />
     </Pressable>
@@ -85,7 +109,7 @@ export function IslandTabBar({ state, navigation }: BarProps) {
 
   if (docked) {
     return (
-      <View style={[st.dock, { paddingBottom: insets.bottom, backgroundColor: fill, borderTopColor: t.line }]}>
+      <View ref={dockRef} style={[st.dock, { paddingBottom: insets.bottom, backgroundColor: fill, borderTopColor: t.line }]}>
         <View style={{ flexDirection: "row", height: h }}>{inBar.map((x) => tab(x))}</View>
         {searchButton ? <View style={{ position: "absolute", right: 12, top: -h - 12 }}>{searchButton}</View> : null}
       </View>
@@ -97,7 +121,7 @@ export function IslandTabBar({ state, navigation }: BarProps) {
       {style === "separate" ? (
         <View style={{ flexDirection: "row", gap: 10 }}>{inBar.map((x) => tab(x, true))}</View>
       ) : (
-        <View style={[{ flexDirection: "row", height: h, borderRadius: radius, paddingHorizontal: 6, alignItems: "center" }, surface, d["tab.width"] === "wide" ? { flex: 1 } : null]}>
+        <View ref={islandRef} style={[{ flexDirection: "row", height: h, borderRadius: radius, paddingHorizontal: 6, alignItems: "center" }, surface, d["tab.width"] === "wide" ? { flex: 1 } : null]}>
           {inBar.map((x) => tab(x))}
         </View>
       )}

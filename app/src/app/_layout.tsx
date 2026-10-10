@@ -9,7 +9,7 @@ export default function RootLayout() {
   return (
     <Studio>
     <SafeAreaProvider>
-      <StatusBar style="auto" />
+      <StatusBar style={t.dark ? "light" : "dark"} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />

@@ -8,6 +8,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { GROUPS, Control, DEFAULTS, Group } from "@/design/schema";
 import { resetToDefaults, revertDesign, saveDesign, setDesign, useDesign, useDesignRemote } from "@/design/store";
+import { PALETTES, preview } from "@/design/palettes";
 
 // ---------- studio mode on/off (survives navigation inside the app) ----------
 function studioOn(): boolean {
@@ -123,7 +124,7 @@ function Panel({ prefs, setPrefs }: { prefs: StudioPrefs; setPrefs: (p: Partial<
             <div style={css.panelTitle}>{panel}</div>
             {GROUPS.filter((g) => g.panel === panel).map((g) => (
               <Section key={g.id} title={g.title} hint={g.hint} open={isOpen(g.id)} onToggle={() => toggle(g.id)} badge={changedIn(g, d)}>
-                {g.controls.map((c) => <Row key={c.key} c={c} value={d[c.key]} onChange={(v) => setDesign({ [c.key]: v })} />)}
+                {g.controls.map((c) => <Row key={c.key} c={c} value={d[c.key]} design={d} onChange={(v) => setDesign({ [c.key]: v })} />)}
               </Section>
             ))}
           </div>
@@ -170,7 +171,7 @@ function Section({ title, hint, open, onToggle, badge = 0, children }: { title: 
   );
 }
 
-function Row({ c, value, onChange }: { c: Control; value: any; onChange: (v: any) => void }) {
+function Row({ c, value, onChange, design }: { c: Control; value: any; onChange: (v: any) => void; design?: Record<string, any> }) {
   const isDefault = value === c.default;
   return (
     <div style={css.row}>
@@ -196,6 +197,24 @@ function Row({ c, value, onChange }: { c: Control; value: any; onChange: (v: any
         <button onClick={() => onChange(!value)} aria-pressed={!!value} style={{ ...css.toggle, background: value ? "#F2B84B" : "#3A4560" }}>
           <span style={{ ...css.knob, transform: value ? "translateX(18px)" : "translateX(0)" }} />
         </button>
+      ) : null}
+      {c.type === "palette" ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 8 }}>
+          {PALETTES.map((p) => {
+            const custom = { bg: design?.["color.bg"], card: design?.["color.card"], ink: design?.["color.ink"], muted: design?.["color.muted"], accent: design?.["color.accent"], curatorBg: design?.["color.curatorBg"], curatorAccent: design?.["color.curatorAccent"] };
+            const on = value === p.id;
+            return (
+              <button key={p.id} onClick={() => onChange(p.id)} title={p.note} aria-pressed={on}
+                style={{ padding: 6, borderRadius: 10, cursor: "pointer", textAlign: "left", background: "#12151B", border: on ? "2px solid #F2B84B" : "1px solid #2A2E37", color: "#E9ECF2" }}>
+                <div style={{ display: "flex", height: 26, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,.08)" }}>
+                  {preview(p.id, custom).map((col, i) => <div key={i} style={{ flex: i === 0 ? 2 : 1, background: col }} />)}
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 600, marginTop: 5 }}>{p.label}</div>
+                <div style={{ fontSize: 10.5, color: "#8FA0BA", marginTop: 1, lineHeight: 1.25 }}>{p.note}</div>
+              </button>
+            );
+          })}
+        </div>
       ) : null}
       {c.type === "color" ? (
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>

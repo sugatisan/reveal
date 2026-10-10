@@ -6,7 +6,8 @@ export type Control =
   | { key: string; label: string; hint?: string; type: "choice"; options: { value: string; label: string }[]; default: string }
   | { key: string; label: string; hint?: string; type: "range"; min: number; max: number; step: number; unit?: string; default: number }
   | { key: string; label: string; hint?: string; type: "toggle"; default: boolean }
-  | { key: string; label: string; hint?: string; type: "color"; swatches: string[]; default: string };
+  | { key: string; label: string; hint?: string; type: "color"; swatches: string[]; default: string }
+  | { key: string; label: string; hint?: string; type: "palette"; default: string };
 
 // Controls are grouped into panels (e.g. "Feed card"), and each panel into titled sections
 // that open and close in the studio. Keep sections small: 2–4 related controls each.
@@ -75,11 +76,20 @@ export const GROUPS: Group[] = [
     ],
   },
   {
-    id: "tab-surface", panel: "Tab bar", title: "Surface",
+    id: "tab-fill", panel: "Tab bar", title: "Fill",
     controls: [
-      choice("tab.surface", "Fill", "translucent", [["solid", "Solid"], ["translucent", "Translucent"]]),
-      { key: "tab.shadow", label: "Shadow", type: "toggle", default: true },
+      { key: "tab.opacity", label: "Opacity", hint: "100% is solid.", type: "range", min: 20, max: 100, step: 5, unit: "%", default: 82 },
+      { key: "tab.blur", label: "Background blur", hint: "Blurs what scrolls behind the bar. Shows in the studio; on the phone it needs expo-blur (see README).", type: "range", min: 0, max: 40, step: 2, unit: "px", default: 18 },
       { key: "tab.border", label: "Hairline border", type: "toggle", default: true },
+    ],
+  },
+  {
+    id: "tab-shadow", panel: "Tab bar", title: "Shadow", hint: "Not shown when the bar is docked.",
+    controls: [
+      { key: "tab.shadowOpacity", label: "Amount", type: "range", min: 0, max: 60, step: 2, unit: "%", default: 16 },
+      { key: "tab.shadowRadius", label: "Softness", type: "range", min: 0, max: 48, step: 2, unit: "pt", default: 18 },
+      { key: "tab.shadowX", label: "X offset", type: "range", min: -20, max: 20, step: 1, unit: "pt", default: 0 },
+      { key: "tab.shadowY", label: "Y offset", type: "range", min: -10, max: 30, step: 1, unit: "pt", default: 6 },
     ],
   },
   {
@@ -87,6 +97,22 @@ export const GROUPS: Group[] = [
     hint: "Search finds things you already have (a story you scrolled past, a source by name). Discovery stays with the curator.",
     controls: [
       choice("tab.search", "Search entry", "button", [["off", "Off"], ["tab", "A tab"], ["button", "Separate button"]]),
+    ],
+  },
+  {
+    id: "color-palette", panel: "Color", title: "Palette", hint: "Colors for the whole app. Paper follows the phone's light/dark setting; the others are fixed.",
+    controls: [{ key: "color.palette", label: "Palette", type: "palette", default: "paper" }],
+  },
+  {
+    id: "color-custom", panel: "Color", title: "Custom palette", hint: "Used when Palette is set to Custom. Lines, chips and text on the accent are worked out from these.",
+    controls: [
+      { key: "color.bg", label: "Background", type: "color", default: "#F4F1EA", swatches: ["#FFFFFF", "#F4F1EA", "#EFE6D8", "#E8ECEF", "#151515", "#0E1320"] },
+      { key: "color.card", label: "Cards", type: "color", default: "#FFFFFF", swatches: ["#FFFFFF", "#FBF6EE", "#F3F3F3", "#212121", "#172033"] },
+      { key: "color.ink", label: "Text", type: "color", default: "#1C1A16", swatches: ["#0A0A0A", "#1C1A16", "#2B2118", "#EDEDED", "#E8ECF4"] },
+      { key: "color.muted", label: "Secondary text", type: "color", default: "#6F6A61", swatches: ["#6B6B6B", "#6F6A61", "#7A6B5A", "#9A9A9A", "#94A0B8"] },
+      { key: "color.accent", label: "Accent", type: "color", default: "#D24A1C", swatches: ["#D24A1C", "#C8102E", "#2F6B3F", "#2563EB", "#D9466F", "#F5C542"] },
+      { key: "color.curatorBg", label: "Curator cards", type: "color", default: "#1E2A43", swatches: ["#1E2A43", "#111111", "#1F3A2B", "#3A2A1E", "#F2E8D5"] },
+      { key: "color.curatorAccent", label: "Curator accent", type: "color", default: "#F2B84B", swatches: ["#F2B84B", "#FFFFFF", "#C9E27A", "#FFB3C7", "#6EA8FE"] },
     ],
   },
 ];

@@ -33,6 +33,8 @@ Open **http://localhost:8081/?studio** while `npm run dev` is running. The app s
 - Controls are grouped into panels ("Feed card") and small titled sections that open and close. To add a control, add it to a section in `app/src/design/schema.ts` and read it with `useDesign()`; the panel builds itself.
 - The "Studio" section (background color, device size: iPhone 17 Pro Max by default) only changes the studio on this laptop. It isn't part of the app or the saved design.
 
+**Tab bar blur on the phone:** the blur slider shows in the studio, but on the phone it needs the `expo-blur` package. To add it, run `npx expo install expo-blur` inside `app/` on your Mac (not from Claude's sandbox), then ask Claude to wire it in.
+
 Live changes are kept on the Reveal server until you save, so they're lost if the server restarts.
 
 ## What's in it

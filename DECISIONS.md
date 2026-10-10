@@ -43,6 +43,7 @@ What's settled, what the code already assumes, and what's still open. Update thi
 | Gallery | Up to 10 images per story from the feed entry (largest srcset size, deduped across resized copies), plus up to 12 from the article page (og:image + the marked article body only), fetched once when the story is opened. Feed cards show a count badge when the feed itself has more than one image. | `allImages()`/`articleImages()` in `server/lib/feeds.js` |
 | Design studio (2026-10-10) | One app, not two prototypes. `?studio` on the web wraps the app in a phone frame with a control panel; the phone in Expo Go shows only the app. Settings live on the API server and every open copy polls them (dev only), so laptop changes show on the phone. Save writes `app/src/design/saved.json`, which ships with the app. Controls are defined once in a schema; the panel builds itself. First panel: feed card. | `app/src/design/`, `app/src/components/Studio.web.tsx` |
 | Tab bar (2026-10-10) | Custom floating bar drawn over the screens: one island, separate islands, or docked; labels, active style, size, radius, position, fill, shadow, border are studio settings. Screens pad their bottoms with `useTabBarSpace()`. | `app/src/components/TabBar.tsx` |
+| Color (2026-10-10) | Eight palettes plus Custom, chosen in the studio and saved with the design. Each palette is a few base colors (background, cards, text, secondary text, accent, curator card, curator accent); lines, chips, faint text and text-on-accent are derived. "Paper" (the original) follows the phone's light/dark setting; the rest are fixed. | `app/src/design/palettes.ts` |
 | Explainability | Every card has a "why" line (sub-interest, coverage, new source, a source you open a lot) | `server/lib/rank.js` |
 
 ## Open questions
@@ -66,3 +67,4 @@ These are ordered by how much they'd change what gets built.
 - 2026-10-10 — Panel now reveals underneath (the app slides right). Tapping a pill brings it to the front. Stories open full screen instead of as a sheet.
 - 2026-10-10 — Design studio on the laptop with live sync to the phone; first panel covers feed card styles.
 - 2026-10-10 — Floating tab bar with its own studio panel; search added as retrieval (separate button by default).
+- 2026-10-10 — Tab bar fill opacity, blur and shadow controls; Color panel with eight palettes and a custom one.
