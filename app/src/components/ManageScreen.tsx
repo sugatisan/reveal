@@ -7,7 +7,7 @@ import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTabBarSpace } from "@/components/TabBar";
-import { api, AppState } from "@/lib/api";
+import { api, AppState, Overlap } from "@/lib/api";
 import { bumpFeed, setAppState, useAppState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Button, ErrorLine, Header } from "@/components/ui";
@@ -20,6 +20,7 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [overlap, setOverlap] = useState<Overlap | null>(null);
 
   const run = async (key: string, fn: () => Promise<AppState | { state: AppState }>) => {
     setBusy(key); setError("");
@@ -27,10 +28,24 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
     catch (e: any) { setError(e.message); }
     finally { setBusy(""); }
   };
-  const add = () => text.trim() && run("add", () => api("/api/interests/parse", { text })).then((r: any) => {
+  const create = () => { setOverlap(null); return run("add", () => api("/api/interests/parse", { text })).then((r: any) => {
     if (!r) return; setText("");
     const first = r.created?.[0]?.id; if (first && stacked) router.replace(`/interest/${first}`);
-  });
+  }); };
+  // Check for an interest that already covers this before creating a new one.
+  const add = async () => {
+    if (!text.trim() || busy) return;
+    setBusy("check");
+    const r = await api<{ overlaps: Overlap[] }>("/api/interests/check", { text }).catch(() => ({ overlaps: [] as Overlap[] }));
+    setBusy("");
+    if (r.overlaps[0]) setOverlap(r.overlaps[0]); else create();
+  };
+  const addAsFocus = (o: Extract<Overlap, { kind: "narrower" }>) => {
+    const target = state?.interests.find((i) => i.id === o.interestId);
+    if (!target) return;
+    run("focus", () => api("/api/interests/update", { id: o.interestId, subs: [...target.subs.filter((s) => s.toLowerCase() !== o.focus.toLowerCase()), o.focus] }))
+      .then((r) => { if (!r) return; setText(""); setOverlap(null); router.push(`/interest/${o.interestId}`); });
+  };
 
   // Every followed source once, with the interests that follow it.
   const sources = useMemo(() => {
@@ -61,10 +76,31 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
       <ScrollView contentContainerStyle={{ paddingBottom: (stacked ? 0 : tabSpace) + space.xl }} keyboardShouldPersistTaps="handled">
         <Header title={stacked ? "All sources and settings" : "Sources"} subtitle={state ? `${state.interests.length} interests · ${sources.length} sources followed` : undefined} />
         <View style={{ flexDirection: "row", gap: space.s, paddingHorizontal: space.l, marginBottom: space.m }}>
-          <TextInput autoFocus={focusAdd} value={text} onChangeText={setText} onSubmitEditing={add} placeholder="New interest, e.g. vintage watches, Danish design" placeholderTextColor={t.faint}
+          <TextInput autoFocus={focusAdd} value={text} onChangeText={(v) => { setText(v); setOverlap(null); }} onSubmitEditing={add} placeholder="New interest, e.g. vintage watches, Danish design" placeholderTextColor={t.faint}
             style={{ flex: 1, color: t.ink, backgroundColor: t.card, borderRadius: radius.pill, paddingHorizontal: space.l, paddingVertical: 10, borderWidth: 1, borderColor: t.line, fontSize: 15 }} />
-          <Button label="Add" busy={busy === "add"} disabled={!text.trim()} onPress={add} />
+          <Button label="Add" busy={busy === "add" || busy === "check"} disabled={!text.trim()} onPress={add} />
         </View>
+        {overlap ? (
+          <View style={{ marginHorizontal: space.l, marginBottom: space.m, padding: space.l, borderRadius: radius.l, backgroundColor: t.curatorBg, gap: space.s }}>
+            <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+              <Ionicons name="sparkles" size={14} color={t.curatorAccent} />
+              <Text style={{ color: t.curatorInk, fontWeight: "600", flex: 1 }}>
+                {overlap.kind === "narrower" ? `You already follow ${overlap.label}.` : `${overlap.label} already covers this.`}
+              </Text>
+            </View>
+            <Text style={{ color: t.curatorMuted }}>
+              {overlap.kind === "narrower"
+                ? `Add “${overlap.focus}” as a focus there, so those stories rank higher in ${overlap.label}. Or keep it as its own interest with its own pill.`
+                : `Open it to refine what it covers, or create a separate interest anyway.`}
+            </Text>
+            <View style={{ flexDirection: "row", gap: space.s, flexWrap: "wrap" }}>
+              {overlap.kind === "narrower"
+                ? <Button label={`Add “${overlap.focus}” to ${overlap.label}`} kind="curator" busy={busy === "focus"} onPress={() => addAsFocus(overlap)} />
+                : <Button label={`Open ${overlap.label}`} kind="curator" onPress={() => { setOverlap(null); router.push(`/interest/${overlap.interestId}`); }} />}
+              <Button label="Keep separate" kind="ghost" onPress={create} />
+            </View>
+          </View>
+        ) : null}
         {busy === "add" ? <Text style={{ color: t.muted, paddingHorizontal: space.l, marginBottom: space.m }}>Finding sources and checking each feed. This can take half a minute.</Text> : null}
         <ErrorLine text={error} />
         {!state ? <ActivityIndicator color={t.muted} /> : null}

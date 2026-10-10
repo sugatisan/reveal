@@ -159,3 +159,32 @@ Return JSON only: {"topics": ["", ""]}`;
   const out = json(await claude({ system: "You label stories for a discovery feed. Reply with JSON only.", prompt, model: FAST(), maxTokens: 100 }));
   return (out.topics || []).map((t) => String(t).trim()).filter((t) => t && t.length <= 30).slice(0, 2);
 }
+
+// Ideas to refine an interest with: names, terms and nearby topics a person could add as focus areas.
+// Grounded in recent story titles from the interest's own sources. Focus areas boost stories that mention them.
+export async function concepts(interest, titles = []) {
+  if (!hasKey()) {
+    const t = catalog.topics.find((x) => x.id === interest.topic);
+    const items = [...(interest.subSuggestions || []), ...(t?.subs || [])].filter((s, k, a) => a.indexOf(s) === k && !(interest.subs || []).includes(s));
+    return items.length ? [{ kind: "terms", title: "Ideas", items: items.slice(0, 8).map((term) => ({ term, why: "" })) }] : [];
+  }
+  const prompt = `Interest: "${interest.label}"${interest.subs?.length ? `. Already focused on: ${interest.subs.join(", ")}` : ""}.
+Recent story titles from their sources:
+${titles.slice(0, 15).map((x) => `- ${x}`).join("\n") || "(none yet)"}
+
+Suggest ways to refine this interest: specific things a knowledgeable fan would want more of. Group them:
+- "names": makers, brands, designers, people, studios, series (proper nouns)
+- "terms": styles, techniques, materials, eras, vocabulary insiders use
+- "nearby": adjacent topics this person would likely also enjoy
+Each 1-3 words, as they'd appear in a headline. 4-6 per group, most useful first. Skip anything already in their focus. "why" is at most 8 words.
+Return JSON only: {"names":[{"term":"","why":""}],"terms":[...],"nearby":[...]}`;
+  const out = json(await claude({ system: "You are the curator inside a personal discovery feed. Reply with JSON only.", prompt, maxTokens: 900 }));
+  const have = new Set((interest.subs || []).map((s) => s.toLowerCase()));
+  const clean = (a) => (Array.isArray(a) ? a : []).map((x) => ({ term: String(x.term || x).trim(), why: String(x.why || "").trim() }))
+    .filter((x) => x.term && x.term.length <= 32 && !have.has(x.term.toLowerCase())).slice(0, 6);
+  return [
+    { kind: "names", title: "Names", items: clean(out.names) },
+    { kind: "terms", title: "Ideas and terms", items: clean(out.terms) },
+    { kind: "nearby", title: "Nearby", items: clean(out.nearby) },
+  ].filter((g) => g.items.length);
+}

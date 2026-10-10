@@ -1,12 +1,12 @@
 // One interest, a level deeper than the left panel: refine what it means, enrich it with sources,
 // tune what it shows less of, or delete it. Opens from the panel's edit icon, the selected pill's
 // edit icon, or a long-press on any interest pill.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { api, AppState, TuningRule } from "@/lib/api";
+import { api, AppState, ConceptGroup, TuningRule } from "@/lib/api";
 import { bumpFeed, chooseLens, setAppState, useAppState, useLens } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Button, Chip, ErrorLine, SourceRow } from "@/components/ui";
@@ -27,6 +27,15 @@ export default function InterestScreen() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [note, setNote] = useState("");
+  const [ideas, setIdeas] = useState<ConceptGroup[] | null>(null);
+  const [ideasBusy, setIdeasBusy] = useState(false);
+  const loadIdeas = (again = false) => {
+    if (!id) return;
+    setIdeasBusy(true);
+    api<{ groups: ConceptGroup[] }>("/api/interests/concepts", { id, refresh: again })
+      .then((r) => setIdeas(r.groups)).catch(() => setIdeas((g) => g || [])).finally(() => setIdeasBusy(false));
+  };
+  useEffect(() => { loadIdeas(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const back = () => (router.canGoBack() ? router.back() : router.replace("/"));
   const run = async (key: string, fn: () => Promise<any>) => {
@@ -78,13 +87,40 @@ export default function InterestScreen() {
         </View>
         <ErrorLine text={error} />
 
-        <Section title="Refine" hint="What this interest is about. Focus areas shape ranking; they never hide anything.">
+        <Section title="Refine" hint="What this interest is about. Stories that mention a focus rank higher; nothing is hidden.">
           {i.clarify ? <Text style={{ color: t.ink }}>{i.clarify.question}</Text> : null}
-          <View style={st.chips}>
-            {i.subs.map((s) => <Chip key={s} label={s} active icon="close" onPress={() => setSubs(i.subs.filter((x) => x !== s))} />)}
-            {suggestions.map((s) => <Chip key={s} label={s} icon="add" onPress={() => setSubs([...i.subs, s])} />)}
+          {i.subs.length ? (
+            <View style={st.chips}>
+              {i.subs.map((s) => <Chip key={s} label={s} active icon="close" onPress={() => setSubs(i.subs.filter((x) => x !== s))} />)}
+            </View>
+          ) : <Text style={{ color: t.muted }}>No focus yet. Add names, terms or ideas you want more of.</Text>}
+          <Field value={sub} onChange={setSub} onSubmit={addSub} placeholder="Add a focus, e.g. Knoll, teak, Eichler" action="Add" busy={busy === "subs"} />
+          <View style={[st.ideasHead, { borderTopColor: t.line }]}>
+            <Ionicons name="sparkles" size={14} color={t.curatorAccent} />
+            <Text style={{ color: t.ink, fontWeight: "600", flex: 1 }}>Ideas from the curator</Text>
+            {ideas?.length ? <Pressable onPress={() => loadIdeas(true)} disabled={ideasBusy} hitSlop={8}><Text style={{ color: t.muted, fontSize: 13 }}>{ideasBusy ? "Thinking…" : "More ideas"}</Text></Pressable> : null}
           </View>
-          <Field value={sub} onChange={setSub} onSubmit={addSub} placeholder="Add a focus, e.g. desk setups" action="Add" busy={busy === "subs"} />
+          {ideas === null || (ideasBusy && !ideas?.length) ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
+              <ActivityIndicator size="small" color={t.muted} />
+              <Text style={{ color: t.muted, fontSize: 13 }}>Thinking of names, terms and nearby topics…</Text>
+            </View>
+          ) : null}
+          {(ideas || []).map((g) => {
+            const left = g.items.filter((x) => !i.subs.some((s) => s.toLowerCase() === x.term.toLowerCase()));
+            return left.length ? (
+              <View key={g.kind} style={{ gap: 6 }}>
+                <Text style={[st.label, { color: t.muted }]}>{g.title.toUpperCase()}</Text>
+                <View style={st.chips}>
+                  {left.map((x) => <Chip key={x.term} label={x.term} icon="add" tone="curator" onPress={() => setSubs([...i.subs, x.term])} />)}
+                </View>
+              </View>
+            ) : null;
+          })}
+          {ideas && !ideas.length && !ideasBusy ? (
+            suggestions.length ? <View style={st.chips}>{suggestions.map((s) => <Chip key={s} label={s} icon="add" onPress={() => setSubs([...i.subs, s])} />)}</View>
+              : <Text style={{ color: t.muted, fontSize: 13 }}>{state.hasKey ? "No ideas this time." : "Ideas need the curator (an API key in .env)."}</Text>
+          ) : null}
         </Section>
 
         <Section title="Enrich" hint="Where its stories come from.">
@@ -175,5 +211,6 @@ const st = StyleSheet.create({
   section: { marginHorizontal: space.l, marginBottom: space.l, padding: space.l, borderRadius: radius.l, gap: space.s },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   label: { fontSize: 12, fontWeight: "700", letterSpacing: 0.6 },
+  ideasHead: { flexDirection: "row", alignItems: "center", gap: 6, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: space.m, marginTop: space.s },
   rule: { flexDirection: "row", alignItems: "center", gap: space.m, paddingVertical: 4 },
 });

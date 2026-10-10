@@ -36,7 +36,7 @@ const design = (() => {
 })();
 
 const PORT = +(process.env.PORT || 5177);
-const API_VERSION = 3; // bump when the app starts relying on new routes
+const API_VERSION = 4; // bump when the app starts relying on new routes
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
 const FOLLOW_FIRST = 3; // sources switched on per new interest; the rest wait as suggestions
 
@@ -258,6 +258,46 @@ const routes = {
     const proposals = await agent.moreSources(i, existing);
     const r = await addSourcesTo(i, proposals);
     return { ...r, state: state() };
+  },
+
+  "POST /api/interests/concepts": async (req) => {
+    // Cached on the interest; refresh: true asks the curator again.
+    const { id, refresh: again } = await body(req);
+    const d = load();
+    const i = d.interests.find((x) => x.id === id);
+    if (!i) throw new Error("Interest not found");
+    if (!again && i.concepts && Date.now() - i.concepts.at < 7 * 864e5) return { groups: i.concepts.groups, at: i.concepts.at };
+    const ids = new Set(i.sourceIds);
+    const titles = Object.values(d.items).filter((x) => ids.has(x.sourceId)).sort((a, b) => (b.date || 0) - (a.date || 0)).map((x) => x.title);
+    const groups = await agent.concepts(i, titles);
+    i.concepts = { at: Date.now(), groups };
+    save();
+    return { groups, at: i.concepts.at };
+  },
+
+  "POST /api/interests/check": async (req) => {
+    // Before creating an interest: does it overlap one you already have?
+    // "narrower": the new one is an existing interest plus more words (MCM + Knoll) -> offer it as a focus.
+    // "covered": every word of the new one is already in an existing interest -> offer to open that one.
+    const { text } = await body(req);
+    const phrase = String(text || "").trim();
+    if (!phrase || /[,;\n]|\band\b/i.test(phrase)) return { overlaps: [] };
+    const STOP = new Set(["the", "a", "an", "of", "and", "for", "in", "on", "to", "with", "stuff", "things"]);
+    const words = (x) => x.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w && !STOP.has(w)).map((w) => w.replace(/(?<=..)s$/, ""));
+    const mine = words(phrase);
+    const overlaps = [];
+    for (const i of load().interests) {
+      const theirs = words(i.label);
+      if (!theirs.length) continue;
+      const inMine = theirs.every((w) => mine.includes(w));
+      const inTheirs = mine.every((w) => theirs.includes(w));
+      if (inMine && !inTheirs) {
+        const extra = phrase.split(/\s+/).filter((w) => { const k = words(w)[0]; return k && !theirs.includes(k); }).join(" ");
+        if (extra) overlaps.push({ kind: "narrower", interestId: i.id, label: i.label, focus: extra.charAt(0).toUpperCase() + extra.slice(1) });
+      } else if (inTheirs) overlaps.push({ kind: "covered", interestId: i.id, label: i.label });
+    }
+    overlaps.sort((a, b) => (a.kind === "covered" ? -1 : 1) - (b.kind === "covered" ? -1 : 1));
+    return { overlaps: overlaps.slice(0, 1) };
   },
 
   "POST /api/sources/add": async (req) => {
