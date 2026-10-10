@@ -46,7 +46,15 @@ export function storeItems(sourceId, items) {
     // gist is written from the full story without fetching the publisher's page. Never shown in full.
     const text = stripTags(it.html || "");
     const feedText = text.length >= FULL_TEXT_MIN ? text.slice(0, 6000) : "";
-    if (d.items[id]) { if (d.items[id].feedText === undefined) d.items[id].feedText = feedText; continue; }
+    if (d.items[id]) {
+      const was = d.items[id];
+      if (was.feedText === undefined) was.feedText = feedText;
+      // Repair image URLs an older parser cut short at an apostrophe (…/rests-James instead of …/rests-James'-face.jpg).
+      if (it.image && it.image !== was.image && (!was.image || it.image.startsWith(was.image))) {
+        was.image = it.image; was.images = (it.images || []).filter((u) => u !== it.image).slice(0, 9); delete was.imageLarge; delete was.largeTried;
+      }
+      continue;
+    }
     const date = it.date && it.date <= now + 36e5 ? it.date : now;
     if (now - date > MAX_AGE_DAYS * 864e5) continue;
     d.items[id] = {

@@ -57,8 +57,8 @@ function attr(block, tagName, attrName, where) {
   while ((m = re.exec(block))) {
     const attrs = m[1];
     if (where && !where(attrs)) continue;
-    const a = attrs.match(new RegExp(`\\b${esc(attrName)}\\s*=\\s*["']([^"']+)["']`, "i"));
-    if (a) return decode(a[1]);
+    const a = attrs.match(new RegExp(`\\b${esc(attrName)}\\s*=\\s*(?:"([^"]+)"|'([^']+)')`, "i"));
+    if (a) return decode(a[1] ?? a[2]);
   }
   return "";
 }
@@ -73,10 +73,10 @@ export function firstImage(html = "", base) {
   const src = decode(html);
   while ((m = re.exec(src))) {
     const t = m[0];
-    const s = (t.match(/\bsrc\s*=\s*["']([^"']+)["']/i) || [])[1] || (t.match(/\bdata-src\s*=\s*["']([^"']+)["']/i) || [])[1];
+    const s = (t.match(/\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean) || (t.match(/\bdata-src\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean);
     if (!s) continue;
     if (/feedburner|pixel|tracking|gravatar|emoji|\.gif(\?|$)|1x1|spacer/i.test(s)) continue;
-    const w = (t.match(/\bwidth\s*=\s*["']?(\d+)/i) || [])[1];
+    const w = (t.match(/\bwidth\s*=\s*["']?(\d+)/i) || []).slice(1).find(Boolean);
     if (w && +w < 80) continue;
     return absolutize(s, base);
   }
@@ -103,18 +103,18 @@ export function sourceKind(items = []) {
 async function mediaFeedUrl(url) {
   const u = new URL(url);
   if (/podcasts\.apple\.com$/.test(u.hostname)) {
-    const id = (u.pathname.match(/id(\d+)/) || [])[1];
+    const id = (u.pathname.match(/id(\d+)/) || []).slice(1).find(Boolean);
     if (!id) return null;
     const r = await fetchText(`https://itunes.apple.com/lookup?id=${id}&entity=podcast`, { timeout: 8000, accept: "application/json" });
     return JSON.parse(r.text).results?.[0]?.feedUrl || null;
   }
   if (/(^|\.)youtube\.com$/.test(u.hostname)) {
-    const direct = (u.pathname.match(/\/channel\/(UC[\w-]{22})/) || [])[1];
+    const direct = (u.pathname.match(/\/channel\/(UC[\w-]{22})/) || []).slice(1).find(Boolean);
     if (direct) return `https://www.youtube.com/feeds/videos.xml?channel_id=${direct}`;
     const r = await fetchText(url, { timeout: 9000, accept: "text/html" });
     // The page's own channel, not one it features: its RSS link, canonical URL or owner id, in that order.
     const id = (r.text.match(/feeds\/videos\.xml\?channel_id=(UC[\w-]{22})/) || r.text.match(/<link[^>]+rel=["']canonical["'][^>]+\/channel\/(UC[\w-]{22})/) ||
-      r.text.match(/"externalId"\s*:\s*"(UC[\w-]{22})"/) || r.text.match(/<meta[^>]+itemprop=["'](?:channelId|identifier)["'][^>]+content=["'](UC[\w-]{22})/) || [])[1];
+      r.text.match(/"externalId"\s*:\s*"(UC[\w-]{22})"/) || r.text.match(/<meta[^>]+itemprop=["'](?:channelId|identifier)["'][^>]+content=["'](UC[\w-]{22})/) || []).slice(1).find(Boolean);
     return id ? `https://www.youtube.com/feeds/videos.xml?channel_id=${id}` : null;
   }
   return null;
@@ -146,7 +146,7 @@ export function parseFeed(xml, baseUrl) {
         date: Date.parse(stripTags(tag(b, "published") || tag(b, "updated"))) || null,
         html: decode(content),
         ...(vid ? {} : { image: absolutize(attr(b, "media:thumbnail", "url") || attr(b, "media:content", "url"), baseUrl) || firstImage(content, baseUrl) }),
-        tags: [...b.matchAll(/<category\b[^>]*term\s*=\s*["']([^"']+)["']/gi)].map((m) => decode(m[1])),
+        tags: [...b.matchAll(/<category\b[^>]*term\s*=\s*(?:"([^"]+)"|'([^']+)')/gi)].map((m) => decode(m[1] ?? m[2])),
         images: allImages(content, baseUrl, 10),
       });
     }
@@ -200,15 +200,15 @@ function htmlFeedLinks(html, base) {
     const t = m[0];
     if (!/rel\s*=\s*["'][^"']*alternate/i.test(t)) continue;
     if (!/type\s*=\s*["']application\/(rss|atom|rdf)\+xml/i.test(t)) continue;
-    const h = (t.match(/href\s*=\s*["']([^"']+)["']/i) || [])[1];
+    const h = (t.match(/href\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean);
     if (h && !/comments/i.test(h)) links.push(absolutize(h, base));
   }
   return links;
 }
 function siteName(html) {
-  const og = (html.match(/<meta[^>]+property=["']og:site_name["'][^>]*content=["']([^"']+)["']/i) || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:site_name["']/i) || [])[1];
+  const og = (html.match(/<meta[^>]+property=["']og:site_name["'][^>]*content=(?:"([^"]+)"|'([^']+)')/i) || html.match(/<meta[^>]+content=(?:"([^"]+)"|'([^']+)')[^>]*property=["']og:site_name["']/i) || []).slice(1).find(Boolean);
   if (og) return decode(og).trim();
-  const t = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1];
+  const t = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || []).slice(1).find(Boolean);
   return t ? stripTags(t).split(/\s[|–—-]\s/)[0].trim() : "";
 }
 
@@ -241,7 +241,7 @@ export async function discoverFeed(input, { timeout = 9000 } = {}) {
       const r = await tryFeed(m);
       if (r?.feed) return r.feed;
       // YouTube's channel feed fails on and off for some channels; its uploads playlist has the same videos.
-      const ch = (m.match(/channel_id=UC([\w-]{22})/) || [])[1];
+      const ch = (m.match(/channel_id=UC([\w-]{22})/) || []).slice(1).find(Boolean);
       if (ch) { const u = await tryFeed(`https://www.youtube.com/feeds/videos.xml?playlist_id=UU${ch}`); if (u?.feed) return { ...u.feed, title: (u.feed.title || "").replace(/^Uploads from /, "") }; }
       mediaNote = `Found its feed (${m}) but it didn't load or had no episodes.`;
       console.log(`  ${mediaNote}`);
@@ -271,9 +271,9 @@ export async function ogImage(url, { timeout = 7000 } = {}) {
     const r = await fetchText(url, { timeout, accept: "text/html" });
     const h = r.text.slice(0, 200000);
     const m =
-      h.match(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)(?::src)?["'][^>]*content=["']([^"']+)["']/i) ||
-      h.match(/<meta[^>]+content=["']([^"']+)["'][^>]*(?:property|name)=["'](?:og:image|twitter:image)["']/i);
-    return m ? absolutize(m[1], r.url) : "";
+      h.match(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)(?::src)?["'][^>]*content=(?:"([^"]+)"|'([^']+)')/i) ||
+      h.match(/<meta[^>]+content=(?:"([^"]+)"|'([^']+)')[^>]*(?:property|name)=["'](?:og:image|twitter:image)["']/i);
+    return m ? absolutize(m[1] ?? m[2], r.url) : "";
   } catch {
     return "";
   }
@@ -309,17 +309,17 @@ export function allImages(html = "", base, limit = 12) {
   for (const m of src.matchAll(/<img\b[^>]*>/gi)) {
     const t = m[0];
     if (JUNK_ATTR.test(t)) continue;
-    const w = +((t.match(/\bwidth\s*=\s*["']?(\d+)/i) || [])[1] || 0);
-    const h = +((t.match(/\bheight\s*=\s*["']?(\d+)/i) || [])[1] || 0);
+    const w = +((t.match(/\bwidth\s*=\s*["']?(\d+)/i) || []).slice(1).find(Boolean) || 0);
+    const h = +((t.match(/\bheight\s*=\s*["']?(\d+)/i) || []).slice(1).find(Boolean) || 0);
     if ((w && w < 240) || (h && h < 160)) continue;
     // Prefer the largest srcset candidate, then lazy-load attributes, then src.
-    const srcset = (t.match(/\b(?:data-)?srcset\s*=\s*["']([^"']+)["']/i) || [])[1];
+    const srcset = (t.match(/\b(?:data-)?srcset\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean);
     let best = "";
     if (srcset) {
       const cands = srcset.split(",").map((c) => c.trim().split(/\s+/)).map(([u, d]) => ({ u, n: parseFloat(d) || 0 })).filter((c) => c.u);
       best = cands.sort((a, b) => b.n - a.n)[0]?.u || "";
     }
-    const raw = best || (t.match(/\bdata-(?:lazy-)?src\s*=\s*["']([^"']+)["']/i) || [])[1] || (t.match(/\bsrc\s*=\s*["']([^"']+)["']/i) || [])[1];
+    const raw = best || (t.match(/\bdata-(?:lazy-)?src\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean) || (t.match(/\bsrc\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean);
     const u = absolutize(raw, base);
     if (!u || JUNK_URL.test(u)) continue;
     const k = sizeKey(u);
@@ -348,7 +348,7 @@ function articleText(body) {
 export async function articlePage(url, { timeout = 7000 } = {}) {
   const { text, url: finalUrl } = await fetchText(url, { timeout, accept: "text/html" });
   const og = (text.match(/<meta[^>]+property\s*=\s*["']og:image(?::url)?["'][^>]*>/i) || [])[0];
-  const ogUrl = og ? absolutize((og.match(/content\s*=\s*["']([^"']+)["']/i) || [])[1], finalUrl) : "";
+  const ogUrl = og ? absolutize((og.match(/content\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean), finalUrl) : "";
   const body =
     (text.match(/<article\b[\s\S]*?<\/article>/i) || [])[0] ||
     (text.match(/<main\b[\s\S]*?<\/main>/i) || [])[0] ||
