@@ -10,6 +10,7 @@ import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Button, Chip, ErrorLine, MiniItemRow, SourceRow, useToast } from "@/components/ui";
 import { LessSheet, lessToast } from "@/components/LessSheet";
 import { Gallery } from "@/components/Gallery";
+import { rgba } from "@/lib/backdrop";
 import { StoryBody, useStoryDetail } from "@/components/StoryDetails";
 import { useDesign } from "@/design/store";
 
@@ -28,13 +29,13 @@ export default function ItemScreen() {
   const close = () => (router.canGoBack() ? router.back() : router.replace("/"));
   const insets = useSafeAreaInsets();
   const images = it ? (it.gallery?.length ? it.gallery : it.image ? [it.image] : []) : [];
-  // Top bar that fades in once the image has scrolled away, so the title never runs under the status bar.
+  // A gradient scrim under the status bar that fades in once the image has scrolled away,
+  // so text never runs into the phone's chrome. No bar, no title.
   const scrollY = useRef(new Animated.Value(0)).current;
   const [width, setWidth] = useState(0);
-  const barH = insets.top + 52;
+  const barH = insets.top + 48;
   const imgH = images.length ? (width * 3) / 4 : insets.top + 60;
   const barOpacity = scrollY.interpolate({ inputRange: [Math.max(0, imgH - barH - 60), Math.max(1, imgH - barH)], outputRange: [0, 1], extrapolate: "clamp" });
-  const titleOpacity = scrollY.interpolate({ inputRange: [imgH + 30, imgH + 80], outputRange: [0, 1], extrapolate: "clamp" });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={["bottom"]}>
@@ -65,8 +66,14 @@ export default function ItemScreen() {
         </Animated.ScrollView>
       )}
       {it ? (
-        <Animated.View pointerEvents="none" style={[st.bar, { height: barH, paddingTop: insets.top, backgroundColor: t.bg, borderBottomColor: t.line, opacity: barOpacity }]}>
-          <Animated.Text numberOfLines={1} style={{ opacity: titleOpacity, color: t.ink, fontSize: 16, fontWeight: "600", textAlign: "center", paddingHorizontal: 72 }}>{it.title}</Animated.Text>
+        <Animated.View pointerEvents="none" style={[st.bar, { height: barH, opacity: barOpacity }]}>
+          {/* Solid behind the status bar, then fading out (bands, no gradient dependency). */}
+          {Array.from({ length: 16 }, (_, k) => {
+            const a = Math.round((barH * k) / 16), b = Math.round((barH * (k + 1)) / 16);
+            const y = (a + b) / 2;
+            const alpha = y <= insets.top * 0.6 ? 1 : Math.max(0, 1 - (y - insets.top * 0.6) / (barH - insets.top * 0.6));
+            return <View key={k} style={{ position: "absolute", left: 0, right: 0, top: a, height: b - a, backgroundColor: rgba(t.bg, alpha * 0.96) }} />;
+          })}
         </Animated.View>
       ) : null}
       <Pressable onPress={close} hitSlop={10} accessibilityLabel="Back" style={[st.back, { top: insets.top + space.s }]}>
@@ -81,7 +88,7 @@ export default function ItemScreen() {
 const st = StyleSheet.create({
   facts: { flexDirection: "row", flexWrap: "wrap", borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: space.s, rowGap: space.s },
   fact: { width: "50%", gap: 2, paddingRight: space.s },
-  bar: { position: "absolute", top: 0, left: 0, right: 0, justifyContent: "center", borderBottomWidth: StyleSheet.hairlineWidth },
+  bar: { position: "absolute", top: 0, left: 0, right: 0 },
   back: { position: "absolute", left: space.l, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
   action: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
 });
