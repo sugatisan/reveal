@@ -77,7 +77,7 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
         </View>
       ) : null}
       <ScrollView contentContainerStyle={{ paddingBottom: (stacked ? 0 : tabSpace) + space.xl }} keyboardShouldPersistTaps="handled">
-        <Header title={stacked ? "All sources and settings" : "Sources"} subtitle={state ? `${state.interests.length} interests · ${sources.length} sources followed` : undefined} />
+        <Header title={stacked ? "Settings" : "Sources"} subtitle={state ? `${state.interests.length} interests · ${sources.length} sources followed` : undefined} />
         <View style={{ flexDirection: "row", gap: space.s, paddingHorizontal: space.l, marginBottom: space.m }}>
           <TextInput autoFocus={focusAdd} value={text} onChangeText={(v) => { setText(v); setOverlap(null); }} onSubmitEditing={add} placeholder="New interest, e.g. vintage watches, Danish design" placeholderTextColor={t.faint}
             style={{ flex: 1, color: t.ink, backgroundColor: t.card, borderRadius: radius.pill, paddingHorizontal: space.l, paddingVertical: 10, borderWidth: 1, borderColor: t.line, fontSize: 15 }} />
@@ -106,6 +106,8 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
         {busy === "add" ? <Text style={{ color: t.muted, paddingHorizontal: space.l, marginBottom: space.m }}>Finding sources and checking each feed. This can take half a minute.</Text> : null}
         <ErrorLine text={error} />
         {!state ? <ActivityIndicator color={t.muted} /> : null}
+
+        {stacked && state?.profile ? <ProfileCard name={state.profile.name} onSave={(name) => run("profile", () => api("/api/profile", { name }))} /> : null}
 
         {state?.interests.length ? (
           <Card title="Interests">
@@ -195,6 +197,19 @@ const PURPOSE: Record<string, string> = {
   interests: "Setting up interests", "less-topics": "\u201cLess of\u201d topics", summary: "Summaries (old)", other: "Other",
 };
 const k = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}k` : String(n));
+
+function ProfileCard({ name, onSave }: { name: string; onSave: (name: string) => void }) {
+  const t = useTheme();
+  const [v, setV] = useState(name);
+  useEffect(() => setV(name), [name]);
+  return (
+    <Card title="Profile" hint="Shown in the interests panel. Becomes your Apple ID name and photo once there are accounts.">
+      <TextInput value={v} onChangeText={setV} onBlur={() => v.trim() && v.trim() !== name && onSave(v)} onSubmitEditing={() => v.trim() && v.trim() !== name && onSave(v)}
+        placeholder="Your name" placeholderTextColor={t.faint} returnKeyType="done"
+        style={{ color: t.ink, backgroundColor: t.bg, borderRadius: radius.pill, paddingHorizontal: space.l, paddingVertical: 9, borderWidth: 1, borderColor: t.line, fontSize: 15, marginTop: space.xs }} />
+    </Card>
+  );
+}
 
 function Card({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
   const t = useTheme();

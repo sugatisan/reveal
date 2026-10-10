@@ -37,7 +37,7 @@ export type UsageRow = { purpose: string; calls: number; input: number; output: 
 export type Usage = { days: number; priced: boolean; rows: UsageRow[]; total: { calls: number; input: number; output: number; cost: number } };
 export type ConceptGroup = { kind: "names" | "terms" | "nearby"; title: string; items: { term: string; why: string }[] };
 export type Overlap = { kind: "narrower"; interestId: string; label: string; focus: string } | { kind: "covered"; interestId: string; label: string };
-export type AppState = { apiVersion?: number; hasKey: boolean; tuning: TuningRule[]; interests: Interest[]; topics: { id: string; label: string }[]; lastRefresh: number; refreshing: boolean; itemCount: number; savedCount: number };
+export type AppState = { apiVersion?: number; hasKey: boolean; profile?: { name: string; photo: string | null }; tuning: TuningRule[]; interests: Interest[]; topics: { id: string; label: string }[]; lastRefresh: number; refreshing: boolean; itemCount: number; savedCount: number };
 export type FeedItem = { type: "item"; id: string; sourceId: string; title: string; link: string; date: number; excerpt?: string; image?: string; imageLarge?: string; brief?: StoryBrief | null; imageCount?: number; why: string; sourceName: string; alsoNames: string[]; saved: boolean; interestIds: string[] };
 export type CuratorCard =
   | { type: "curator"; kind: "sources"; id: string; interestId: string; title: string; sources: { id: string; name: string; site: string; about: string; interestId: string }[] }

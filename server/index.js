@@ -145,6 +145,8 @@ function state() {
   return {
     apiVersion: API_VERSION,
     hasKey: agent.hasKey(),
+    // Local profile until there are accounts (Sign in with Apple will supply name and photo).
+    profile: { name: d.meta.profileName || "Rich", photo: d.meta.profilePhoto || null },
     interests: (() => { const c = newCounts(); return d.interests.map((i) => interestView(i, c)); })(),
     topics: agent.catalog.topics.map((t) => ({ id: t.id, label: t.label })),
     lastRefresh: d.meta.lastRefresh,
@@ -386,6 +388,13 @@ const routes = {
     i.concepts = { at: Date.now(), groups };
     save();
     return { groups, at: i.concepts.at };
+  },
+
+  "POST /api/profile": async (req) => {
+    const { name } = await body(req);
+    if (name?.trim()) load().meta.profileName = name.trim().slice(0, 40);
+    save();
+    return state();
   },
 
   "POST /api/interests/check": async (req) => {
