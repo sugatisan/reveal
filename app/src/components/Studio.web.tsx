@@ -124,7 +124,7 @@ function StatusChrome({ dev }: { dev: Device }) {
 
 // ---------- panel ----------
 // Panels follow the screen from top to bottom. A search box filters every control by name or description.
-const PANEL_ORDER = ["Color", "Top bar", "Feed cards", "Tab bar", "Studio"];
+const PANEL_ORDER = ["Color", "Top bar", "Feed cards", "Story page", "Tab bar", "Studio"];
 type Sec = { id: string; panel: string; title: string; hint?: string; controls: Control[]; studio?: boolean };
 
 function Panel({ prefs, setPrefs }: { prefs: StudioPrefs; setPrefs: (p: Partial<StudioPrefs>) => void }) {

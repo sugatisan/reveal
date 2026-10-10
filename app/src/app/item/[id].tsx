@@ -10,6 +10,7 @@ import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Button, Chip, ErrorLine, MiniItemRow, SourceRow, useToast } from "@/components/ui";
 import { LessSheet, lessToast } from "@/components/LessSheet";
 import { Gallery } from "@/components/Gallery";
+import { useDesign } from "@/design/store";
 
 export default function ItemScreen() {
   const t = useTheme();
@@ -22,6 +23,7 @@ export default function ItemScreen() {
   const toast = useToast();
   const [brief, setBrief] = useState<StoryBrief | null | undefined>(undefined);
   const [briefError, setBriefError] = useState("");
+  const mode: "gist" | "excerpt" | "lead" = useDesign()["story.body"];
 
   useEffect(() => {
     setIt(null); setBrief(undefined); setBriefError("");
@@ -29,9 +31,11 @@ export default function ItemScreen() {
       setIt(x);
       // The brief is shared across readers; the first reader waits for it, everyone after gets it instantly.
       if (x.brief) setBrief(x.brief);
+      else if (mode !== "gist") setBrief(null); // no AI: don't ask the curator at all
       else api<{ brief: StoryBrief | null }>("/api/item/brief", { id: x.id }).then((r) => setBrief(r.brief)).catch((e) => { setBrief(null); setBriefError(e.message); });
     }).catch((e) => setError(e.message));
-  }, [id]);
+  }, [id, mode]);
+  const shown = mode === "gist" ? brief : null; // facts and questions only come with the AI brief
   const ask = (prompt: string) => router.navigate({ pathname: "/curator", params: { prompt, itemId: it!.id, n: String(Date.now()) } });
 
   const open = async () => {
@@ -78,13 +82,20 @@ export default function ItemScreen() {
               </View>
             ) : null}
             {/* Gist when we have it; the publisher's excerpt while it's on the way or if there's no curator. */}
+            {mode !== "gist" ? (
+              <>
+                <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{(mode === "lead" ? it.lead : it.excerpt) || (mode === "lead" ? "(Couldn't read the article's opening on this page.)" : "(This feed has no excerpt.)")}</Text>
+                <Text style={{ color: t.faint, fontSize: 12 }}>{mode === "lead" ? `Opening of the article at ${it.sourceName}. No AI.` : `From ${it.sourceName}'s feed. No AI.`}</Text>
+              </>
+            ) : (<>
             <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26, opacity: brief === undefined ? 0.6 : 1 }} numberOfLines={brief?.gist ? undefined : 6}>{brief?.gist || it.excerpt || ""}</Text>
             {brief === undefined ? <Text style={{ color: t.faint, fontSize: 12 }}>The curator is reading the article…</Text>
               : brief?.gist ? <Text style={{ color: t.faint, fontSize: 12 }}>Gist by the curator{brief.from === "excerpt" ? ", from the source's excerpt" : ""}.</Text>
               : __DEV__ && briefError ? <Text style={{ color: t.danger, fontSize: 12 }}>Brief failed (dev only): {briefError}</Text> : null}
-            {brief?.facts?.length ? (
+            </>)}
+            {shown?.facts?.length ? (
               <View style={[st.facts, { borderColor: t.line }]}>
-                {brief.facts.map((f) => (
+                {shown.facts.map((f) => (
                   <View key={f.label} style={st.fact}>
                     <Text style={{ color: t.muted, fontSize: 12, fontWeight: "600" }}>{f.label}</Text>
                     <Text style={{ color: t.ink, fontSize: 15, fontWeight: "600" }}>{f.value}</Text>
@@ -110,11 +121,11 @@ export default function ItemScreen() {
               <Button label={`Read at ${it.sourceName}`} icon="open-outline" onPress={open} />
               <Button label="More like this" kind="secondary" icon="sparkles-outline" onPress={() => ask("More like this")} />
             </View>
-            {brief?.questions?.length ? (
+            {shown?.questions?.length ? (
               <View style={{ gap: 6 }}>
                 <Text style={{ color: t.muted, fontSize: 12, fontWeight: "700", letterSpacing: 0.6 }}>ASK THE CURATOR</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                  {brief.questions.map((q) => <Chip key={q} label={q} tone="curator" onPress={() => ask(q)} />)}
+                  {shown.questions.map((q) => <Chip key={q} label={q} tone="curator" onPress={() => ask(q)} />)}
                 </View>
               </View>
             ) : null}

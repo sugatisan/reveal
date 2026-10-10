@@ -168,6 +168,14 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    id: "story-body", panel: "Story page", title: "Description",
+    hint: "What shows under the headline. The two non-AI options skip the curator entirely, so key facts and questions disappear too.",
+    controls: [
+      choice("story.body", "Source", "gist", [["gist", "AI gist"], ["excerpt", "Feed excerpt"], ["lead", "Article opening"]],
+        "Feed excerpt: what the publisher puts in their RSS feed. Article opening: the first paragraphs of the article page."),
+    ],
+  },
+  {
     id: "tab-shown", panel: "Tab bar", title: "Tabs shown",
     controls: [
       { key: "tab.sources", label: "Sources tab", hint: "Off: interests and sources are managed from the left panel (edit icons, All sources and settings).", type: "toggle", default: false },

@@ -169,6 +169,14 @@ async function peek(sourceId) {
 // Article text from the last page fetch, kept in memory only (never stored or shown in full).
 const pageText = new Map();
 
+// First paragraphs of the article, up to about 600 characters, cut at a sentence.
+function leadOf(text = "") {
+  let out = "";
+  for (const p of text.split("\n")) { if (out.length + p.length > 600) break; out += (out ? "\n\n" : "") + p; if (out.length > 350) break; }
+  if (!out && text) { const cut = text.slice(0, 600); out = cut.slice(0, Math.max(cut.lastIndexOf(". ") + 1, 300)); }
+  return out;
+}
+
 // "Why it's here for you", from what you've told us. No AI: it's free, so it can go anywhere.
 function forYou(it, ints) {
   const liked = [];
@@ -204,9 +212,13 @@ async function itemDetail(id) {
   if (!it) throw new Error("Item not found");
   const src = d.sources[it.sourceId] || {};
   // The article page is fetched once: images go in the gallery, text is held briefly for the brief.
-  if (it.pageImages === undefined || it.shopLinks === undefined) {
-    try { const pg = await articlePage(it.link); it.pageImages = pg.images.slice(0, 12); it.shopLinks = pg.shops; if (pg.text) pageText.set(id, pg.text); }
-    catch { it.pageImages ||= []; it.shopLinks = []; }
+  if (it.pageImages === undefined || it.shopLinks === undefined || it.lead === undefined) {
+    try {
+      const pg = await articlePage(it.link); it.pageImages = pg.images.slice(0, 12); it.shopLinks = pg.shops; if (pg.text) pageText.set(id, pg.text);
+      // The article's opening, for comparing against the AI gist (studio: Story page › Description). Short, never the full text.
+      it.lead = leadOf(pg.text);
+    }
+    catch { it.pageImages ||= []; it.shopLinks ||= []; it.lead = ""; }
     save();
   }
   const gk = (u) => u.replace(/[?#].*$/, "").replace(/-\d{2,4}x\d{2,4}(?=\.\w+$)/, "").toLowerCase();
@@ -567,13 +579,22 @@ const server = http.createServer(async (req, res) => {
   fs.createReadStream(file).pipe(res);
 });
 
-server.listen(PORT, "0.0.0.0", () => {
+// After a code change the watcher restarts us; if the old process hasn't let go of the port yet, retry
+// instead of failing (which used to leave the app saying "can't reach the server" until the next edit).
+server.keepAliveTimeout = 2000;
+let tries = 0;
+server.on("error", (e) => {
+  if (e.code === "EADDRINUSE" && tries++ < 30) { setTimeout(() => server.listen(PORT, "0.0.0.0"), 500); return; }
+  console.error("  Server error:", e.message);
+});
+server.on("listening", () => {
   console.log(`\n  Reveal API is running at http://localhost:${PORT}`);
   console.log(agent.hasKey() ? "  Curator: on (Claude API key found)\n" : "  Curator: off. Add ANTHROPIC_API_KEY to .env to turn it on. Using the built-in catalog.\n");
 });
+server.listen(PORT, "0.0.0.0");
 
 // Keep the feed fresh while the app is running.
 const tick = () => { if (followedIds().length && Date.now() - load().meta.lastRefresh > 25 * 6e4) refresh().then((r) => console.log(`  Refreshed: ${r.added} new items, ${r.failed} sources failed`)).catch(() => {}); };
 setTimeout(tick, 1500);
 setInterval(tick, 5 * 6e4);
-for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { flush(); process.exit(0); });
+for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { flush(); server.closeAllConnections?.(); process.exit(0); });

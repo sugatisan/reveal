@@ -297,6 +297,10 @@ export async function articlePage(url, { timeout = 7000 } = {}) {
     (text.match(/<div[^>]+(?:class|id)\s*=\s*["'][^"']*(?:entry-content|post-content|article-body|story-body|post-body)[^"']*["'][\s\S]*?<\/div>\s*<\/div>/i) || [])[0] ||
     "";
   // Without a marked article body, the whole page is mostly navigation and ads; only trust og:image.
+  // Dev aid: keep a copy of pages we can't read, to improve extraction (data/debug/, gitignored).
+  if (process.env.NODE_ENV !== "production" && !(body && articleText(body))) {
+    try { const fs = await import("node:fs"); fs.mkdirSync("data/debug", { recursive: true }); fs.writeFileSync(`data/debug/${new URL(finalUrl).hostname}.html`, text.slice(0, 400000)); } catch {}
+  }
   // No marked body: fall back to the page's longer paragraphs, if there are enough of them to be an article.
   const fallback = body ? "" : articleText(text).split("\n").filter((p) => p.length > 80).join("\n");
   return { images: [ogUrl, ...(body ? allImages(body, finalUrl, 12) : [])].filter(Boolean), text: body ? articleText(body) : fallback.length > 400 ? fallback : "", shops: shopLinks(body || text, finalUrl) };
