@@ -68,7 +68,7 @@ export function IslandTabBar({ state, navigation }: BarProps) {
     if (!e.defaultPrevented && current !== name) navigation.navigate(name);
   };
 
-  const ASK = { name: "curator", title: "Ask", icon: "sparkles-outline" as Glyph, active: "sparkles" as Glyph };
+  const ASK = { name: "curator", title: "Ask", icon: "chatbubble-ellipses-outline" as Glyph, active: "chatbubble-ellipses" as Glyph };
   const inBar = unified
     ? [...TABS.filter((x) => x.name !== "search" && x.name !== "curator"), ...(search === "tab" ? [ASK] : [])]
     : TABS.filter((x) => x.name !== "search" || search === "tab");
@@ -93,7 +93,7 @@ export function IslandTabBar({ state, navigation }: BarProps) {
   const searchButton = search === "button" ? (
     <Pressable ref={searchRef} onPress={() => go(entryRoute)} accessibilityLabel={unified ? "Ask" : "Search"} accessibilityRole="button"
       style={{ width: h, height: h, borderRadius: Math.min(radius, h / 2), alignItems: "center", justifyContent: "center", ...surface }}>
-      <Ionicons name={unified ? (current === "curator" ? "sparkles" : "sparkles-outline") : current === "search" ? "search" : "search-outline"} size={24} color={current === entryRoute ? t.accent : t.ink} />
+      <Ionicons name={unified ? (current === "curator" ? "chatbubble-ellipses" : "chatbubble-ellipses-outline") : current === "search" ? "search" : "search-outline"} size={24} color={current === entryRoute ? t.accent : t.ink} />
     </Pressable>
   ) : null;
 
