@@ -44,5 +44,12 @@
   "pill.fillColor": "#000000",
   "pill.shadowColor": "#000000",
   "card.layout": "hero",
-  "nav.ask": "unified"
+  "nav.ask": "unified",
+  "full.scrimDark": 86,
+  "full.scrimCurve": 0.9,
+  "full.scrimBlend": "multiply",
+  "full.topDark": 25,
+  "story.sectionGap": 26,
+  "story.factsGap": 12,
+  "story.factsPad": 16
 }

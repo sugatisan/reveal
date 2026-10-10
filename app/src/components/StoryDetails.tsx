@@ -2,7 +2,7 @@
 // studio's Story page › Description), key facts, where to buy, actions, curator questions, related
 // stories and deeper sources. Shared by the story page and the full-screen feed's details sheet.
 import { useEffect, useRef, useState } from "react";
-import { Animated, LayoutAnimation, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -11,6 +11,7 @@ import { bumpFeed, reloadState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { useDesign } from "@/design/store";
 import { Button, Chip, MiniItemRow, SourceRow } from "@/components/ui";
+import { Reveal } from "./Reveal";
 
 export type DescMode = "gist" | "excerpt" | "lead";
 
@@ -96,7 +97,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
       </View>
 
       {shown?.facts?.length ? (
-        <Appear on={watched}>
+        <Reveal open animate={watched} duration={300} delay={280}>
         <View style={[st.facts, { borderColor: t.line, paddingVertical: d["story.factsPad"], rowGap: d["story.factsGap"] }]}>
           {shown.facts.map((f) => (
             <View key={f.label} style={st.fact}>
@@ -105,7 +106,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
             </View>
           ))}
         </View>
-        </Appear>
+        </Reveal>
       ) : null}
 
       {it.shops?.length ? (
@@ -163,19 +164,12 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
   );
 }
 
-// Fades content in when it arrives after the page opened; content that was already there just shows.
-function Appear({ children, on = true }: { children: React.ReactNode; on?: boolean }) {
-  const v = useRef(new Animated.Value(on ? 0 : 1)).current;
-  useEffect(() => { Animated.timing(v, { toValue: 1, duration: 220, useNativeDriver: true }).start(); }, [v]);
-  return <Animated.View style={{ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }] }}>{children}</Animated.View>;
-}
-
-// The description, openly: the publisher's text while the curator reads, then the curator's gist with
-// the original folded into one line you can open again.
+// The description, openly: the publisher's text while the curator reads. When the gist arrives, the
+// original collapses down into the "Show original" line as the gist builds in from the top.
 function GistBlock({ it, brief, briefError }: { it: ItemDetail; brief: StoryBrief | null | undefined; briefError: string }) {
   const t = useTheme();
   const [showOriginal, setShowOriginal] = useState(false);
-  const loadingAtMount = useRef(brief === undefined).current; // animate only if we watched it arrive
+  const watched = useRef(brief === undefined).current; // animate only if we saw it arrive
   const pulse = useRef(new Animated.Value(0.45)).current;
   useEffect(() => {
     if (brief !== undefined) return;
@@ -186,51 +180,48 @@ function GistBlock({ it, brief, briefError }: { it: ItemDetail; brief: StoryBrie
     loop.start();
     return () => loop.stop();
   }, [brief, pulse]);
-  useEffect(() => {
-    if (brief?.gist && loadingAtMount) LayoutAnimation.configureNext(LayoutAnimation.create(220, "easeInEaseOut", "opacity"));
-  }, [brief, loadingAtMount]);
   const original = it.lead || it.excerpt || "";
+  const reading = brief === undefined;
+  const gist = brief?.gist || "";
 
-  if (brief === undefined) return (
-    <>
-      <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }} numberOfLines={6}>{original}</Text>
-      <Text style={{ color: t.faint, fontSize: 12 }}>From {it.sourceName}</Text>
-      <Animated.View style={{ flexDirection: "row", alignItems: "center", gap: 6, opacity: pulse }}>
-        <Ionicons name="sparkles" size={12} color={t.curatorAccent} />
-        <Text style={{ color: t.muted, fontSize: 13 }}>The curator is reading the article…</Text>
-      </Animated.View>
-    </>
-  );
-  if (!brief?.gist) return (
+  if (!reading && !gist) return (
     <>
       <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{original}</Text>
       <Text style={{ color: t.faint, fontSize: 12 }}>From {it.sourceName}</Text>
       {__DEV__ && briefError ? <Text style={{ color: t.danger, fontSize: 12 }}>Brief failed (dev only): {briefError}</Text> : null}
     </>
   );
-  const body = (
-    <View style={{ gap: 10 }}>
-      <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{brief.gist}</Text>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <Text style={{ color: t.faint, fontSize: 12 }}>Gist by the curator{brief.from === "excerpt" ? ", from the source's excerpt" : ""}</Text>
-        {original ? (
-          <Pressable onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.create(200, "easeInEaseOut", "opacity")); setShowOriginal((x) => !x); }}
-            hitSlop={8} accessibilityRole="button" style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-            <Text style={{ color: t.faint, fontSize: 12 }}>·</Text>
-            <Text style={{ color: t.muted, fontSize: 12, fontWeight: "600" }}> {showOriginal ? "Hide original" : "Show original"}</Text>
-            <Ionicons name={showOriginal ? "chevron-up" : "chevron-down"} size={12} color={t.muted} />
-          </Pressable>
-        ) : null}
-      </View>
-      {showOriginal ? (
-        <View style={{ borderLeftWidth: 2, borderLeftColor: t.line, paddingLeft: space.m, gap: 4 }}>
-          <Text style={{ color: t.muted, fontSize: 15, lineHeight: 23 }}>{original}</Text>
-          <Text style={{ color: t.faint, fontSize: 12 }}>From {it.sourceName}</Text>
+  const quoted = !reading; // once the gist is here, the original reads as a quote
+  return (
+    <View>
+      <Reveal open={!!gist} animate={watched} duration={340} delay={90}>
+        <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26, paddingBottom: 10 }}>{gist}</Text>
+      </Reveal>
+      <Reveal open={reading || showOriginal} animate={watched || !reading} duration={reading ? 0 : 260}>
+        <View style={quoted ? { borderLeftWidth: 2, borderLeftColor: t.line, paddingLeft: space.m, marginBottom: 10 } : { paddingBottom: 10 }}>
+          <Text style={{ color: quoted ? t.muted : t.ink, fontSize: quoted ? 15 : 17, lineHeight: quoted ? 23 : 26 }} numberOfLines={reading ? 6 : undefined}>{original}</Text>
+          <Text style={{ color: t.faint, fontSize: 12, marginTop: 4 }}>From {it.sourceName}</Text>
         </View>
-      ) : null}
+      </Reveal>
+      {reading ? (
+        <Animated.View style={{ flexDirection: "row", alignItems: "center", gap: 6, opacity: pulse }}>
+          <Ionicons name="sparkles" size={12} color={t.curatorAccent} />
+          <Text style={{ color: t.muted, fontSize: 13 }}>The curator is reading the article…</Text>
+        </Animated.View>
+      ) : (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <Text style={{ color: t.faint, fontSize: 12 }}>Gist by the curator{brief?.from === "excerpt" ? ", from the source's excerpt" : ""}</Text>
+          {original ? (
+            <Pressable onPress={() => setShowOriginal((x) => !x)} hitSlop={8} accessibilityRole="button" style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+              <Text style={{ color: t.faint, fontSize: 12 }}>·</Text>
+              <Text style={{ color: t.muted, fontSize: 12, fontWeight: "600" }}> {showOriginal ? "Hide original" : "Show original"}</Text>
+              <Ionicons name={showOriginal ? "chevron-up" : "chevron-down"} size={12} color={t.muted} />
+            </Pressable>
+          ) : null}
+        </View>
+      )}
     </View>
   );
-  return loadingAtMount ? <Appear>{body}</Appear> : body;
 }
 
 const st = StyleSheet.create({
