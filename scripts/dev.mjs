@@ -15,7 +15,7 @@ if (!fs.existsSync("app/node_modules") || installedFor !== here) {
 }
 
 const procs = [
-  ["api", "node", ["server/index.js"], {}],
+  ["api", "node", ["--watch-path=server", "server/index.js"], {}],
   ["app", "npx", ["expo", "start", ...process.argv.slice(2)], { cwd: "app" }],
 ].map(([name, cmd, args, opts]) => {
   const p = spawn(cmd, args, { ...opts, stdio: name === "app" ? "inherit" : ["ignore", "pipe", "pipe"], env: process.env });

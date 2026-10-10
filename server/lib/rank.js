@@ -20,7 +20,7 @@ export function affinity(sourceId) {
   return Math.max(0.35, Math.min(1.8, raw));
 }
 
-export function buildFeed({ interestId, limit = 120 } = {}) {
+export function buildFeed({ interestId, sourceId, limit = 120 } = {}) {
   const d = load();
   const now = Date.now();
   const interests = interestId ? d.interests.filter((i) => i.id === interestId) : d.interests;
@@ -32,6 +32,7 @@ export function buildFeed({ interestId, limit = 120 } = {}) {
     if (it.dupOf) continue;
     const ints = owner.get(it.sourceId) || (it.also || []).flatMap((s) => owner.get(s) || []);
     if (!ints.length) continue;
+    if (sourceId && it.sourceId !== sourceId && !(it.also || []).includes(sourceId)) continue;
     const ev = d.events[it.id] || {};
     if (ev.less) continue;
     const src = d.sources[it.sourceId] || {};

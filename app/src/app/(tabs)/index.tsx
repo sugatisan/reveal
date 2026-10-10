@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, Text, View, ViewToken } from "react-native";
+import { ActivityIndicator, Animated, FlatList, PanResponder, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View, ViewToken } from "react-native";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ago, api, Feed, FeedEntry, FeedItem, sendEvents } from "@/lib/api";
-import { reloadState, useAppState, useFeedVersion } from "@/lib/store";
+import { ago, api, AppState, Feed, FeedEntry, FeedItem, Lens, NEEDS_API_VERSION, sendEvents } from "@/lib/api";
+import { reloadState, setAppState, useAppState, useFeedVersion } from "@/lib/store";
 import { space, useTheme } from "@/lib/theme";
 import { Chip, Empty, ErrorLine, Header, useToast } from "@/components/ui";
 import { CuratorCardView, ItemCard } from "@/components/FeedCards";
 import { LessResult, LessSheet, lessToast } from "@/components/LessSheet";
+import { SidePanel } from "@/components/SidePanel";
 
 type Row = FeedEntry | { type: "divider"; id: string };
 
@@ -15,7 +17,7 @@ export default function FeedScreen() {
   const t = useTheme();
   const { state, error: stateError } = useAppState();
   const version = useFeedVersion();
-  const [lens, setLens] = useState("");
+  const [lens, setLens] = useState<Lens>(null);
   const [feed, setFeed] = useState<Feed | null>(null);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -23,7 +25,8 @@ export default function FeedScreen() {
   const [lessFor, setLessFor] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    try { setFeed(await api<Feed>(`/api/feed${lens ? `?interest=${encodeURIComponent(lens)}` : ""}`)); setError(""); }
+    const q = !lens ? "" : lens.kind === "interest" ? `?interest=${encodeURIComponent(lens.id)}` : `?source=${encodeURIComponent(lens.id)}`;
+    try { setFeed(await api<Feed>(`/api/feed${q}`)); setError(""); }
     catch (e: any) { setError(e.message); }
   }, [lens]);
   useEffect(() => { load(); }, [load, version]);
@@ -47,6 +50,29 @@ export default function FeedScreen() {
       if (e.type === "item" && !seen.current.has(e.id)) { seen.current.add(e.id); queue.current.add(e.id); }
     }
   }).current;
+
+  // ---------- left panel ----------
+  const { width: screenW } = useWindowDimensions();
+  const panelW = Math.min(340, Math.round(screenW * 0.86));
+  const progress = useRef(new Animated.Value(0)).current;
+  const [panelOpen, setPanelOpen] = useState(false);
+  const openPanel = () => { setPanelOpen(true); Animated.spring(progress, { toValue: 1, useNativeDriver: true, damping: 24, stiffness: 260 }).start(); };
+  const closePanel = () => Animated.timing(progress, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => setPanelOpen(false));
+  const panelW_ = useRef(panelW); panelW_.current = panelW;
+  const edge = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, g) => g.dx > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+    onPanResponderGrant: () => setPanelOpen(true),
+    onPanResponderMove: (_, g) => progress.setValue(Math.max(0, Math.min(1, g.dx / panelW_.current))),
+    onPanResponderRelease: (_, g) => {
+      if (g.dx > panelW_.current * 0.35 || g.vx > 0.4) Animated.spring(progress, { toValue: 1, useNativeDriver: true, damping: 24, stiffness: 260 }).start();
+      else Animated.timing(progress, { toValue: 0, duration: 160, useNativeDriver: true }).start(() => setPanelOpen(false));
+    },
+  })).current;
+  const pick = (l: Lens) => {
+    setLens(l);
+    closePanel();
+    if (l?.kind === "interest") api<AppState>("/api/lens", { interestId: l.id }).then(setAppState).catch(() => {});
+  };
 
   if (state && !state.interests.length) return <Redirect href="/welcome" />;
 
@@ -93,10 +119,22 @@ export default function FeedScreen() {
     rows.push(e);
   }
 
+  // Pills: the five interests you opened most recently (new ones count as recent). The panel has the rest.
+  const recency = (i: { lastViewedAt: number; createdAt: number }) => Math.max(i.lastViewedAt || 0, i.createdAt || 0);
+  const recent = [...(state?.interests || [])].sort((a, b) => recency(b) - recency(a)).slice(0, 5);
+  if (lens?.kind === "interest" && !recent.some((i) => i.id === lens.id)) {
+    const cur = state?.interests.find((i) => i.id === lens.id);
+    if (cur) recent.unshift(cur), recent.splice(5);
+  }
   const lensBar = (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.s, paddingHorizontal: space.l, paddingBottom: space.m }}>
-      <Chip label="All" active={!lens} onPress={() => setLens("")} />
-      {state?.interests.map((i) => <Chip key={i.id} label={i.label} active={lens === i.id} onPress={() => setLens(lens === i.id ? "" : i.id)} />)}
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.s, paddingHorizontal: space.l, paddingBottom: space.m, alignItems: "center" }}>
+      <Pressable onPress={openPanel} accessibilityLabel="All interests and sources" hitSlop={6}
+        style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: t.chip, opacity: pressed ? 0.7 : 1 })}>
+        <Ionicons name="menu" size={20} color={t.ink} />
+      </Pressable>
+      <Chip label="All" active={!lens} onPress={() => pick(null)} />
+      {lens?.kind === "source" ? <Chip label={lens.name} active icon="close" onPress={() => pick(null)} /> : null}
+      {recent.map((i) => <Chip key={i.id} label={i.label} active={lens?.kind === "interest" && lens.id === i.id} onPress={() => pick(lens?.kind === "interest" && lens.id === i.id ? null : { kind: "interest", id: i.id })} />)}
     </ScrollView>
   );
 
@@ -112,7 +150,7 @@ export default function FeedScreen() {
           <View>
             <Header title="Reveal" subtitle={feed ? (feed.refreshing || refreshing ? "Checking your sources…" : `Updated ${ago(feed.lastRefresh) || "never"}${state ? ` · ${state.itemCount} stories` : ""}`) : undefined} />
             {lensBar}
-            <ErrorLine text={error || stateError} onRetry={() => { load(); reloadState(); }} />
+            <ErrorLine text={error || stateError || (state && (state.apiVersion || 0) < NEEDS_API_VERSION ? "The Reveal server is older than the app. Stop it (Ctrl+C) and run npm run dev again." : "")} onRetry={() => { load(); reloadState(); }} />
           </View>
         }
         ListEmptyComponent={feed ? <Empty title="Nothing here yet" body="Pull down to check your sources, or follow a few more in Sources." /> : <ActivityIndicator style={{ marginTop: 60 }} color={t.muted} />}
@@ -129,6 +167,9 @@ export default function FeedScreen() {
         }}
         contentContainerStyle={{ paddingBottom: space.xxl }}
       />
+      {/* Swipe in from the left edge to open the panel. */}
+      <View {...edge.panHandlers} style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 18 }} />
+      <SidePanel state={state} lens={lens} progress={progress} width={panelW} open={panelOpen} onClose={closePanel} onPick={pick} />
       <LessSheet itemId={lessFor} onClose={() => setLessFor(null)} onDone={onLess} />
       {toast.node}
     </SafeAreaView>

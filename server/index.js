@@ -22,6 +22,7 @@ const curator = await import("./lib/curator.js");
 const tuning = await import("./lib/tuning.js");
 
 const PORT = +(process.env.PORT || 5177);
+const API_VERSION = 3; // bump when the app starts relying on new routes
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
 const FOLLOW_FIRST = 3; // sources switched on per new interest; the rest wait as suggestions
 
@@ -94,18 +95,31 @@ function sourceView(id, followed) {
   if (!s) return null;
   return { id, name: s.name, site: s.site, why: s.why || s.about || "", status: s.status, error: s.error, perWeek: s.perWeek, cadence: cadenceLabel(s.perWeek), followed };
 }
-function interestView(i) {
+// New since your last visit, per interest (for the side panel).
+function newCounts() {
+  const d = load();
+  const since = d.meta.prevVisit || 0;
+  const bySource = new Map();
+  if (since) for (const it of Object.values(d.items)) {
+    if (it.dupOf || it.fetchedAt <= since || d.events[it.id]?.less) continue;
+    bySource.set(it.sourceId, (bySource.get(it.sourceId) || 0) + 1);
+  }
+  return bySource;
+}
+function interestView(i, counts = newCounts()) {
   return {
-    id: i.id, label: i.label, origin: i.origin, subs: i.subs, subSuggestions: (i.subSuggestions || []).filter((x) => !i.subs.includes(x)), clarify: i.clarify, merged: i.merged,
-    sources: i.sourceIds.map((id) => sourceView(id, true)).filter(Boolean),
+    id: i.id, label: i.label, origin: i.origin, createdAt: i.createdAt || 0, lastViewedAt: i.lastViewedAt || 0,
+    newCount: i.sourceIds.reduce((n, s) => n + (counts.get(s) || 0), 0), subs: i.subs, subSuggestions: (i.subSuggestions || []).filter((x) => !i.subs.includes(x)), clarify: i.clarify, merged: i.merged,
+    sources: i.sourceIds.map((id) => sourceView(id, true)).filter(Boolean).map((s) => ({ ...s, newCount: counts.get(s.id) || 0 })),
     suggested: i.suggestedIds.filter((id) => !i.sourceIds.includes(id)).map((id) => sourceView(id, false)).filter(Boolean),
   };
 }
 function state() {
   const d = load();
   return {
+    apiVersion: API_VERSION,
     hasKey: agent.hasKey(),
-    interests: d.interests.map(interestView),
+    interests: (() => { const c = newCounts(); return d.interests.map((i) => interestView(i, c)); })(),
     topics: agent.catalog.topics.map((t) => ({ id: t.id, label: t.label })),
     lastRefresh: d.meta.lastRefresh,
     refreshing: isRefreshing(),
@@ -280,8 +294,10 @@ const routes = {
 
   "GET /api/feed": async (req, url) => {
     const interestId = url.searchParams.get("interest") || undefined;
-    const { items, caughtUp } = buildFeed({ interestId });
-    const entries = curator.weave(items, curator.feedCards(items, { interestId }));
+    const sourceId = url.searchParams.get("source") || undefined;
+    const { items, caughtUp } = buildFeed({ interestId, sourceId });
+    // A single-source view is for reading that source; the curator stays out of it.
+    const entries = sourceId ? items.map((it) => ({ type: "item", ...it })) : curator.weave(items, curator.feedCards(items, { interestId }));
     return { entries, caughtUp, lastRefresh: load().meta.lastRefresh, refreshing: isRefreshing() };
   },
 
@@ -313,6 +329,14 @@ const routes = {
   },
 
   "POST /api/reset": async () => { reset(); return state(); },
+
+  // Opening an interest (from a pill or the side panel) moves it to the front of the pills.
+  "POST /api/lens": async (req) => {
+    const { interestId } = await body(req);
+    const i = load().interests.find((x) => x.id === interestId);
+    if (i) { i.lastViewedAt = Date.now(); save(); }
+    return state();
+  },
 
   // ---------- "less of this" ----------
   "GET /api/less/options": async (req, url) => tuning.optionsFor(url.searchParams.get("itemId")),

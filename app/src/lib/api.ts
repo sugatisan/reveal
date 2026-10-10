@@ -21,15 +21,17 @@ export async function api<T = any>(path: string, data?: unknown): Promise<T> {
     throw new Error(`Can't reach the Reveal server at ${API_BASE}. Is "npm run dev" running?`);
   }
   const out = await res.json().catch(() => ({}));
+  if (res.status === 404) throw new Error("The Reveal server is older than the app. Stop it (Ctrl+C) and run npm run dev again.");
   if (!res.ok) throw new Error(out.error || `Request failed (${res.status})`);
   return out as T;
 }
 
 // ---------- types (mirror the server's responses) ----------
-export type SourceView = { id: string; name: string; site: string; why?: string; about?: string; status?: string; error?: string; perWeek?: number; cadence?: string; followed?: boolean; interestId?: string; interestLabel?: string };
-export type Interest = { id: string; label: string; origin: string; subs: string[]; subSuggestions: string[]; clarify: { question: string; options: string[] } | null; merged: string[]; sources: SourceView[]; suggested: SourceView[] };
+export type SourceView = { id: string; name: string; site: string; newCount?: number; why?: string; about?: string; status?: string; error?: string; perWeek?: number; cadence?: string; followed?: boolean; interestId?: string; interestLabel?: string };
+export type Interest = { id: string; label: string; origin: string; createdAt: number; lastViewedAt: number; newCount: number; subs: string[]; subSuggestions: string[]; clarify: { question: string; options: string[] } | null; merged: string[]; sources: SourceView[]; suggested: SourceView[] };
 export type TuningRule = { id: string; kind: "source" | "topic" | "interest" | "format"; value: string; label: string; at: number };
-export type AppState = { hasKey: boolean; tuning: TuningRule[]; interests: Interest[]; topics: { id: string; label: string }[]; lastRefresh: number; refreshing: boolean; itemCount: number; savedCount: number };
+export const NEEDS_API_VERSION = 3;
+export type AppState = { apiVersion?: number; hasKey: boolean; tuning: TuningRule[]; interests: Interest[]; topics: { id: string; label: string }[]; lastRefresh: number; refreshing: boolean; itemCount: number; savedCount: number };
 export type FeedItem = { type: "item"; id: string; sourceId: string; title: string; link: string; date: number; excerpt?: string; image?: string; imageCount?: number; why: string; sourceName: string; alsoNames: string[]; saved: boolean; interestIds: string[] };
 export type CuratorCard =
   | { type: "curator"; kind: "sources"; id: string; interestId: string; title: string; sources: { id: string; name: string; site: string; about: string; interestId: string }[] }
@@ -57,3 +59,6 @@ export function ago(ts?: number) {
 export type LessKind = "item" | "topic" | "format" | "source" | "interest";
 export type LessOption = { kind: LessKind; value: string; label: string; hint: string };
 export type LessOptions = { item: { id: string; title: string; sourceName?: string }; options: LessOption[]; unfollow: { interestId: string; sourceId: string; label: string; interestLabel: string }[] };
+
+// What the feed is showing: everything, one interest, or one source.
+export type Lens = null | { kind: "interest"; id: string } | { kind: "source"; id: string; name: string };

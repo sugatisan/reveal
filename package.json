@@ -7,7 +7,7 @@
   "engines": { "node": ">=20" },
   "scripts": {
     "dev": "node scripts/dev.mjs",
-    "server": "node server/index.js",
+    "server": "node --watch-path=server server/index.js",
     "app": "cd app && npx expo start",
     "web": "node scripts/dev.mjs --web",
     "typecheck": "cd app && npx tsc --noEmit"
