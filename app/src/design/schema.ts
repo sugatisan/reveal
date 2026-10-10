@@ -5,30 +5,44 @@
 export type Control =
   | { key: string; label: string; hint?: string; type: "choice"; options: { value: string; label: string }[]; default: string }
   | { key: string; label: string; hint?: string; type: "range"; min: number; max: number; step: number; unit?: string; default: number }
-  | { key: string; label: string; hint?: string; type: "toggle"; default: boolean };
+  | { key: string; label: string; hint?: string; type: "toggle"; default: boolean }
+  | { key: string; label: string; hint?: string; type: "color"; swatches: string[]; default: string };
 
-export type Group = { id: string; title: string; hint?: string; controls: Control[] };
+// Controls are grouped into panels (e.g. "Feed card"), and each panel into titled sections
+// that open and close in the studio. Keep sections small: 2–4 related controls each.
+export type Group = { id: string; panel: string; title: string; hint?: string; controls: Control[] };
+
+const choice = (key: string, label: string, def: string, options: [string, string][], hint?: string): Control =>
+  ({ key, label, hint, type: "choice", default: def, options: options.map(([value, l]) => ({ value, label: l })) });
 
 export const GROUPS: Group[] = [
   {
-    id: "card",
-    title: "Feed card",
-    hint: "How each story looks in the feed.",
+    id: "card-layout", panel: "Feed card", title: "Layout", hint: "The overall shape of each story in the feed.",
     controls: [
-      { key: "card.layout", label: "Layout", type: "choice", default: "hero",
-        options: [{ value: "hero", label: "Big image" }, { value: "compact", label: "Thumbnail" }, { value: "text", label: "Text only" }] },
-      { key: "card.ratio", label: "Image shape", hint: "Big image layout only.", type: "choice", default: "16:9",
-        options: [{ value: "16:9", label: "16:9" }, { value: "3:2", label: "3:2" }, { value: "4:3", label: "4:3" }, { value: "1:1", label: "1:1" }] },
-      { key: "card.surface", label: "Surface", type: "choice", default: "card",
-        options: [{ value: "card", label: "Card" }, { value: "flush", label: "Flush" }] },
-      { key: "card.titleFont", label: "Title font", type: "choice", default: "serif",
-        options: [{ value: "serif", label: "Serif" }, { value: "sans", label: "Sans" }] },
-      { key: "card.titleSize", label: "Title size", type: "range", min: 15, max: 28, step: 1, unit: "pt", default: 21 },
-      { key: "card.titleLines", label: "Title max lines", type: "range", min: 2, max: 5, step: 1, default: 4 },
+      choice("card.layout", "Layout", "hero", [["hero", "Big image"], ["compact", "Thumbnail"], ["text", "Text only"]]),
+      choice("card.ratio", "Image shape", "16:9", [["16:9", "16:9"], ["3:2", "3:2"], ["4:3", "4:3"], ["1:1", "1:1"]], "Big image layout only."),
+      choice("card.surface", "Surface", "card", [["card", "Card"], ["flush", "Flush"]]),
+    ],
+  },
+  {
+    id: "card-title", panel: "Feed card", title: "Title",
+    controls: [
+      choice("card.titleFont", "Font", "serif", [["serif", "Serif"], ["sans", "Sans"]]),
+      { key: "card.titleSize", label: "Size", type: "range", min: 15, max: 28, step: 1, unit: "pt", default: 21 },
+      { key: "card.titleLines", label: "Max lines", type: "range", min: 2, max: 5, step: 1, default: 4 },
+    ],
+  },
+  {
+    id: "card-text", panel: "Feed card", title: "Supporting text",
+    controls: [
       { key: "card.showWhy", label: "Why line", hint: "The orange line saying why a story is here.", type: "toggle", default: true },
-      { key: "card.excerpt", label: "Excerpt", type: "choice", default: "noImage",
-        options: [{ value: "always", label: "Always" }, { value: "noImage", label: "No image only" }, { value: "never", label: "Never" }] },
+      choice("card.excerpt", "Excerpt", "noImage", [["always", "Always"], ["noImage", "No image only"], ["never", "Never"]]),
       { key: "card.excerptLines", label: "Excerpt lines", type: "range", min: 1, max: 5, step: 1, default: 3 },
+    ],
+  },
+  {
+    id: "card-spacing", panel: "Feed card", title: "Spacing and corners",
+    controls: [
       { key: "card.radius", label: "Corner radius", type: "range", min: 0, max: 28, step: 1, unit: "pt", default: 20 },
       { key: "card.padding", label: "Inner padding", type: "range", min: 8, max: 28, step: 2, unit: "pt", default: 16 },
       { key: "card.gap", label: "Space between cards", type: "range", min: 0, max: 32, step: 2, unit: "pt", default: 16 },
