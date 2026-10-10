@@ -20,6 +20,20 @@ const { buildFeed, suggestionsFor } = await import("./lib/rank.js");
 const agent = await import("./lib/agent.js");
 const curator = await import("./lib/curator.js");
 const tuning = await import("./lib/tuning.js");
+const design = (() => {
+  const FILE = path.resolve("app/src/design/saved.json"); // inside the app so a real build includes it
+  const read = () => { try { return JSON.parse(fs.readFileSync(FILE, "utf8")); } catch { return {}; } };
+  let saved = read();
+  let values = { ...saved };
+  let version = 1;
+  const view = () => ({ version, values, saved, dirty: JSON.stringify(values) !== JSON.stringify(saved) });
+  return {
+    view,
+    set(v) { values = { ...values, ...v }; version++; return view(); },
+    save() { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(values, null, 2) + "\n"); saved = { ...values }; version++; return view(); },
+    revert() { saved = read(); values = { ...saved }; version++; return view(); },
+  };
+})();
 
 const PORT = +(process.env.PORT || 5177);
 const API_VERSION = 3; // bump when the app starts relying on new routes
@@ -329,6 +343,14 @@ const routes = {
   },
 
   "POST /api/reset": async () => { reset(); return state(); },
+
+  // ---------- design settings (studio) ----------
+  // Live values are shared by every open copy of the app (laptop studio + phone), which poll the version.
+  // Save writes them to app/src/design/saved.json, which is checked into git. Nothing here touches your feed data.
+  "GET /api/design": async () => design.view(),
+  "POST /api/design": async (req) => { const { values } = await body(req); return design.set(values || {}); },
+  "POST /api/design/save": async () => design.save(),
+  "POST /api/design/revert": async () => design.revert(),
 
   // Opening an interest (from a pill or the side panel) moves it to the front of the pills.
   "POST /api/lens": async (req) => {

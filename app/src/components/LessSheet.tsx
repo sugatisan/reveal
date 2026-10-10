@@ -1,7 +1,8 @@
 // Bottom sheet for "less of this": pick what you want less of (this story, a topic, a kind of post,
 // the source, or the whole interest). Every choice is reversible from the toast or the Sources tab.
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Layer } from "./Layer";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, AppState, LessKind, LessOption, LessOptions, TuningRule } from "@/lib/api";
@@ -53,7 +54,7 @@ export function LessSheet({ itemId, onClose, onDone }: { itemId: string | null; 
 
   const translateY = slide.interpolate({ inputRange: [0, 1], outputRange: [500, 0] });
   return (
-    <Modal visible={!!itemId} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
+    <Layer visible={!!itemId} onRequestClose={onClose}>
       <Pressable style={st.backdrop} onPress={onClose} accessibilityLabel="Close" />
       <Animated.View style={[st.sheet, { backgroundColor: t.card, paddingBottom: insets.bottom + space.m, transform: [{ translateY }] }]}>
         <View style={[st.grabber, { backgroundColor: t.line }]} />
@@ -85,7 +86,7 @@ export function LessSheet({ itemId, onClose, onDone }: { itemId: string | null; 
           <Text style={{ color: t.ink, fontWeight: "600", fontSize: 16 }}>Cancel</Text>
         </Pressable>
       </Animated.View>
-    </Modal>
+    </Layer>
   );
 }
 

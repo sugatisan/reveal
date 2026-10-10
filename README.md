@@ -23,6 +23,17 @@ Without an API key, everything still runs, but onboarding uses the built-in topi
 
 Your data lives in `data/db.json`. **Start over** in Sources erases it.
 
+## Design studio (laptop)
+
+Open **http://localhost:8081/?studio** while `npm run dev` is running. The app shows in a phone frame with a control panel beside it. Every change also shows up on your phone in Expo Go within about a second, so you can tune on the laptop and judge on the device.
+
+- **Save** writes the values to `app/src/design/saved.json`. Commit that file; it's what a real build uses.
+- **Revert to saved** throws away unsaved changes. **Defaults** goes back to the built-in values. **Copy JSON** copies only what differs from the defaults.
+- Studio mode stays on while you navigate. `?studio=0` (or "Leave studio" in the panel) turns it off.
+- To add a control, add it to `app/src/design/schema.ts` and read it with `useDesign()`. The panel builds itself from that list.
+
+Live changes are kept on the Reveal server until you save, so they're lost if the server restarts.
+
 ## What's in it
 
 - **Onboarding:** type what you like stumbling onto. The curator splits it into interests, finds about 8 sources for each, checks every feed, follows the top 3 and keeps the rest as suggestions.

@@ -5,36 +5,74 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { ago, CuratorCard, FeedItem } from "@/lib/api";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Chip, SourceRow } from "./ui";
+import { useDesign } from "@/design/store";
 
+const RATIO: Record<string, number> = { "16:9": 16 / 9, "3:2": 3 / 2, "4:3": 4 / 3, "1:1": 1 };
+
+// The feed card. Its look comes from the design settings (tune them at localhost:8081/?studio).
 export function ItemCard({ item, onOpen, onSave, onLess }: { item: FeedItem; onOpen: () => void; onSave: () => void; onLess: () => void }) {
   const t = useTheme();
+  const d = useDesign();
   const [imgFailed, setImgFailed] = useState(false);
-  const showImg = !!item.image && !imgFailed;
+  const layout: string = d["card.layout"];
+  const flush = d["card.surface"] === "flush";
+  const hasImg = !!item.image && !imgFailed;
+  const showHero = layout === "hero" && hasImg;
+  const showThumb = layout === "compact" && hasImg;
+  const showExcerpt = !!item.excerpt && (d["card.excerpt"] === "always" || (d["card.excerpt"] === "noImage" && !showHero && !showThumb));
+  const pad: number = d["card.padding"];
+  const rad: number = flush ? 0 : d["card.radius"];
+  const titleSize: number = d["card.titleSize"];
   const meta = [item.sourceName, item.alsoNames?.length ? `+${item.alsoNames.length}` : "", ago(item.date)].filter(Boolean).join(" · ");
+
+  const title = (
+    <Text style={{ color: t.ink, fontFamily: d["card.titleFont"] === "serif" ? serif : undefined, fontWeight: d["card.titleFont"] === "serif" ? "400" : "600",
+      fontSize: layout === "compact" ? Math.round(titleSize * 0.82) : titleSize, lineHeight: Math.round((layout === "compact" ? titleSize * 0.82 : titleSize) * 1.28), letterSpacing: -0.2 }}
+      numberOfLines={d["card.titleLines"]}>{item.title}</Text>
+  );
+  const footer = (
+    <View style={st.footer}>
+      <Text style={{ color: t.muted, fontSize: 13, flex: 1 }} numberOfLines={1}>{meta}</Text>
+      <Pressable hitSlop={10} onPress={onLess} accessibilityLabel="Less like this" style={st.icon}>
+        <Ionicons name="eye-off-outline" size={19} color={t.faint} />
+      </Pressable>
+      <Pressable hitSlop={10} onPress={onSave} accessibilityLabel={item.saved ? "Unsave" : "Save"} style={st.icon}>
+        <Ionicons name={item.saved ? "bookmark" : "bookmark-outline"} size={20} color={item.saved ? t.accent : t.muted} />
+      </Pressable>
+    </View>
+  );
+  const why = d["card.showWhy"] ? <Text style={[st.why, { color: t.accent }]} numberOfLines={1}>{item.why}</Text> : null;
+  const excerpt = showExcerpt ? <Text style={{ color: t.muted, lineHeight: 20 }} numberOfLines={d["card.excerptLines"]}>{item.excerpt}</Text> : null;
+  const badge = (item.imageCount || 0) > 1 ? (
+    <View style={st.badge}><Ionicons name="images-outline" size={12} color="#fff" /><Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>{item.imageCount}</Text></View>
+  ) : null;
+
   return (
-    <Pressable onPress={onOpen} style={({ pressed }) => [st.card, { backgroundColor: t.card, opacity: pressed ? 0.85 : 1 }]}>
-      {showImg ? (
-        <View>
-          <Image source={{ uri: item.image }} style={[st.hero, { backgroundColor: t.chip }]} contentFit="cover" transition={200} recyclingKey={item.id} onError={() => setImgFailed(true)} />
-          {(item.imageCount || 0) > 1 ? (
-            <View style={st.badge}><Ionicons name="images-outline" size={12} color="#fff" /><Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>{item.imageCount}</Text></View>
-          ) : null}
+    <Pressable onPress={onOpen} style={({ pressed }) => [{
+      marginHorizontal: d["card.inset"], marginBottom: flush ? 0 : d["card.gap"], borderRadius: rad, overflow: "hidden",
+      backgroundColor: flush ? "transparent" : t.card, opacity: pressed ? 0.85 : 1,
+      ...(flush ? { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.line, paddingBottom: d["card.gap"] / 2, paddingTop: d["card.gap"] / 2 } : null),
+    }]}>
+      {showHero ? (
+        <View style={flush ? { paddingHorizontal: pad } : null}>
+          <Image source={{ uri: item.image }} style={{ width: "100%", aspectRatio: RATIO[d["card.ratio"]] || 16 / 9, backgroundColor: t.chip, borderRadius: flush ? d["card.radius"] : 0 }}
+            contentFit="cover" transition={200} recyclingKey={item.id} onError={() => setImgFailed(true)} />
+          {badge}
         </View>
       ) : null}
-      <View style={st.body}>
-        <Text style={[st.why, { color: t.accent }]} numberOfLines={1}>{item.why}</Text>
-        <Text style={[st.title, { color: t.ink }]} numberOfLines={4}>{item.title}</Text>
-        {!showImg && item.excerpt ? <Text style={{ color: t.muted, lineHeight: 20 }} numberOfLines={3}>{item.excerpt}</Text> : null}
-        <View style={st.footer}>
-          <Text style={{ color: t.muted, fontSize: 13, flex: 1 }} numberOfLines={1}>{meta}</Text>
-          <Pressable hitSlop={10} onPress={onLess} accessibilityLabel="Less like this" style={st.icon}>
-            <Ionicons name="eye-off-outline" size={19} color={t.faint} />
-          </Pressable>
-          <Pressable hitSlop={10} onPress={onSave} accessibilityLabel={item.saved ? "Unsave" : "Save"} style={st.icon}>
-            <Ionicons name={item.saved ? "bookmark" : "bookmark-outline"} size={20} color={item.saved ? t.accent : t.muted} />
-          </Pressable>
+      {showThumb ? (
+        <View style={{ padding: pad, gap: space.s }}>
+          <View style={{ flexDirection: "row", gap: space.m }}>
+            <View style={{ flex: 1, gap: 6 }}>{why}{title}</View>
+            <Image source={{ uri: item.image }} style={{ width: 92, height: 92, borderRadius: Math.min(rad || 8, 14), backgroundColor: t.chip }}
+              contentFit="cover" transition={200} recyclingKey={item.id} onError={() => setImgFailed(true)} />
+          </View>
+          {excerpt}
+          {footer}
         </View>
-      </View>
+      ) : (
+        <View style={{ padding: pad, gap: space.s }}>{why}{title}{excerpt}{footer}</View>
+      )}
     </Pressable>
   );
 }
