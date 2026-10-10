@@ -4,10 +4,10 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router } from "expo-router";
 import { useTabBarSpace } from "@/components/TabBar";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ago, api, Feed, FeedEntry, FeedItem, Lens, NEEDS_API_VERSION, sendEvents } from "@/lib/api";
+import { api, Feed, FeedEntry, FeedItem, Lens, NEEDS_API_VERSION, sendEvents } from "@/lib/api";
 import { chooseLens, reloadState, useAppState, useFeedVersion, useLens } from "@/lib/store";
 import { space, useTheme } from "@/lib/theme";
-import { Chip, Empty, ErrorLine, Header, useToast } from "@/components/ui";
+import { Chip, Empty, ErrorLine, useToast } from "@/components/ui";
 import { CuratorCardView, ItemCard } from "@/components/FeedCards";
 import { LessResult, LessSheet, lessToast } from "@/components/LessSheet";
 import { useDrawer } from "@/components/Drawer";
@@ -133,7 +133,7 @@ export default function FeedScreen() {
     if (cur) recent.unshift(cur), recent.splice(5);
   }
   const lensBar = (
-    <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.s, paddingHorizontal: space.l, paddingBottom: space.m, alignItems: "center" }}>
+    <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.s, paddingHorizontal: space.l, paddingTop: space.s, paddingBottom: space.m, alignItems: "center" }}>
       <Pressable onPress={drawer.open} accessibilityLabel="All interests and sources" hitSlop={6}
         style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: t.chip, opacity: pressed ? 0.7 : 1 })}>
         <Ionicons name="menu" size={20} color={t.ink} />
@@ -154,7 +154,6 @@ export default function FeedScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={t.muted} />}
         ListHeaderComponent={
           <View>
-            <Header title="Reveal" subtitle={feed ? (feed.refreshing || refreshing ? "Checking your sources…" : `Updated ${ago(feed.lastRefresh) || "never"}${state ? ` · ${state.itemCount} stories` : ""}`) : undefined} />
             {lensBar}
             <ErrorLine text={error || stateError || (state && (state.apiVersion || 0) < NEEDS_API_VERSION ? "The Reveal server is older than the app. Stop it (Ctrl+C) and run npm run dev again." : "")} onRetry={() => { load(); reloadState(); }} />
           </View>
