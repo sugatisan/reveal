@@ -81,3 +81,4 @@ These are ordered by how much they'd change what gets built.
 - 2026-10-10 — Costs covered by donations and affiliate links (no subscription, no ads); Where to buy on stories; Support Reveal card (mock); server keeps running after unexpected errors.
 - 2026-10-10 — Full-screen feed layout (one story per screen, Details sheet); story page content shared between page and sheet; studio values survive server restarts; story brief retries bad JSON.
 - 2026-10-10 — Gists written from full-text feeds when publishers include the article; per-source full-text share measured.
+- 2026-10-10 — Summaries written ahead of time for every new story from followed sources (newest first, in the background) and sent with the feed; story page shows the gist immediately, a placeholder on the rare miss, original behind Show original. No transition animation.

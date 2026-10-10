@@ -14,6 +14,7 @@ import { CuratorCardView, ItemCard } from "@/components/FeedCards";
 import { LessResult, LessSheet, lessToast } from "@/components/LessSheet";
 import { useDrawer } from "@/components/Drawer";
 import { FullFeed } from "@/components/FullFeed";
+import { seedBriefs } from "@/components/StoryDetails";
 import { useDesign } from "@/design/store";
 
 // A "pair" is one row of the 2-column grid; everything else spans the full width.
@@ -56,7 +57,7 @@ export default function FeedScreen() {
 
   const load = useCallback(async () => {
     const q = !lens ? "" : lens.kind === "interest" ? `?interest=${encodeURIComponent(lens.id)}` : `?source=${encodeURIComponent(lens.id)}`;
-    try { setFeed(await api<Feed>(`/api/feed${q}`)); setError(""); }
+    try { const f = await api<Feed>(`/api/feed${q}`); seedBriefs(f.entries); setFeed(f); setError(""); }
     catch (e: any) { setError(e.message); }
   }, [lens]);
   useEffect(() => { load(); }, [load, version]);

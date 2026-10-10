@@ -55,7 +55,8 @@ export function buildFeed({ interestId, sourceId, limit = 120 } = {}) {
     else if (aff > 1.15) why = `You open a lot from ${src.name}`;
     else why = primary.label;
 
-    scored.push({ ...it, imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save });
+    const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, ...pub } = it; // server-only
+    scored.push({ ...pub, imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save });
   }
   scored.sort((a, b) => b.score - a.score);
 

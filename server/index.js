@@ -215,12 +215,43 @@ function ensurePage(id) {
 }
 
 // Gist, key facts and next questions for a story: one fast call, stored on the story for every reader.
-async function storyBrief(id) {
+const briefInflight = new Map();
+function storyBrief(id) {
+  if (!briefInflight.has(id)) briefInflight.set(id, writeBrief(id).finally(() => briefInflight.delete(id)));
+  return briefInflight.get(id);
+}
+const briefReady = (it) => !!(it.brief && it.brief.v === agent.BRIEF_VERSION && !(it.brief.from === "excerpt" && it.feedText));
+
+// Summaries ahead of time: every new story from a followed source gets its brief in the background,
+// so it's there before anyone opens the story. Newest first, a few at a time.
+let pregenRunning = false;
+async function pregenBriefs(limit = 120) {
+  if (pregenRunning || !agent.hasKey()) return 0;
+  pregenRunning = true;
+  try {
+    const d = load();
+    const followed = new Set(followedIds());
+    const since = Date.now() - 3 * 864e5;
+    const todo = Object.values(d.items)
+      .filter((i) => !i.dupOf && followed.has(i.sourceId) && i.date > since && !briefReady(i)
+        && !(i.briefFailedAt && i.briefFailedV === agent.BRIEF_VERSION && Date.now() - i.briefFailedAt < 864e5))
+      .sort((a, b) => b.date - a.date).slice(0, limit);
+    let done = 0;
+    const queue = [...todo];
+    await Promise.all(Array.from({ length: 4 }, async () => {
+      for (let i = queue.shift(); i; i = queue.shift()) { try { if (await storyBrief(i.id)) done++; } catch {} }
+    }));
+    if (done) console.log(`  Wrote ${done} story summaries ahead of time`);
+    return done;
+  } finally { pregenRunning = false; }
+}
+
+async function writeBrief(id) {
   const d = load();
   const it = d.items[id];
   if (!it) throw new Error("Item not found");
   // Rewrite a gist that was written from a teaser once the full text is available from the feed.
-  if (it.brief && it.brief.v === agent.BRIEF_VERSION && !(it.brief.from === "excerpt" && it.feedText)) return it.brief;
+  if (briefReady(it)) return it.brief;
   // A story that just failed isn't retried on every open (that would cost a call each time).
   if (it.briefFailedAt && it.briefFailedV === agent.BRIEF_VERSION && Date.now() - it.briefFailedAt < 864e5) return null;
   const src = d.sources[it.sourceId] || {};
@@ -247,7 +278,7 @@ async function itemDetail(id) {
   // The article page (gallery images, shop links, text for the brief) can take seconds on slow sites.
   // Wait for it briefly; if it's slower, answer now and let it finish in the background.
   const page = ensurePage(id);
-  if (page) await Promise.race([page, new Promise((r) => setTimeout(r, 1200))]);
+  if (page && !briefReady(it)) await Promise.race([page, new Promise((r) => setTimeout(r, 1200))]);
   const gk = (u) => u.replace(/[?#].*$/, "").replace(/-\d{2,4}x\d{2,4}(?=\.\w+$)/, "").toLowerCase();
   const gallery = [];
   // Largest version first: the share image or upgraded URL, then the rest.
@@ -266,7 +297,7 @@ async function itemDetail(id) {
   return {
     ...it, sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s),
     interests: ints.map((i) => ({ id: i.id, label: i.label })), related, deeper, saved: !!d.events[id]?.save, gallery: gallery.slice(0, 12),
-    brief: it.brief?.v === agent.BRIEF_VERSION ? it.brief : null, forYou: forYou(it, ints), shops: shop.withAffiliate(it.shopLinks || []),
+    brief: briefReady(it) ? it.brief : null, forYou: forYou(it, ints), feedText: undefined, shops: shop.withAffiliate(it.shopLinks || []),
   };
 }
 
@@ -433,7 +464,8 @@ const routes = {
     const sourceId = url.searchParams.get("source") || undefined;
     const { items, caughtUp } = buildFeed({ interestId, sourceId });
     // A single-source view is for reading that source; the curator stays out of it.
-    const entries = sourceId ? items.map((it) => ({ type: "item", ...it })) : curator.weave(items, curator.feedCards(items, { interestId }));
+    const entries = (sourceId ? items.map((it) => ({ type: "item", ...it })) : curator.weave(items, curator.feedCards(items, { interestId })))
+      .map((e) => (e.type === "item" ? { ...e, brief: briefReady(e) ? e.brief : null } : e));
     return { entries, caughtUp, lastRefresh: load().meta.lastRefresh, refreshing: isRefreshing() };
   },
 
@@ -624,6 +656,8 @@ server.listen(PORT, "0.0.0.0");
 // Keep the feed fresh while the app is running.
 const tick = () => { if (followedIds().length && Date.now() - load().meta.lastRefresh > 25 * 6e4) refresh().then((r) => console.log(`  Refreshed: ${r.added} new items, ${r.failed} sources failed`)).catch(() => {}); };
 setTimeout(tick, 1500);
+setTimeout(() => pregenBriefs().catch(() => {}), 8000);
+setInterval(() => pregenBriefs().catch(() => {}), 2 * 6e4);
 setTimeout(() => enrichImages().then((n) => n && console.log(`  Found larger images for ${n} stories`)).catch(() => {}), 5000);
 setInterval(tick, 5 * 6e4);
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { flush(); server.closeAllConnections?.(); process.exit(0); });
