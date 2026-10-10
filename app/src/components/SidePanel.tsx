@@ -8,9 +8,10 @@ import { router } from "expo-router";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { api, AppState, Lens, looksLikeSite, Overlap, SitePreview } from "@/lib/api";
+import { api, AppState, Lens, looksLikeSite, SitePreview } from "@/lib/api";
 import { bumpFeed, setAppState } from "@/lib/store";
 import { EditGlyph } from "./EditGlyph";
+import { Composer } from "./Composer";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 
 const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
@@ -25,7 +26,6 @@ export function SidePanel({ state, lens, onClose, onPick }: {
   const [focused, setFocused] = useState(false);
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
-  const [overlap, setOverlap] = useState<Overlap | null>(null);
   const [site, setSite] = useState<SitePreview | null>(null);
   const text = q.trim();
   const isSite = looksLikeSite(text);
@@ -44,36 +44,14 @@ export function SidePanel({ state, lens, onClose, onPick }: {
     try { const r = await api<{ created: { id: string }[]; state: AppState }>("/api/interests/fromSource", { url: text }); finish(r, r.created?.[0]?.id); }
     catch (e: any) { setErr(e.message); } finally { setBusy(""); }
   };
-  const create = async () => {
-    setOverlap(null); setBusy("add"); setErr("");
-    try {
-      const r = await api<{ created: { id: string }[]; state: AppState }>("/api/interests/parse", { text });
-      setAppState(r.state); bumpFeed(); setQ("");
-      if (r.created?.[0]) onPick({ kind: "interest", id: r.created[0].id });
-    } catch (e: any) { setErr(e.message); } finally { setBusy(""); }
-  };
-  // Check first for an interest that already covers this (e.g. "MCM Knoll" when you follow MCM).
+  // Return: a site gets its feed looked up; anything else goes to the composer (find sources, or add).
+  const [go, setGo] = useState(0);
   const add = async () => {
     if (!text || busy) return;
-    if (isSite) {
-      setBusy("site"); setErr(""); setSite(null);
-      try { setSite(await api<SitePreview>("/api/sources/preview", { url: text })); }
-      catch (e: any) { setErr(e.message); } finally { setBusy(""); }
-      return;
-    }
-    setBusy("check"); setErr("");
-    const r = await api<{ overlaps: Overlap[] }>("/api/interests/check", { text }).catch(() => ({ overlaps: [] as Overlap[] }));
-    setBusy("");
-    if (r.overlaps[0]) setOverlap(r.overlaps[0]); else create();
-  };
-  const addAsLike = async (o: Extract<Overlap, { kind: "narrower" }>) => {
-    const target = state?.interests.find((i) => i.id === o.interestId);
-    if (!target) return;
-    setBusy("like");
-    try {
-      setAppState(await api<AppState>("/api/interests/update", { id: o.interestId, subs: [...target.subs.filter((x) => x.toLowerCase() !== o.focus.toLowerCase()), o.focus] }));
-      bumpFeed(); setQ(""); setOverlap(null);
-    } catch (e: any) { setErr(e.message); } finally { setBusy(""); }
+    if (!isSite) { setGo((n) => n + 1); return; }
+    setBusy("site"); setErr(""); setSite(null);
+    try { setSite(await api<SitePreview>("/api/sources/preview", { url: text })); }
+    catch (e: any) { setErr(e.message); } finally { setBusy(""); }
   };
   const initials = (state?.profile?.name || "?").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
@@ -93,7 +71,7 @@ export function SidePanel({ state, lens, onClose, onPick }: {
         </View>
         <View style={[st.search, { backgroundColor: t.card, borderColor: focused ? t.muted : t.line }]}>
           <Ionicons name="add" size={18} color={t.muted} />
-          <TextInput value={q} onChangeText={(v) => { setQ(v); setOverlap(null); setSite(null); setErr(""); }} onSubmitEditing={add} returnKeyType="go" onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+          <TextInput value={q} onChangeText={(v) => { setQ(v); setSite(null); setErr(""); }} onSubmitEditing={add} returnKeyType="go" onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
             placeholder="Add an interest or a site" autoCapitalize="none" placeholderTextColor={t.faint} style={{ flex: 1, color: t.ink, fontSize: 15, paddingVertical: 8 }} />
           {busy ? <ActivityIndicator size="small" color={t.muted} /> : null}
         </View>
@@ -117,28 +95,20 @@ export function SidePanel({ state, lens, onClose, onPick }: {
             {busy === "site-add" ? <Text style={{ color: t.muted, fontSize: 12, marginTop: space.s }}>Adding…</Text> : null}
           </View>
         ) : null}
-        {busy === "add" ? <Text style={{ color: t.muted, fontSize: 13, marginHorizontal: space.l, marginBottom: space.s }}>Finding sources for "{text}". This can take half a minute.</Text> : null}
         {err ? <Text style={{ color: t.danger, fontSize: 13, marginHorizontal: space.l, marginBottom: space.s }}>{err}</Text> : null}
-        {overlap ? (
-          <View style={[st.overlap, { backgroundColor: t.card }]}>
-            <Text style={{ color: t.ink, fontWeight: "600" }}>{overlap.kind === "narrower" ? `You already follow ${overlap.label}.` : `${overlap.label} already covers this.`}</Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.s }}>
-              {overlap.kind === "narrower" ? (
-                <Pressable onPress={() => addAsLike(overlap)} style={[st.choice, { backgroundColor: t.accent }]}><Text style={{ color: t.accentInk, fontWeight: "600" }}>Add “{overlap.focus}” to it</Text></Pressable>
-              ) : (
-                <Pressable onPress={() => { setOverlap(null); onPick({ kind: "interest", id: overlap.interestId }); }} style={[st.choice, { backgroundColor: t.accent }]}><Text style={{ color: t.accentInk, fontWeight: "600" }}>Open {overlap.label}</Text></Pressable>
-              )}
-              <Pressable onPress={create} style={[st.choice, { borderWidth: 1, borderColor: t.line }]}><Text style={{ color: t.ink, fontWeight: "600" }}>Keep separate</Text></Pressable>
-            </View>
-          </View>
-        ) : null}
         <ScrollView contentContainerStyle={{ paddingBottom: space.xl }} keyboardShouldPersistTaps="handled">
-          {text && !overlap && !site && !busy ? (
+          {text && !isSite ? (
+            <Composer text={text} state={state} go={go}
+              onDone={(r) => finish(r, r.id)}
+              onOpen={(id) => { setQ(""); onPick({ kind: "interest", id }); }} />
+          ) : null}
+          {isSite && !site && !busy ? (
             <Pressable onPress={add} style={({ pressed }) => [st.row, { backgroundColor: pressed ? t.card : "transparent" }]} accessibilityRole="button">
               <Ionicons name="add-circle-outline" size={18} color={t.accent} />
-              <Text style={[st.label, { color: t.ink }]} numberOfLines={1}>{isSite ? `Add site “${text}”` : `Add “${text}”`}</Text>
+              <Text style={[st.label, { color: t.ink }]} numberOfLines={1}>Add site “{text}”</Text>
             </Pressable>
           ) : null}
+          {text && !isSite && interests.length ? <Text style={[st.cap, { color: t.muted }]}>ALREADY YOURS</Text> : null}
           {interests.map((i) => {
             const activeI = lens?.kind === "interest" && lens.id === i.id;
             const isOpen = expanded[i.id] || (!!q.trim() && i.sources.some((s) => s.name?.toLowerCase().includes(q.trim().toLowerCase())));
@@ -199,6 +169,7 @@ const st = StyleSheet.create({
   footer: { flexDirection: "row", alignItems: "center", gap: space.m, paddingHorizontal: space.l, paddingTop: space.m, borderTopWidth: 1 },
   avatar: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   avatarImg: { width: 34, height: 34 },
+  cap: { fontSize: 11, fontWeight: "700", letterSpacing: 0.6, marginHorizontal: space.l, marginTop: space.s, marginBottom: 2 },
   overlap: { marginHorizontal: space.l, marginBottom: space.s, padding: space.m, borderRadius: radius.m },
   choice: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
 });

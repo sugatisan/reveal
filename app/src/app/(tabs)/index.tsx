@@ -18,7 +18,7 @@ import { seedBriefs } from "@/components/StoryDetails";
 import { useDesign } from "@/design/store";
 
 // A "pair" is one row of the 2-column grid; everything else spans the full width.
-type Row = FeedEntry | { type: "divider"; id: string } | { type: "pair"; id: string; items: FeedItem[] };
+type Row = FeedEntry | { type: "divider"; id: string; label?: string } | { type: "pair"; id: string; items: FeedItem[] };
 
 export default function FeedScreen() {
   const t = useTheme();
@@ -61,6 +61,8 @@ export default function FeedScreen() {
     catch (e: any) { setError(e.message); }
   }, [lens]);
   useEffect(() => { load(); }, [load, version]);
+  // An interest whose stories are still being checked against its scope: look again shortly, once.
+  useEffect(() => { if (!feed?.scoping) return; const h = setTimeout(load, 8000); return () => clearTimeout(h); }, [feed?.scoping, load]);
   useEffect(() => { api("/api/visit", {}).catch(() => {}); }, []);
 
   // Implicit signal: an item counts as "shown" once 60% of it is on screen.
@@ -132,7 +134,12 @@ export default function FeedScreen() {
   const flat: Row[] = [];
   let itemIdx = 0;
   for (const e of feed?.entries || []) {
-    if (e.type === "item") { if (feed && feed.caughtUp > 0 && itemIdx === feed.caughtUp) flat.push({ type: "divider", id: "divider" }); itemIdx++; }
+    if (e.type === "item") {
+      if (feed && feed.caughtUp > 0 && itemIdx === feed.caughtUp) flat.push({ type: "divider", id: "divider" });
+      // Scoped interest: what fits its scope first, then broader stories from the same sources.
+      if (feed && (feed.broaderAt ?? -1) >= 0 && itemIdx === feed.broaderAt) flat.push({ type: "divider", id: "broader", label: feed.broaderAt === 0 ? `Nothing new fits ${feed.broaderLabel} yet · broader stories` : `Beyond ${feed.broaderLabel} · broader stories` });
+      itemIdx++;
+    }
     flat.push(e);
   }
   // 2-column grid: pair up consecutive stories; curator cards and the divider break the pairing and span the width.
@@ -204,7 +211,7 @@ export default function FeedScreen() {
           if (r.type === "divider") return (
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.m, marginHorizontal: space.l, marginBottom: space.l }}>
               <View style={{ flex: 1, height: 1, backgroundColor: t.line }} />
-              <Text style={{ color: t.muted, fontSize: 13 }}>You're caught up · earlier stories</Text>
+              <Text style={{ color: t.muted, fontSize: 13, flexShrink: 1, textAlign: "center" }}>{r.label || "You're caught up · earlier stories"}</Text>
               <View style={{ flex: 1, height: 1, backgroundColor: t.line }} />
             </View>
           );

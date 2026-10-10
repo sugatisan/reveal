@@ -68,10 +68,10 @@ export async function moreSources(interest, existing) {
     return (t?.sources || []).filter((s) => !existing.some((e) => e.site && sameHost(e.site, s.site)));
   }
   const system = `You are the curator inside a personal discovery feed. Reply with JSON only.`;
-  const prompt = `Interest: "${interest.label}"${interest.subs?.length ? ` (leaning toward: ${interest.subs.join(", ")})` : ""}.
+  const prompt = `Interest: "${interest.label}"${interest.subs?.length ? ` (leaning toward: ${interest.subs.join(", ")})` : ""}.${interest.scope ? `\nWhat belongs: ${interest.scope}` : ""}
 The person already has these sources: ${existing.map((e) => e.name).join(", ") || "none"}.
 
-Find 8 more sources they don't have, best first. Include a few specialist or smaller sources, not only the biggest names.
+Find 8 more sources they don't have, best first. ${interest.scope ? "Favor sources dedicated to exactly what belongs (specialist blogs, fan sites, archives, newsletters, podcasts), even small ones, over general sources about the wider subject." : "Include a few specialist or smaller sources, not only the biggest names."}
 
 ${SOURCE_RULES}
 
@@ -272,4 +272,89 @@ Brief a reader deciding whether to open this story.`;
     from: articleText ? "article" : "excerpt",
     v: BRIEF_VERSION,
   };
+}
+
+// ---------- Interest composer ----------
+// Quick read while the person types: what they mean, whether it's narrower than its subject,
+// things they might like, and whether it belongs inside an interest they already have. Fast model.
+const DRAFT_SCHEMA = {
+  type: "object",
+  properties: {
+    label: { type: "string", description: "The interest's name in the person's own words and specificity, tidied: capitalization, obvious plural slips. Never broader than what they typed." },
+    qualified: { type: "boolean", description: "True only when the phrase narrows a subject with a qualifier: an era or year range, a maker or brand, a place, a format, a sub-genre, a specific series or person. 'Marvel comics from the 80s' and 'Japanese denim' are qualified; 'watches' and 'LEGO' are not." },
+    subject: { type: "string", description: "When qualified: the broad subject without the qualifier (e.g. 'Marvel comics'). Else empty." },
+    short: { type: "string", description: "When qualified: the narrow intent in 2-4 words for a divider label (e.g. '1980s Marvel'). Else empty." },
+    scope: { type: "string", description: "When qualified: one plain sentence saying what belongs, specific enough to judge a headline by (e.g. 'Marvel comics published 1980-1989: their creators, runs, characters as they appeared then, reprints and collecting them'). Else empty." },
+    likes: {
+      type: "array", maxItems: 8,
+      items: { type: "object", properties: { term: { type: "string", description: "1-3 words as it would appear in a headline" }, why: { type: "string", description: "at most 6 words" } }, required: ["term", "why"] },
+      description: "Specific names, series, makers, styles or terms a knowledgeable fan of exactly this would want more of. Most useful first.",
+    },
+    home: { type: "string", description: "If this is really a narrower part of one of the person's existing interests (it would fit as something they like inside it), that interest's exact label. Else empty." },
+  },
+  required: ["label", "qualified", "subject", "short", "scope", "likes", "home"],
+};
+export async function draftInterest(text, existing = []) {
+  if (!hasKey()) return null;
+  const prompt = `The person is typing a new interest for their discovery feed: """${text}"""
+Their existing interests: ${existing.map((i) => `"${i.label}"`).join(", ") || "(none)"}.
+Read what they mean. Keep their specificity.`;
+  const out = await claudeForm({ system: "You are the curator inside a personal discovery feed.", prompt, schema: DRAFT_SCHEMA, model: FAST(), maxTokens: 700, purpose: "compose-read" });
+  const q = !!out.qualified && !!String(out.scope || "").trim();
+  return {
+    label: String(out.label || text).trim().slice(0, 60),
+    qualified: q,
+    subject: q ? String(out.subject || "").trim() : "",
+    short: q ? String(out.short || "").trim().slice(0, 30) : "",
+    scope: q ? String(out.scope || "").trim().slice(0, 300) : "",
+    likes: (Array.isArray(out.likes) ? out.likes : []).map((x) => ({ term: String(x.term || "").trim(), why: String(x.why || "").trim() })).filter((x) => x.term && x.term.length <= 32).slice(0, 8),
+    home: String(out.home || "").trim(),
+  };
+}
+
+// Sources for a new interest, each marked as dedicated to the narrow intent or broader.
+export async function proposeSources({ label, scope, likes = [] }) {
+  if (!hasKey()) {
+    const p = catalogParse(label)[0];
+    return (p?.sources || []).map((s) => ({ ...s, fit: "broad" }));
+  }
+  const prompt = `Interest: "${label}"${scope ? `\nWhat belongs: ${scope}` : ""}${likes.length ? `\nThey especially like: ${likes.join(", ")}` : ""}
+
+Find 8 sources, best first. ${scope ? "Lead with sources dedicated to exactly this (specialist blogs, fan sites, archives, newsletters, podcasts) even if small; then 2-3 strong broader sources about the wider subject, marked broad." : "Mix the best-known with a few specialist or smaller ones."}
+
+${SOURCE_RULES}
+
+For each source also give "fit": "dedicated" when most of what it publishes is in scope, or "broad" when it covers the wider subject and only some posts will be in scope.
+
+Return: {"sources":[{"name":"","site":"","feed":null,"why":"","fit":"dedicated"}]}`;
+  // The main model doesn't take a forced tool call, so this one asks for JSON text.
+  const raw = await claude({ system: "You are the curator inside a personal discovery feed. You know the web well and only name sources that really exist. Reply with JSON only.", prompt, maxTokens: 3000, purpose: "compose-sources" });
+  let out;
+  try { out = json(raw); } catch (e) { try { fs.mkdirSync("data/debug", { recursive: true }); fs.writeFileSync("data/debug/compose-sources.txt", raw); } catch {} throw e; }
+  return (out.sources || []).filter((s) => s.site).map((s) => ({ name: String(s.name), site: String(s.site), feed: s.feed || null, why: String(s.why || ""), fit: s.fit === "dedicated" ? "dedicated" : "broad" }));
+}
+
+// Which stories are in scope. 2 = clearly in, 1 = borderline, 0 = out. One fast call per 40 stories.
+const SCOPE_SCHEMA = {
+  type: "object",
+  properties: {
+    inScope: { type: "array", items: { type: "integer" }, description: "numbers of stories clearly in scope" },
+    borderline: { type: "array", items: { type: "integer" }, description: "numbers that might be in scope (touches it, or can't tell from the headline)" },
+  },
+  required: ["inScope", "borderline"],
+};
+export async function scopeCheck({ label, scope }, stories) {
+  if (!hasKey() || !stories.length) return stories.map(() => 0);
+  const prompt = `Interest: "${label}"
+What belongs: ${scope}
+
+Stories (number | source | headline | excerpt):
+${stories.map((s, n) => `${n + 1} | ${s.source || ""} | ${s.title} | ${(s.excerpt || "").replace(/\s+/g, " ").slice(0, 140)}`).join("\n")}
+
+Which stories are in scope? Judge by what each story is about, not by whether the source is relevant. Everything not listed counts as out of scope.`;
+  const out = await claudeForm({ system: "You sort stories for a discovery feed.", prompt, schema: SCOPE_SCHEMA, model: FAST(), maxTokens: 400, purpose: "scope" });
+  const res = stories.map(() => 0);
+  for (const n of out.borderline || []) if (res[n - 1] !== undefined) res[n - 1] = 1;
+  for (const n of out.inScope || []) if (res[n - 1] !== undefined) res[n - 1] = 2;
+  return res;
 }

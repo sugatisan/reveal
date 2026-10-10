@@ -6,7 +6,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { router, useLocalSearchParams } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { api, AppState, ConceptGroup, TuningRule } from "@/lib/api";
+import { api, AppState, ConceptGroup, Draft, TuningRule } from "@/lib/api";
 import { bumpFeed, chooseLens, setAppState, useAppState, useLens } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Button, Chip, ErrorLine, SourceRow } from "@/components/ui";
@@ -31,6 +31,9 @@ export default function InterestScreen() {
   const [ideasBusy, setIdeasBusy] = useState(false);
   const [moreBusy, setMoreBusy] = useState("");
   const [spent, setSpent] = useState<Record<string, boolean>>({});
+  const [scopeText, setScopeText] = useState<string | null>(null); // null = not editing
+  const [scopeShort, setScopeShort] = useState("");
+  const [scopeH, setScopeH] = useState(48);
   const loadIdeas = () => {
     if (!id) return;
     setIdeasBusy(true);
@@ -94,6 +97,40 @@ export default function InterestScreen() {
           </Text>
         </View>
         <ErrorLine text={error} />
+
+        <Section title="Scope" hint="What belongs here. Stories that fit come first in this interest; broader ones from the same sources follow. In All, ones that don't fit just rank lower.">
+          {scopeText !== null || i.scope ? (
+            <TextInput value={scopeText ?? i.scope} onChangeText={setScopeText} multiline placeholder="e.g. Marvel comics published 1980-1989"
+              placeholderTextColor={t.faint} onContentSizeChange={(e) => setScopeH(Math.max(48, Math.ceil(e.nativeEvent.contentSize.height) + 2))}
+              style={{ color: t.ink, fontSize: 15, lineHeight: 20, borderWidth: 1, borderColor: t.line, borderRadius: radius.s, paddingHorizontal: 10, paddingVertical: 8, height: scopeH }} />
+          ) : (
+            <View style={st.chips}>
+              <Chip label="Write a scope" icon="create-outline" onPress={() => setScopeText("")} />
+              {state.hasKey ? <Chip label={busy === "suggest" ? "Thinking…" : "Suggest one"} icon="bulb-outline" tone="curator"
+                onPress={() => run("suggest", async () => { const r = await api<{ draft: Draft }>("/api/compose/read", { text: i.label }); setScopeText(r.draft.scope || ""); setScopeShort(r.draft.short || ""); if (!r.draft.scope) setError("The curator reads this as a broad interest. Write a scope if you want one."); })} /> : null}
+            </View>
+          )}
+          {scopeText !== null && scopeText.trim() !== (i.scope || "") ? (
+            <View style={st.chips}>
+              <Chip label={busy === "scope" ? "Saving…" : scopeText.trim() ? "Save scope" : "Remove scope"} active icon="checkmark"
+                onPress={() => run("scope", () => api("/api/interests/update", { id: i.id, scope: scopeText, ...(scopeShort ? { scopeShort } : {}) })).then(() => setScopeText(null))} />
+              <Chip label="Cancel" onPress={() => setScopeText(null)} />
+            </View>
+          ) : null}
+          {i.scope && scopeText === null ? (
+            <>
+              <View style={st.chips}>
+                {([["first", "Matches first"], ["only", "Matches only"], ["all", "Everything"]] as const).map(([m, l]) => (
+                  <Chip key={m} label={l} active={(i.scopeMode || "first") === m} onPress={() => run("mode", () => api("/api/interests/update", { id: i.id, scopeMode: m }))} />
+                ))}
+              </View>
+              <Text style={{ color: t.muted, fontSize: 12 }}>
+                {i.scopeStats ? `${i.scopeStats.matched} of ${i.scopeStats.checked} recent stories fit.` : "Checking recent stories…"}
+                {(i.scopeMode || "first") === "only" ? " Others are hidden here." : (i.scopeMode || "first") === "all" ? " Scope is ignored." : ""}
+              </Text>
+            </>
+          ) : null}
+        </Section>
 
         <Section title="Refine" hint="Things you especially like here. Stories about them get more weight; you still see everything else.">
           {i.clarify ? <Text style={{ color: t.ink }}>{i.clarify.question}</Text> : null}

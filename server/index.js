@@ -23,6 +23,7 @@ const images = await import("./lib/images.js");
 const agent = await import("./lib/agent.js");
 const curator = await import("./lib/curator.js");
 const tuning = await import("./lib/tuning.js");
+const scope = await import("./lib/scope.js");
 const design = (() => {
   const FILE = path.resolve("app/src/design/saved.json"); // inside the app so a real build includes it
   const read = () => { try { return JSON.parse(fs.readFileSync(FILE, "utf8")); } catch { return {}; } };
@@ -48,7 +49,7 @@ const PORT = +(process.env.PORT || 5177);
 process.on("uncaughtException", (e) => console.error("  Unexpected error (still running):", e?.stack || e));
 process.on("unhandledRejection", (e) => console.error("  Unhandled rejection (still running):", e?.stack || e));
 
-const API_VERSION = 5; // bump when the app starts relying on new routes
+const API_VERSION = 6; // bump when the app starts relying on new routes
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
 const FOLLOW_FIRST = 3; // sources switched on per new interest; the rest wait as suggestions
 
@@ -113,10 +114,11 @@ async function findFeed(url) {
   found.set(url, { f, at: Date.now() });
   return f;
 }
-async function followSite(url) {
+async function followSite(url, { origin = "user", why } = {}) {
   const f = await findFeed(url);
   const id = sourceIdFor(f.site || url);
-  upsertSource({ id, name: f.title || url, site: normalizeUrl(f.site || url), feedUrl: f.feedUrl, status: "ok", kind: sourceKind(f.items), perWeek: cadence(f.items), lastFetched: Date.now(), about: f.description?.slice(0, 200), origin: "user", addedAt: Date.now() });
+  const had = load().sources[id];
+  upsertSource({ id, name: f.title || url, site: normalizeUrl(f.site || url), feedUrl: f.feedUrl, status: "ok", kind: sourceKind(f.items), perWeek: cadence(f.items), lastFetched: Date.now(), about: f.description?.slice(0, 200), origin: had?.origin || origin, addedAt: had?.addedAt || Date.now(), ...(why ? { why } : {}) });
   storeItems(id, f.items);
   mergeDuplicates();
   return id;
@@ -152,7 +154,9 @@ function newCounts() {
 }
 function interestView(i, counts = newCounts()) {
   return {
-    id: i.id, label: i.label, origin: i.origin, strict: !!i.strict, createdAt: i.createdAt || 0, lastViewedAt: i.lastViewedAt || 0,
+    id: i.id, label: i.label, origin: i.origin, strict: !!i.strict,
+    scope: i.scope || "", scopeShort: i.scopeShort || "", scopeMode: i.scopeMode || "first",
+    scopeStats: i.scope && i.fit ? { checked: Object.keys(i.fit.m).length, matched: Object.values(i.fit.m).filter((v) => v === 2).length } : null, createdAt: i.createdAt || 0, lastViewedAt: i.lastViewedAt || 0,
     newCount: i.sourceIds.reduce((n, s) => n + (counts.get(s) || 0), 0), subs: i.subs, subSuggestions: (i.subSuggestions || []).filter((x) => !i.subs.includes(x)), clarify: i.clarify, merged: i.merged,
     sources: i.sourceIds.map((id) => sourceView(id, true)).filter(Boolean).map((s) => ({ ...s, newCount: counts.get(s.id) || 0 })),
     suggested: i.suggestedIds.filter((id) => !i.sourceIds.includes(id)).map((id) => sourceView(id, false)).filter(Boolean),
@@ -333,6 +337,33 @@ function recordEvent(itemId, type) {
   else if (["shown", "expand", "open"].includes(type)) { if (!e[type]) s[type]++; e[type] = (e[type] || 0) + 1; }
 }
 
+// Before creating an interest: does it overlap one you already have?
+// "narrower": the new one is an existing interest plus more words (MCM + Knoll) -> offer it as a focus.
+// "covered": every word of the new one is already in an existing interest -> offer to open that one.
+function overlapsFor(text) {
+  const phrase = String(text || "").trim();
+  if (!phrase || /[,;\n]|\band\b/i.test(phrase)) return [];
+  const STOP = new Set(["the", "a", "an", "of", "and", "for", "in", "on", "to", "with", "stuff", "things"]);
+  const words = (x) => x.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w && !STOP.has(w)).map((w) => w.replace(/(?<=..)s$/, ""));
+  const mine = words(phrase);
+  const overlaps = [];
+  for (const i of load().interests) {
+    const theirs = words(i.label);
+    if (!theirs.length) continue;
+    const inMine = theirs.every((w) => mine.includes(w));
+    const inTheirs = mine.every((w) => theirs.includes(w));
+    if (inMine && !inTheirs) {
+      const extra = phrase.split(/\s+/).filter((w) => { const k = words(w)[0]; return k && !theirs.includes(k); }).join(" ");
+      if (extra) overlaps.push({ kind: "narrower", interestId: i.id, label: i.label, focus: extra.charAt(0).toUpperCase() + extra.slice(1) });
+    } else if (inTheirs) overlaps.push({ kind: "covered", interestId: i.id, label: i.label });
+  }
+  overlaps.sort((a, b) => (a.kind === "covered" ? -1 : 1) - (b.kind === "covered" ? -1 : 1));
+  return overlaps.slice(0, 1);
+}
+
+// Quick reads while typing, kept so retyping or backspacing doesn't ask again.
+const drafts = new Map();
+
 // ---------- routes ----------
 const routes = {
   "GET /api/state": async () => state(),
@@ -354,9 +385,12 @@ const routes = {
   },
 
   "POST /api/interests/update": async (req) => {
-    const { id, subs, label, clarifyChoice, strict } = await body(req);
+    const { id, subs, label, clarifyChoice, strict, scope: sc, scopeShort, scopeMode } = await body(req);
     const i = load().interests.find((x) => x.id === id);
     if (!i) throw new Error("Interest not found");
+    if (typeof sc === "string" && sc.trim() !== (i.scope || "")) { i.scope = sc.trim().slice(0, 300) || undefined; i.fit = undefined; if (i.scope) scope.scoreInterest(i.id).catch(() => {}); }
+    if (typeof scopeShort === "string") i.scopeShort = scopeShort.trim().slice(0, 30) || undefined;
+    if (["first", "only", "all"].includes(scopeMode)) i.scopeMode = scopeMode;
     if (Array.isArray(subs)) i.subs = [...new Set(subs.map((s) => s.trim()).filter(Boolean))];
     if (label?.trim()) i.label = label.trim();
     if (typeof strict === "boolean") i.strict = strict;
@@ -416,29 +450,86 @@ const routes = {
     return state();
   },
 
-  "POST /api/interests/check": async (req) => {
-    // Before creating an interest: does it overlap one you already have?
-    // "narrower": the new one is an existing interest plus more words (MCM + Knoll) -> offer it as a focus.
-    // "covered": every word of the new one is already in an existing interest -> offer to open that one.
+  "POST /api/interests/check": async (req) => { const { text } = await body(req); return { overlaps: overlapsFor(text) }; },
+
+  // ---------- Composer: read while typing, propose sources on Return, create on confirm ----------
+  "POST /api/compose/read": async (req) => {
     const { text } = await body(req);
-    const phrase = String(text || "").trim();
-    if (!phrase || /[,;\n]|\band\b/i.test(phrase)) return { overlaps: [] };
-    const STOP = new Set(["the", "a", "an", "of", "and", "for", "in", "on", "to", "with", "stuff", "things"]);
-    const words = (x) => x.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w && !STOP.has(w)).map((w) => w.replace(/(?<=..)s$/, ""));
-    const mine = words(phrase);
-    const overlaps = [];
-    for (const i of load().interests) {
-      const theirs = words(i.label);
-      if (!theirs.length) continue;
-      const inMine = theirs.every((w) => mine.includes(w));
-      const inTheirs = mine.every((w) => theirs.includes(w));
-      if (inMine && !inTheirs) {
-        const extra = phrase.split(/\s+/).filter((w) => { const k = words(w)[0]; return k && !theirs.includes(k); }).join(" ");
-        if (extra) overlaps.push({ kind: "narrower", interestId: i.id, label: i.label, focus: extra.charAt(0).toUpperCase() + extra.slice(1) });
-      } else if (inTheirs) overlaps.push({ kind: "covered", interestId: i.id, label: i.label });
+    const phrase = String(text || "").trim().slice(0, 120);
+    if (phrase.length < 3) return { draft: null, overlap: null };
+    const key = phrase.toLowerCase();
+    let draft = drafts.get(key);
+    if (!draft) {
+      draft = await agent.draftInterest(phrase, load().interests).catch((e) => { console.error("  Quick read failed:", e.message); return null; });
+      if (draft) { drafts.set(key, draft); if (drafts.size > 200) drafts.delete(drafts.keys().next().value); }
     }
-    overlaps.sort((a, b) => (a.kind === "covered" ? -1 : 1) - (b.kind === "covered" ? -1 : 1));
-    return { overlaps: overlaps.slice(0, 1) };
+    // A word-level overlap (MCM + Knoll) is certain; the curator's guess at a home is the fallback.
+    let overlap = overlapsFor(phrase)[0] || null;
+    if (!overlap && draft?.home) {
+      const h = load().interests.find((i) => i.label.toLowerCase() === draft.home.toLowerCase());
+      if (h) overlap = { kind: "narrower", interestId: h.id, label: h.label, focus: draft.short || draft.label, guessed: true };
+    }
+    return { draft: draft || { label: phrase, qualified: false, subject: "", short: "", scope: "", likes: [], home: "" }, overlap };
+  },
+
+  "POST /api/compose/sources": async (req) => {
+    const { label, scope: sc, likes } = await body(req);
+    if (!label?.trim()) throw new Error("Name the interest first");
+    const list = await agent.proposeSources({ label: label.trim(), scope: sc || "", likes: Array.isArray(likes) ? likes : [] });
+    const seen = new Set();
+    return { sources: list.filter((p) => { const id = sourceIdFor(p.site); if (seen.has(id)) return false; seen.add(id); return true; }).slice(0, 10) };
+  },
+
+  "POST /api/compose/check": async (req) => {
+    // One proposed source: does it have a working feed? Cached, so creating the interest doesn't fetch again.
+    const { site, feed } = await body(req);
+    let f = null, url = feed || site;
+    try { f = await findFeed(url); } catch { if (feed && site) { url = site; f = await findFeed(site).catch(() => null); } }
+    if (!f) return { ok: false };
+    return { ok: true, url, name: f.title, kind: sourceKind(f.items), cadence: cadenceLabel(cadence(f.items)), titles: f.items.slice(0, 8).map((x) => ({ title: x.title, excerpt: (x.excerpt || "").slice(0, 160) })) };
+  },
+
+  "POST /api/compose/samples": async (req) => {
+    // Recent headlines from the checked sources that fit the scope: a preview of what the interest will show.
+    const { label, scope: sc, stories } = await body(req);
+    const list = (Array.isArray(stories) ? stories : []).slice(0, 60);
+    if (!sc || !list.length) return { matches: list.slice(0, 5).map((x, k) => k), borderline: [] };
+    const res = await agent.scopeCheck({ label, scope: sc }, list).catch(() => list.map(() => 1));
+    const pick = (v) => res.map((r, k) => [r, k]).filter(([r]) => r === v).map(([, k]) => k);
+    return { matches: pick(2), borderline: pick(1) };
+  },
+
+  "POST /api/interests/compose": async (req) => {
+    const { label, scope: sc, short, likes = [], skipped = [], into, focus, sources = [] } = await body(req);
+    const d = load();
+    const follow = sources.filter((x) => x.follow && x.url), rest = sources.filter((x) => !x.follow && x.url);
+    let i;
+    if (into) {
+      // Into an existing interest: the phrase and the picked likes become things you like there.
+      i = d.interests.find((x) => x.id === into);
+      if (!i) throw new Error("Interest not found");
+      const add = [focus || short || label, ...likes].map((x) => String(x || "").trim()).filter(Boolean);
+      i.subs = [...new Set([...i.subs, ...add])];
+    } else {
+      if (!label?.trim()) throw new Error("Name the interest first");
+      i = d.interests.find((x) => x.label.toLowerCase() === label.trim().toLowerCase());
+      if (!i) {
+        i = { id: slug(label) + "-" + hash(Date.now() + label).slice(0, 4), label: label.trim(), origin: "composed", topic: null, subs: [], subSuggestions: [], clarify: null, merged: [label.trim()], sourceIds: [], suggestedIds: [], createdAt: Date.now() };
+        d.interests.push(i);
+      }
+      i.subs = [...new Set([...i.subs, ...likes])];
+      i.subSuggestions = [...new Set([...(i.subSuggestions || []), ...skipped])].filter((x) => !i.subs.includes(x));
+      if (sc?.trim()) { i.scope = sc.trim().slice(0, 300); i.scopeShort = (short || "").trim().slice(0, 30) || undefined; i.scopeMode ||= "first"; i.fit = undefined; }
+    }
+    const ok = await Promise.all(follow.map((x) => followSite(x.url, { origin: "agent", why: x.why }).catch(() => null)));
+    for (const id of ok) if (id && !i.sourceIds.includes(id)) i.sourceIds.push(id);
+    i.suggestedIds = i.suggestedIds.filter((x) => !i.sourceIds.includes(x));
+    const later = await Promise.all(rest.map((x) => followSite(x.url, { origin: "agent", why: x.why }).catch(() => null)));
+    for (const id of later) if (id && !i.sourceIds.includes(id) && !i.suggestedIds.includes(id)) i.suggestedIds.push(id);
+    save();
+    // Sort the first screen by scope before it opens (a few seconds at most; the rest finishes behind).
+    if (i.scope) await Promise.race([scope.scoreInterest(i.id).catch(() => 0), new Promise((r) => setTimeout(r, 7000))]);
+    return { id: i.id, followed: ok.filter(Boolean).length, failed: ok.filter((x) => !x).length, state: state() };
   },
 
   "POST /api/sources/preview": async (req) => {
@@ -513,17 +604,18 @@ const routes = {
 
   "GET /api/peek": async (req, url) => peek(url.searchParams.get("sourceId")),
 
-  "POST /api/refresh": async () => ({ ...(await refresh()), state: state() }),
+  "POST /api/refresh": async () => { const r = await refresh(); await Promise.race([scope.scoreAll().catch(() => 0), new Promise((ok) => setTimeout(ok, 5000))]); return { ...r, state: state() }; },
 
   "GET /api/feed": async (req, url) => {
     const interestId = url.searchParams.get("interest") || undefined;
     const sourceId = url.searchParams.get("source") || undefined;
     const mediaEvery = Number(design.view().values["feed.mediaEvery"] ?? 8);
-    const { items, caughtUp } = buildFeed({ interestId, sourceId, mediaEvery });
+    const { items, caughtUp, broaderAt, broaderLabel, pending } = buildFeed({ interestId, sourceId, mediaEvery });
+    if (pending && interestId) scope.scoreInterest(interestId).catch(() => {});
     // A single-source view is for reading that source; the curator stays out of it.
     const entries = (sourceId ? items.map((it) => ({ type: "item", ...it })) : curator.weave(items, curator.feedCards(items, { interestId })))
       .map((e) => (e.type === "item" ? { ...e, brief: briefReady(e) ? e.brief : null } : e));
-    return { entries, caughtUp, lastRefresh: load().meta.lastRefresh, refreshing: isRefreshing() };
+    return { entries, caughtUp, broaderAt: broaderAt ?? -1, broaderLabel: broaderLabel || "", scoping: !!pending, lastRefresh: load().meta.lastRefresh, refreshing: isRefreshing() };
   },
 
   "GET /api/item": async (req, url) => itemDetail(url.searchParams.get("id")),
@@ -715,6 +807,9 @@ const tick = () => { if (followedIds().length && Date.now() - load().meta.lastRe
 setTimeout(tick, 1500);
 setTimeout(() => pregenBriefs().catch(() => {}), 8000);
 setInterval(() => pregenBriefs().catch(() => {}), 2 * 6e4);
+// New stories in scoped interests get checked against the scope shortly after they arrive.
+setTimeout(() => scope.scoreAll().catch(() => {}), 6000);
+setInterval(() => scope.scoreAll().catch(() => {}), 2 * 6e4);
 setTimeout(() => enrichImages().then((n) => n && console.log(`  Found larger images for ${n} stories`)).catch(() => {}), 5000);
 setInterval(tick, 5 * 6e4);
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { flush(); server.closeAllConnections?.(); process.exit(0); });

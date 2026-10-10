@@ -3,6 +3,7 @@
 import { load, stat } from "./store.js";
 import { penalty } from "./tuning.js";
 import { best } from "./images.js";
+import { fitOf, scoped } from "./scope.js";
 
 const singular = (w) => w.toLowerCase().replace(/ies$/, "y").replace(/s$/, "");
 export function subMatch(item, subs) {
@@ -49,7 +50,11 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     const skipped = engaged ? 0 : ev.shown || 0;
     const seenPenalty = engaged ? 0.5 : skipped >= 5 ? 0.35 : skipped >= 3 ? 0.5 : skipped >= 2 ? 0.7 : 1;
     const tuned = penalty(it, ints.map((i) => i.id)); // explicit "less of" rules
-    const score = (recency * 1.0 + (sub ? 0.45 : 0) + coverage * 0.18 + (it.image ? 0.08 : 0)) * aff * seenPenalty * tuned;
+    // Scope: the best fit across the interests that hold this story. Unscoped interests count as a match.
+    let fit = 2;
+    if (ints.every(scoped)) { fit = -1; for (const i of ints) { const f = fitOf(i, it.id); fit = Math.max(fit, f === undefined ? 1 : f); } }
+    const scopeW = interestId ? 1 : fit === 0 ? 0.55 : fit === 1 ? 0.85 : 1; // in All, off-scope only ranks lower
+    const score = (recency * 1.0 + (sub ? 0.45 : 0) + coverage * 0.18 + (it.image ? 0.08 : 0)) * aff * seenPenalty * tuned * scopeW;
 
     let why;
     const primary = subInt || ints[0];
@@ -60,14 +65,26 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     else why = primary.label;
 
     const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, ...pub } = it; // server-only
-    scored.push({ ...pub, opened: !!(ev.open || ev.expand), imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save });
+    scored.push({ ...pub, fit, opened: !!(ev.open || ev.expand), imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save });
   }
   // One source on its own reads like that site: newest first, nothing reordered.
   if (sourceId) {
     scored.sort((a, b) => b.date - a.date);
-    return { items: scored.slice(0, limit), caughtUp: -1 };
+    return { items: scored.slice(0, limit).map(({ fit, ...x }) => x), caughtUp: -1, broaderAt: -1 };
   }
   scored.sort((a, b) => b.score - a.score);
+
+  // A scoped interest on its own: stories that match its scope first, then broader ones from the
+  // same sources (borderline ones lead that part). "Matches only" drops the broader part.
+  const own = interestId ? interests[0] : null;
+  const pending = scoped(own) && !own.fit?.at; // not checked yet: plain order until it is
+  if (scoped(own) && !pending) {
+    const match = scored.filter((x) => x.fit === 2);
+    const rest = own.scopeMode === "only" ? [] : scored.filter((x) => x.fit !== 2).sort((a, b) => (b.fit === 1) - (a.fit === 1) || b.score - a.score);
+    const top = spaceMedia(spread(match, limit), mediaEvery, sourceId);
+    const bottom = spaceMedia(spread(rest, Math.max(0, limit - top.length)), mediaEvery, sourceId);
+    return { items: [...top, ...bottom].map(({ fit, ...x }) => x), caughtUp: -1, broaderAt: bottom.length ? top.length : -1, broaderLabel: own.scopeShort || own.label, pending: false };
+  }
 
   // Spread sources out: no source twice within 3 slots when there's an alternative.
   const out = [];
@@ -93,7 +110,19 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     }
   }
   if (caughtUp < 0) out.splice(0, out.length, ...spaceMedia(out, mediaEvery, sourceId));
-  return { items: out, caughtUp };
+  return { items: out.map(({ fit, ...x }) => x), caughtUp, broaderAt: -1, pending };
+}
+
+// No source twice within 3 slots when there's an alternative.
+function spread(list, limit) {
+  const out = [];
+  const pool = list.slice(0, limit * 2);
+  while (pool.length && out.length < limit) {
+    const recent = out.slice(-3).map((x) => x.sourceId);
+    const idx = pool.findIndex((x) => !recent.includes(x.sourceId));
+    out.push(pool.splice(idx === -1 ? 0 : idx, 1)[0]);
+  }
+  return out;
 }
 
 // Source suggestions to drop into the scroll: one every 9 cards, never in the first 5.
