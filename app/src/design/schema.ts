@@ -83,6 +83,7 @@ export const GROUPS: Group[] = [
     controls: [
       choice("pill.selected", "Color", "ink", [["ink", "Text color"], ["accent", "Accent"], ["custom", "Custom"]]),
       { key: "pill.selectedColor", label: "Custom color", hint: "Used when Color is Custom. The label color is picked automatically for contrast.", type: "color", default: "#2563EB", swatches: ["#2563EB", "#D24A1C", "#2F6B3F", "#D9466F", "#7C3AED", "#F5C542"] },
+      choice("icon.edit", "Edit icon style", "mixed", [["mixed", "Filled on pill"], ["outline", "Outline"], ["filled", "Filled"]], "Tuner in a circle, also used in the left panel. Filled on pill: solid on the selected pill, outline in lists."),
       { key: "pill.edit", label: "Edit icon on selected interest", hint: "Opens the interest page. Long-press any interest pill does the same.", type: "toggle", default: true },
     ],
   },
