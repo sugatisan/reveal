@@ -69,9 +69,10 @@ export function IslandTabBar({ state, navigation }: BarProps) {
   };
 
   const ASK = { name: "curator", title: "Ask", icon: "chatbubble-ellipses-outline" as Glyph, active: "chatbubble-ellipses" as Glyph };
+  const base = TABS.filter((x) => x.name !== "sources" || d["tab.sources"]);
   const inBar = unified
-    ? [...TABS.filter((x) => x.name !== "search" && x.name !== "curator"), ...(search === "tab" ? [ASK] : [])]
-    : TABS.filter((x) => x.name !== "search" || search === "tab");
+    ? [...base.filter((x) => x.name !== "search" && x.name !== "curator"), ...(search === "tab" ? [ASK] : [])]
+    : base.filter((x) => x.name !== "search" || search === "tab");
   const tab = (x: (typeof TABS)[number], solo = false) => {
     const on = current === x.name;
     const color = on ? t.accent : t.muted;

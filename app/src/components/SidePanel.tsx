@@ -1,4 +1,4 @@
-// Left panel: every interest and its sources, for jumping straight to one.
+// Left panel: the interest graph. Tap an interest to view it, the edit icon to refine, enrich or tune it.
 // Opens from the button before "All" or by swiping in from the left edge of the feed.
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -56,6 +56,9 @@ export function SidePanel({ state, lens, onClose, onPick }: {
                     <Text style={[st.label, { color: t.ink, fontWeight: activeI ? "700" : "500" }]} numberOfLines={1}>{i.label}</Text>
                     <Count n={i.newCount} />
                   </Pressable>
+                  <Pressable onPress={() => { onClose(); router.push(`/interest/${i.id}`); }} hitSlop={8} style={{ padding: 4 }} accessibilityLabel={`Edit ${i.label}`}>
+                    <Ionicons name="create-outline" size={18} color={t.muted} />
+                  </Pressable>
                   {i.sources.length ? (
                     <Pressable onPress={() => setExpanded((e) => ({ ...e, [i.id]: !isOpen }))} hitSlop={10} style={{ padding: 4 }} accessibilityLabel={isOpen ? `Hide ${i.label} sources` : `Show ${i.label} sources`}>
                       <Ionicons name={isOpen ? "chevron-up" : "chevron-down"} size={18} color={t.muted} />
@@ -78,10 +81,16 @@ export function SidePanel({ state, lens, onClose, onPick }: {
           })}
           {!interests.length && q ? <Text style={{ color: t.muted, padding: space.l }}>Nothing matches "{q}".</Text> : null}
         </ScrollView>
-        <Pressable onPress={() => { onClose(); router.navigate("/sources"); }} style={[st.footer, { borderTopColor: t.line, paddingBottom: space.l + insets.bottom }]}>
-          <Ionicons name="options-outline" size={18} color={t.ink} />
-          <Text style={{ color: t.ink, fontWeight: "600" }}>Manage interests and sources</Text>
-        </Pressable>
+        <View style={[st.footer, { borderTopColor: t.line, paddingBottom: space.m + insets.bottom }]}>
+          <Pressable onPress={() => { onClose(); router.push("/manage?add=1"); }} style={st.footRow} accessibilityRole="button">
+            <Ionicons name="add" size={20} color={t.ink} />
+            <Text style={{ color: t.ink, fontWeight: "600" }}>New interest</Text>
+          </Pressable>
+          <Pressable onPress={() => { onClose(); router.push("/manage"); }} style={st.footRow} accessibilityRole="button">
+            <Ionicons name="options-outline" size={18} color={t.muted} />
+            <Text style={{ color: t.muted, fontWeight: "500" }}>All sources and settings</Text>
+          </Pressable>
+        </View>
     </View>
   );
 }
@@ -95,5 +104,6 @@ const st = StyleSheet.create({
   label: { fontSize: 16, flexShrink: 1 },
   count: { minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   srcRow: { flexDirection: "row", alignItems: "center", gap: space.m, marginHorizontal: space.s, paddingLeft: space.xl, paddingRight: space.m, paddingVertical: 9, borderRadius: radius.s },
-  footer: { flexDirection: "row", alignItems: "center", gap: space.s, padding: space.l, borderTopWidth: 1 },
+  footer: { paddingHorizontal: space.l, paddingTop: space.s, borderTopWidth: 1 },
+  footRow: { flexDirection: "row", alignItems: "center", gap: space.s, paddingVertical: 10 },
 });

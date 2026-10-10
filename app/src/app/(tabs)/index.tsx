@@ -156,7 +156,11 @@ export default function FeedScreen() {
       <MenuButton onPress={drawer.open} />
       <Pill label="All" active={!lens} onPress={() => pick(null)} />
       {lens?.kind === "source" ? <Pill label={lens.name} active icon="close" onPress={() => pick(null)} /> : null}
-      {recent.map((i) => <Pill key={i.id} label={i.label} active={lens?.kind === "interest" && lens.id === i.id} onPress={() => pick(lens?.kind === "interest" && lens.id === i.id ? null : { kind: "interest", id: i.id })} />)}
+      {recent.map((i) => {
+        const on = lens?.kind === "interest" && lens.id === i.id;
+        const edit = () => router.push(`/interest/${i.id}`);
+        return <Pill key={i.id} label={i.label} active={on} onPress={() => pick(on ? null : { kind: "interest", id: i.id })} onLongPress={edit} onEdit={on && design["pill.edit"] ? edit : undefined} />;
+      })}
     </ScrollView>
   );
 

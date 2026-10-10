@@ -83,6 +83,7 @@ export const GROUPS: Group[] = [
     controls: [
       choice("pill.selected", "Color", "ink", [["ink", "Text color"], ["accent", "Accent"], ["custom", "Custom"]]),
       { key: "pill.selectedColor", label: "Custom color", hint: "Used when Color is Custom. The label color is picked automatically for contrast.", type: "color", default: "#2563EB", swatches: ["#2563EB", "#D24A1C", "#2F6B3F", "#D9466F", "#7C3AED", "#F5C542"] },
+      { key: "pill.edit", label: "Edit icon on selected interest", hint: "Opens the interest page. Long-press any interest pill does the same.", type: "toggle", default: true },
     ],
   },
   {
@@ -158,6 +159,12 @@ export const GROUPS: Group[] = [
       { key: "tab.shadowRadius", label: "Softness", type: "range", min: 0, max: 48, step: 2, unit: "pt", default: 18 },
       { key: "tab.shadowX", label: "X offset", type: "range", min: -20, max: 20, step: 1, unit: "pt", default: 0 },
       { key: "tab.shadowY", label: "Y offset", type: "range", min: -10, max: 30, step: 1, unit: "pt", default: 6 },
+    ],
+  },
+  {
+    id: "tab-shown", panel: "Tab bar", title: "Tabs shown",
+    controls: [
+      { key: "tab.sources", label: "Sources tab", hint: "Off: interests and sources are managed from the left panel (edit icons, All sources and settings).", type: "toggle", default: false },
     ],
   },
   {

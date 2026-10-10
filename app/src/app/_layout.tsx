@@ -15,6 +15,8 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
         <Stack.Screen name="item/[id]" options={{ presentation: "card", animation: "slide_from_right", headerShown: false }} />
+        <Stack.Screen name="interest/[id]" options={{ presentation: "card", animation: "slide_from_right", headerShown: false }} />
+        <Stack.Screen name="manage" options={{ presentation: "card", animation: "slide_from_right", headerShown: false }} />
       </Stack>
     </StudioInsets>
     </SafeAreaProvider>

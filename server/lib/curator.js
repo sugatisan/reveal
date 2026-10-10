@@ -105,7 +105,7 @@ export function feedCards(items, { interestId } = {}) {
     cards.push({
       type: "curator", kind: "ask", id: "ask",
       title: "In the mood for something new?",
-      prompts: [...subs.map((s) => `Show me the best of ${s}`), `Find me a source for ${pick.label} I don't know`].slice(0, 3),
+      prompts: [...new Set([...subs.map((s) => `Show me the best of ${s}`), `Find me a source for ${pick.label} I don't know`])].slice(0, 3),
     });
   }
   return cards;
