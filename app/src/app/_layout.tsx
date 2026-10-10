@@ -5,6 +5,13 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useTheme } from "@/lib/theme";
 import { Studio, StudioInsets } from "@/components/Studio";
 
+// Some publishers (WordPress hotlink protection) refuse images requested from another site.
+// Native apps send no Referer; on the web, don't send one either.
+if (Platform.OS === "web" && typeof document !== "undefined" && !document.querySelector('meta[name="referrer"]')) {
+  const m = document.createElement("meta");
+  m.name = "referrer"; m.content = "no-referrer";
+  document.head.prepend(m);
+}
 if (Platform.OS === "web" && typeof document !== "undefined" && !document.getElementById("reveal-web-css")) {
   const css = document.createElement("style");
   css.id = "reveal-web-css";
