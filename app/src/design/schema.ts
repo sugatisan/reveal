@@ -37,7 +37,8 @@ export const GROUPS: Group[] = [
     id: "feed-header", panel: "Top bar", title: "Position", hint: "The menu button and interest pills at the top of the feed.",
     controls: [
       { key: "header.pinned", label: "Stay pinned while scrolling", hint: "The feed scrolls underneath.", type: "toggle", default: true },
-      { key: "header.top", label: "Space above pills", hint: "Added below the status bar.", type: "range", min: 0, max: 40, step: 2, unit: "pt", default: 4 },
+      { key: "header.top", label: "Space above pills", hint: "At the top of the feed, below the status bar.", type: "range", min: 0, max: 40, step: 2, unit: "pt", default: 4 },
+      { key: "header.topScrolled", label: "Space above pills, scrolled", hint: "Where the pills settle once you scroll down (pinned only). They move back when you return to the top.", type: "range", min: 0, max: 40, step: 2, unit: "pt", default: 4 },
       { key: "header.below", label: "Space below pills", type: "range", min: 0, max: 28, step: 2, unit: "pt", default: 12 },
     ],
   },

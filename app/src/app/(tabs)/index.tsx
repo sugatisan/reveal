@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, LayoutAnimation, Pressable, RefreshControl, ScrollView, Text, View, ViewToken } from "react-native";
+import { ActivityIndicator, Animated, FlatList, LayoutAnimation, Pressable, RefreshControl, ScrollView, Text, View, ViewToken } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router } from "expo-router";
 import { useTabBarSpace } from "@/components/TabBar";
@@ -29,6 +29,18 @@ export default function FeedScreen() {
   const pillStyle = usePillStyle();
   const [headerH, setHeaderH] = useState(0);
   const pinned = !!design["header.pinned"];
+  // Pinned pill row moves from "Space above pills" (at the top) to "…, scrolled" over the first stretch of scrolling.
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollPos = useRef(0);
+  const topRest: number = design["header.top"];
+  const topScrolled: number = design["header.topScrolled"];
+  const topBase = Math.min(topRest, topScrolled);
+  const travel = Math.max(24, Math.abs(topRest - topScrolled) * 2);
+  const topSpacer = scrollY.interpolate({ inputRange: [0, travel], outputRange: [topRest - topBase, topScrolled - topBase], extrapolate: "clamp" });
+  const onScroll = Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+    useNativeDriver: false,
+    listener: (e: any) => { scrollPos.current = e.nativeEvent.contentOffset.y; },
+  });
   const backingRef = useBackdrop(pinned && design["header.backing"] ? design["header.blur"] : 0);
   const drawer = useDrawer();
   const pillScroll = useRef<ScrollView>(null);
@@ -140,7 +152,7 @@ export default function FeedScreen() {
     if (cur) recent.unshift(cur), recent.splice(5);
   }
   const lensBar = (
-    <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: pillStyle.gap, paddingHorizontal: space.l, paddingTop: design["header.top"], paddingBottom: design["header.below"], alignItems: "center" }}>
+    <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: pillStyle.gap, paddingHorizontal: space.l, paddingTop: pinned ? topBase : topRest, paddingBottom: design["header.below"], alignItems: "center" }}>
       <MenuButton onPress={drawer.open} />
       <Pill label="All" active={!lens} onPress={() => pick(null)} />
       {lens?.kind === "source" ? <Pill label={lens.name} active icon="close" onPress={() => pick(null)} /> : null}
@@ -154,6 +166,8 @@ export default function FeedScreen() {
         data={rows}
         keyExtractor={(r) => (r.type === "curator" ? "c-" + r.id : r.id)}
         onViewableItemsChanged={onViewable}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={t.muted} progressViewOffset={pinned ? headerH : 0} />}
         scrollIndicatorInsets={pinned ? { top: headerH } : undefined}
@@ -192,11 +206,12 @@ export default function FeedScreen() {
       />
       {/* Pinned pill row: stays at the top while the feed scrolls underneath, over an adjustable backing. */}
       {pinned ? (
-        <View ref={backingRef} onLayout={(e) => setHeaderH(Math.round(e.nativeEvent.layout.height))}
+        <View ref={backingRef} onLayout={(e) => { if (scrollPos.current <= 1) setHeaderH(Math.round(e.nativeEvent.layout.height)); }}
           style={{ position: "absolute", top: 0, left: 0, right: 0, paddingTop: insets.top,
             backgroundColor: design["header.backing"] ? rgba(t.bg, design["header.opacity"] / 100) : "transparent",
             borderBottomWidth: design["header.backing"] && design["header.border"] ? 1 : 0, borderBottomColor: t.line,
             ...(design["header.backing"] && design["header.shadow"] > 0 ? ({ boxShadow: `0px ${design["header.shadowY"]}px ${design["header.shadowRadius"]}px rgba(0,0,0,${design["header.shadow"] / 100})` } as any) : null) }}>
+          <Animated.View style={{ height: topSpacer }} />
           {lensBar}
         </View>
       ) : null}
