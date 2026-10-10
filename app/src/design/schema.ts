@@ -83,8 +83,17 @@ export const GROUPS: Group[] = [
     controls: [
       choice("pill.selected", "Color", "ink", [["ink", "Text color"], ["accent", "Accent"], ["custom", "Custom"]]),
       { key: "pill.selectedColor", label: "Custom color", hint: "Used when Color is Custom. The label color is picked automatically for contrast.", type: "color", default: "#2563EB", swatches: ["#2563EB", "#D24A1C", "#2F6B3F", "#D9466F", "#7C3AED", "#F5C542"] },
-      choice("icon.edit", "Edit icon style", "mixed", [["mixed", "Filled on pill"], ["outline", "Outline"], ["filled", "Filled"]], "Tuner in a circle, also used in the left panel. Filled on pill: solid on the selected pill, outline in lists."),
       { key: "pill.edit", label: "Edit icon on selected interest", hint: "Opens the interest page. Long-press any interest pill does the same.", type: "toggle", default: true },
+    ],
+  },
+  {
+    id: "edit-icon", panel: "Top bar", title: "Edit icon", hint: "The tuner mark on the selected pill, the left panel and the less-of sheet.",
+    controls: [
+      choice("icon.edit", "Style", "mixed", [["mixed", "Filled on pill"], ["outline", "Outline"], ["filled", "Filled"]], "Filled on pill: solid on the selected pill, outline in lists."),
+      choice("icon.editShape", "Shape", "circle", [["circle", "Circle"], ["squircle", "Rounded square"], ["square", "Square"], ["none", "No container"]]),
+      { key: "icon.editSize", label: "Size", hint: "Scales the whole mark, everywhere it appears.", type: "range", min: 70, max: 160, step: 5, unit: "%", default: 100 },
+      { key: "icon.editGlyph", label: "Tuner size", hint: "The sliders inside, relative to the shape.", type: "range", min: 40, max: 90, step: 2, unit: "%", default: 58 },
+      { key: "icon.editStroke", label: "Outline weight", hint: "Outline style only.", type: "range", min: 1, max: 3, step: 0.25, unit: "pt", default: 1.5 },
     ],
   },
   {
