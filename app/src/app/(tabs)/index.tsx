@@ -3,11 +3,13 @@ import { ActivityIndicator, FlatList, LayoutAnimation, Pressable, RefreshControl
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router } from "expo-router";
 import { useTabBarSpace } from "@/components/TabBar";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { MenuButton, Pill, usePillStyle } from "@/components/FeedPills";
+import { rgba, useBackdrop } from "@/lib/backdrop";
 import { api, Feed, FeedEntry, FeedItem, Lens, NEEDS_API_VERSION, sendEvents } from "@/lib/api";
 import { chooseLens, reloadState, useAppState, useFeedVersion, useLens } from "@/lib/store";
 import { space, useTheme } from "@/lib/theme";
-import { Chip, Empty, ErrorLine, useToast } from "@/components/ui";
+import { Empty, ErrorLine, useToast } from "@/components/ui";
 import { CuratorCardView, ItemCard } from "@/components/FeedCards";
 import { LessResult, LessSheet, lessToast } from "@/components/LessSheet";
 import { useDrawer } from "@/components/Drawer";
@@ -21,8 +23,13 @@ export default function FeedScreen() {
   const { state, error: stateError } = useAppState();
   const version = useFeedVersion();
   const lens = useLens();
-  const tabSpace = useTabBarSpace();
   const design = useDesign();
+  const tabSpace = useTabBarSpace();
+  const insets = useSafeAreaInsets();
+  const pillStyle = usePillStyle();
+  const [headerH, setHeaderH] = useState(0);
+  const pinned = !!design["header.pinned"];
+  const backingRef = useBackdrop(pinned && design["header.backing"] ? design["header.blur"] : 0);
   const drawer = useDrawer();
   const pillScroll = useRef<ScrollView>(null);
   const [feed, setFeed] = useState<Feed | null>(null);
@@ -133,28 +140,26 @@ export default function FeedScreen() {
     if (cur) recent.unshift(cur), recent.splice(5);
   }
   const lensBar = (
-    <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.s, paddingHorizontal: space.l, paddingTop: design["header.top"], paddingBottom: design["header.below"], alignItems: "center" }}>
-      <Pressable onPress={drawer.open} accessibilityLabel="All interests and sources" hitSlop={6}
-        style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: t.chip, opacity: pressed ? 0.7 : 1 })}>
-        <Ionicons name="menu" size={20} color={t.ink} />
-      </Pressable>
-      <Chip label="All" active={!lens} onPress={() => pick(null)} />
-      {lens?.kind === "source" ? <Chip label={lens.name} active icon="close" onPress={() => pick(null)} /> : null}
-      {recent.map((i) => <Chip key={i.id} label={i.label} active={lens?.kind === "interest" && lens.id === i.id} onPress={() => pick(lens?.kind === "interest" && lens.id === i.id ? null : { kind: "interest", id: i.id })} />)}
+    <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: pillStyle.gap, paddingHorizontal: space.l, paddingTop: design["header.top"], paddingBottom: design["header.below"], alignItems: "center" }}>
+      <MenuButton onPress={drawer.open} />
+      <Pill label="All" active={!lens} onPress={() => pick(null)} />
+      {lens?.kind === "source" ? <Pill label={lens.name} active icon="close" onPress={() => pick(null)} /> : null}
+      {recent.map((i) => <Pill key={i.id} label={i.label} active={lens?.kind === "interest" && lens.id === i.id} onPress={() => pick(lens?.kind === "interest" && lens.id === i.id ? null : { kind: "interest", id: i.id })} />)}
     </ScrollView>
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={pinned ? [] : ["top"]}>
       <FlatList
         data={rows}
         keyExtractor={(r) => (r.type === "curator" ? "c-" + r.id : r.id)}
         onViewableItemsChanged={onViewable}
         viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={t.muted} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={t.muted} progressViewOffset={pinned ? headerH : 0} />}
+        scrollIndicatorInsets={pinned ? { top: headerH } : undefined}
         ListHeaderComponent={
-          <View>
-            {lensBar}
+          <View style={pinned ? { paddingTop: headerH } : null}>
+            {pinned ? null : lensBar}
             <ErrorLine text={error || stateError || (state && (state.apiVersion || 0) < NEEDS_API_VERSION ? "The Reveal server is older than the app. Stop it (Ctrl+C) and run npm run dev again." : "")} onRetry={() => { load(); reloadState(); }} />
           </View>
         }
@@ -185,6 +190,15 @@ export default function FeedScreen() {
         }}
         contentContainerStyle={{ paddingBottom: tabSpace + space.l }}
       />
+      {/* Pinned pill row: stays at the top while the feed scrolls underneath, over an adjustable backing. */}
+      {pinned ? (
+        <View ref={backingRef} onLayout={(e) => setHeaderH(Math.round(e.nativeEvent.layout.height))}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, paddingTop: insets.top,
+            backgroundColor: design["header.backing"] ? rgba(t.bg, design["header.opacity"] / 100) : "transparent",
+            borderBottomWidth: design["header.backing"] && design["header.border"] ? 1 : 0, borderBottomColor: t.line }}>
+          {lensBar}
+        </View>
+      ) : null}
       {/* Swipe in from the left edge to open the panel. */}
       <View {...drawer.edgeHandlers} style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 18 }} />
       <LessSheet itemId={lessFor} onClose={() => setLessFor(null)} onDone={onLess} />

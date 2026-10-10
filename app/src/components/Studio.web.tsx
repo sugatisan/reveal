@@ -94,6 +94,8 @@ function StudioFrame({ children }: { children: ReactNode }) {
           <div className="studio-screen" style={{ ...css.screen, width: dev.w, height: dev.h, borderRadius: prefs.corners, transform: `scale(${fit})`, boxShadow: light ? "0 10px 36px rgba(0,0,0,.18)" : "0 12px 40px rgba(0,0,0,.5)" }}>
             <DeviceCtx.Provider value={{ dev, chrome: prefs.chrome }}>{children}</DeviceCtx.Provider>
             {prefs.chrome ? <StatusChrome dev={dev} /> : null}
+            {/* Separate from the status-bar text, whose blend mode would make it invisible. */}
+            {prefs.chrome && dev.island ? <div style={{ position: "absolute", left: "50%", top: 11, transform: "translateX(-50%)", width: 125, height: 37, borderRadius: 20, background: "#000", zIndex: 901, pointerEvents: "none" }} /> : null}
             <div id="studio-layer" style={{ position: "absolute", inset: 0, zIndex: 1000, pointerEvents: "none" }} />
           </div>
         </div>
@@ -115,7 +117,6 @@ function StatusChrome({ dev }: { dev: Device }) {
     <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: dev.top, zIndex: 900, pointerEvents: "none", mixBlendMode: "difference", color: "#fff",
       display: "flex", alignItems: "center", justifyContent: "space-between", padding: `0 ${dev.island ? 34 : 24}px`, fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif", fontWeight: 600, fontSize: 17, boxSizing: "border-box" }}>
       <span style={{ width: 60, textAlign: "center" }}>{time}</span>
-      {dev.island ? <span style={{ position: "absolute", left: "50%", top: 11, transform: "translateX(-50%)", width: 125, height: 37, borderRadius: 20, background: "#000", mixBlendMode: "normal" }} /> : null}
       <span style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>●●● ▲ ▮</span>
     </div>
   );

@@ -60,8 +60,36 @@ export const GROUPS: Group[] = [
   {
     id: "feed-header", panel: "Feed header", title: "Pill row", hint: "The menu button and interest pills at the top of the feed.",
     controls: [
+      { key: "header.pinned", label: "Stay pinned while scrolling", hint: "The feed scrolls underneath.", type: "toggle", default: true },
       { key: "header.top", label: "Space above pills", hint: "Added below the status bar.", type: "range", min: 0, max: 40, step: 2, unit: "pt", default: 4 },
       { key: "header.below", label: "Space below pills", type: "range", min: 0, max: 28, step: 2, unit: "pt", default: 12 },
+    ],
+  },
+  {
+    id: "header-backing", panel: "Feed header", title: "Backing", hint: "The surface behind the pinned pills and status bar.",
+    controls: [
+      { key: "header.backing", label: "Show backing", hint: "Off: pills float straight over the feed.", type: "toggle", default: true },
+      { key: "header.opacity", label: "Opacity", type: "range", min: 0, max: 100, step: 5, unit: "%", default: 78 },
+      { key: "header.blur", label: "Blur", hint: "Shows in the studio; on the phone it needs expo-blur.", type: "range", min: 0, max: 40, step: 2, unit: "px", default: 16 },
+      { key: "header.border", label: "Hairline at the bottom", type: "toggle", default: false },
+    ],
+  },
+  {
+    id: "header-pills", panel: "Feed header", title: "Pills",
+    controls: [
+      { key: "pill.scale", label: "Size", hint: "Scales the menu button and pills together.", type: "range", min: 70, max: 140, step: 5, unit: "%", default: 100 },
+      { key: "pill.font", label: "Text size", type: "range", min: 11, max: 18, step: 0.5, unit: "pt", default: 14 },
+      choice("pill.weight", "Text weight", "500", [["400", "Regular"], ["500", "Medium"], ["600", "Semibold"], ["700", "Bold"]]),
+      { key: "pill.padX", label: "Side padding", type: "range", min: 6, max: 22, step: 1, unit: "pt", default: 12 },
+      { key: "pill.padY", label: "Top and bottom padding", type: "range", min: 2, max: 14, step: 1, unit: "pt", default: 7 },
+      { key: "pill.gap", label: "Space between pills", type: "range", min: 2, max: 16, step: 1, unit: "pt", default: 8 },
+    ],
+  },
+  {
+    id: "header-selected", panel: "Feed header", title: "Selected pill",
+    controls: [
+      choice("pill.selected", "Color", "ink", [["ink", "Text color"], ["accent", "Accent"], ["custom", "Custom"]]),
+      { key: "pill.selectedColor", label: "Custom color", hint: "Used when Color is Custom. The label color is picked automatically for contrast.", type: "color", default: "#2563EB", swatches: ["#2563EB", "#D24A1C", "#2F6B3F", "#D9466F", "#7C3AED", "#F5C542"] },
     ],
   },
   {

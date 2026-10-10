@@ -1,7 +1,7 @@
 // Floating tab bar ("island"), driven by the Tab bar settings in the studio.
 // Screens add bottom padding with useTabBarSpace() so their last row isn't hidden under it.
-import { useEffect, useRef } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { rgba, useBackdrop } from "@/lib/backdrop";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesign } from "@/design/store";
@@ -16,22 +16,6 @@ export const TABS: { name: string; title: string; icon: Glyph; active: Glyph }[]
   { name: "search", title: "Search", icon: "search-outline", active: "search" },
 ];
 
-const rgba = (hex: string, a: number) => {
-  const n = parseInt(hex.replace("#", ""), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
-};
-
-// Background blur. On the web it's a CSS backdrop-filter set on the element directly;
-// on the phone it needs expo-blur, which isn't installed yet, so it has no effect there.
-function useBackdrop(blur: number) {
-  const ref = useRef<View>(null);
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-    const el = ref.current as unknown as HTMLElement | null;
-    if (el?.style) { el.style.setProperty("backdrop-filter", blur ? `blur(${blur}px)` : "none"); el.style.setProperty("-webkit-backdrop-filter", blur ? `blur(${blur}px)` : "none"); }
-  });
-  return ref;
-}
 
 function Glass({ blur, style, children }: { blur: number; style: any; children: React.ReactNode }) {
   const ref = useBackdrop(blur);
