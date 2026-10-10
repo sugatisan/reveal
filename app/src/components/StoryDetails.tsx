@@ -1,8 +1,8 @@
 // What a story offers beyond its headline: why it's here, the description (AI gist or not, per the
 // studio's Story page › Description), key facts, where to buy, actions, curator questions, related
 // stories and deeper sources. Shared by the story page and the full-screen feed's details sheet.
-import { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, LayoutAnimation, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -69,6 +69,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
     await WebBrowser.openBrowserAsync(it.link);
   };
   const d = useDesign();
+  const watched = useRef(brief === undefined).current; // fade facts in only if we saw them arrive
   const gap: number = d["story.sectionGap"], labelGap: number = d["story.labelGap"];
   const Label = ({ children }: { children: string }) => (
     <Text style={{ color: t.muted, fontSize: 12, fontWeight: "700", letterSpacing: 0.8, marginBottom: labelGap }}>{children}</Text>
@@ -90,16 +91,12 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
             <Text style={{ color: t.faint, fontSize: 12 }}>{mode === "lead" ? `Opening of the article at ${it.sourceName}. No AI.` : `From ${it.sourceName}'s feed. No AI.`}</Text>
           </>
         ) : (
-          <>
-            <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26, opacity: brief === undefined ? 0.6 : 1 }} numberOfLines={brief?.gist ? undefined : 6}>{brief?.gist || it.excerpt || ""}</Text>
-            {brief === undefined ? <Text style={{ color: t.faint, fontSize: 12 }}>The curator is reading the article…</Text>
-              : brief?.gist ? <Text style={{ color: t.faint, fontSize: 12 }}>Gist by the curator{brief.from === "excerpt" ? ", from the source's excerpt" : ""}.</Text>
-              : __DEV__ && briefError ? <Text style={{ color: t.danger, fontSize: 12 }}>Brief failed (dev only): {briefError}</Text> : null}
-          </>
+          <GistBlock it={it} brief={brief} briefError={briefError} />
         )}
       </View>
 
       {shown?.facts?.length ? (
+        <Appear on={watched}>
         <View style={[st.facts, { borderColor: t.line, paddingVertical: d["story.factsPad"], rowGap: d["story.factsGap"] }]}>
           {shown.facts.map((f) => (
             <View key={f.label} style={st.fact}>
@@ -108,6 +105,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
             </View>
           ))}
         </View>
+        </Appear>
       ) : null}
 
       {it.shops?.length ? (
@@ -127,7 +125,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
 
       <View style={{ flexDirection: "row", gap: space.s, flexWrap: "wrap" }}>
         <Button label={`Read at ${it.sourceName}`} icon="open-outline" onPress={open} />
-        <Button label="More like this" kind="secondary" icon="sparkles-outline" onPress={() => ask("More like this")} />
+        <Button label="More like this" kind="secondary" onPress={() => ask("More like this")} />
       </View>
 
       {shown?.questions?.length ? (
@@ -163,6 +161,76 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
       ) : null}
     </View>
   );
+}
+
+// Fades content in when it arrives after the page opened; content that was already there just shows.
+function Appear({ children, on = true }: { children: React.ReactNode; on?: boolean }) {
+  const v = useRef(new Animated.Value(on ? 0 : 1)).current;
+  useEffect(() => { Animated.timing(v, { toValue: 1, duration: 220, useNativeDriver: true }).start(); }, [v]);
+  return <Animated.View style={{ opacity: v, transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }] }}>{children}</Animated.View>;
+}
+
+// The description, openly: the publisher's text while the curator reads, then the curator's gist with
+// the original folded into one line you can open again.
+function GistBlock({ it, brief, briefError }: { it: ItemDetail; brief: StoryBrief | null | undefined; briefError: string }) {
+  const t = useTheme();
+  const [showOriginal, setShowOriginal] = useState(false);
+  const loadingAtMount = useRef(brief === undefined).current; // animate only if we watched it arrive
+  const pulse = useRef(new Animated.Value(0.45)).current;
+  useEffect(() => {
+    if (brief !== undefined) return;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0.45, duration: 700, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [brief, pulse]);
+  useEffect(() => {
+    if (brief?.gist && loadingAtMount) LayoutAnimation.configureNext(LayoutAnimation.create(220, "easeInEaseOut", "opacity"));
+  }, [brief, loadingAtMount]);
+  const original = it.lead || it.excerpt || "";
+
+  if (brief === undefined) return (
+    <>
+      <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }} numberOfLines={6}>{original}</Text>
+      <Text style={{ color: t.faint, fontSize: 12 }}>From {it.sourceName}</Text>
+      <Animated.View style={{ flexDirection: "row", alignItems: "center", gap: 6, opacity: pulse }}>
+        <Ionicons name="sparkles" size={12} color={t.curatorAccent} />
+        <Text style={{ color: t.muted, fontSize: 13 }}>The curator is reading the article…</Text>
+      </Animated.View>
+    </>
+  );
+  if (!brief?.gist) return (
+    <>
+      <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{original}</Text>
+      <Text style={{ color: t.faint, fontSize: 12 }}>From {it.sourceName}</Text>
+      {__DEV__ && briefError ? <Text style={{ color: t.danger, fontSize: 12 }}>Brief failed (dev only): {briefError}</Text> : null}
+    </>
+  );
+  const body = (
+    <View style={{ gap: 10 }}>
+      <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{brief.gist}</Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <Text style={{ color: t.faint, fontSize: 12 }}>Gist by the curator{brief.from === "excerpt" ? ", from the source's excerpt" : ""}</Text>
+        {original ? (
+          <Pressable onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.create(200, "easeInEaseOut", "opacity")); setShowOriginal((x) => !x); }}
+            hitSlop={8} accessibilityRole="button" style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+            <Text style={{ color: t.faint, fontSize: 12 }}>·</Text>
+            <Text style={{ color: t.muted, fontSize: 12, fontWeight: "600" }}> {showOriginal ? "Hide original" : "Show original"}</Text>
+            <Ionicons name={showOriginal ? "chevron-up" : "chevron-down"} size={12} color={t.muted} />
+          </Pressable>
+        ) : null}
+      </View>
+      {showOriginal ? (
+        <View style={{ borderLeftWidth: 2, borderLeftColor: t.line, paddingLeft: space.m, gap: 4 }}>
+          <Text style={{ color: t.muted, fontSize: 15, lineHeight: 23 }}>{original}</Text>
+          <Text style={{ color: t.faint, fontSize: 12 }}>From {it.sourceName}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+  return loadingAtMount ? <Appear>{body}</Appear> : body;
 }
 
 const st = StyleSheet.create({

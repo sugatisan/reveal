@@ -147,9 +147,9 @@ function CuratorPage({ card, height, topSpace, bottomSpace, follow, ask, dismiss
   const ink = img ? "#FFFFFF" : t.curatorInk;
   const sub = img ? "rgba(255,255,255,0.8)" : t.curatorMuted;
   const accent = img ? "#F5C542" : t.curatorAccent;
-  const primary = (label: string, onPress: () => void, icon: keyof typeof Ionicons.glyphMap = "sparkles") => (
+  const primary = (label: string, onPress: () => void, icon?: keyof typeof Ionicons.glyphMap) => (
     <Pressable onPress={onPress} style={({ pressed }) => [st.primary, { backgroundColor: accent, opacity: pressed ? 0.85 : 1 }]} accessibilityRole="button">
-      <Ionicons name={icon} size={18} color="#14110F" />
+      {icon ? <Ionicons name={icon} size={18} color="#14110F" /> : null}
       <Text style={{ color: "#14110F", fontSize: 17, fontWeight: "700" }} numberOfLines={1}>{label}</Text>
     </Pressable>
   );
