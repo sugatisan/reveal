@@ -68,9 +68,12 @@ export const GROUPS: Group[] = [
   {
     id: "header-pillfill", panel: "Top bar", title: "Pill fill", hint: "Each unselected pill's own background (and the menu button).",
     controls: [
-      { key: "pill.fillOpacity", label: "Opacity", type: "range", min: 0, max: 100, step: 5, unit: "%", default: 100 },
+      choice("pill.fillMode", "Fill color", "palette", [["palette", "From palette"], ["custom", "Custom"]], "Custom also picks a readable label color."),
+      { key: "pill.fillColor", label: "Custom fill color", hint: "Used when Fill color is Custom.", type: "color", default: "#2A2A2A", swatches: ["#FFFFFF", "#ECE7DE", "#2A2A2A", "#000000", "#1E2A43", "#2F6B3F"] },
+      { key: "pill.fillOpacity", label: "Fill opacity", type: "range", min: 0, max: 100, step: 5, unit: "%", default: 100 },
       { key: "pill.blur", label: "Blur", hint: "Shows in the studio; on the phone it needs expo-blur.", type: "range", min: 0, max: 30, step: 2, unit: "px", default: 0 },
-      { key: "pill.shadow", label: "Shadow amount", type: "range", min: 0, max: 60, step: 2, unit: "%", default: 0 },
+      { key: "pill.shadowColor", label: "Shadow color", type: "color", default: "#000000", swatches: ["#000000", "#1E2A43", "#5B6170", "#FFFFFF", "#D24A1C"] },
+      { key: "pill.shadow", label: "Shadow opacity", type: "range", min: 0, max: 100, step: 2, unit: "%", default: 0 },
       { key: "pill.shadowRadius", label: "Shadow softness", type: "range", min: 0, max: 24, step: 1, unit: "pt", default: 8 },
       { key: "pill.shadowY", label: "Shadow drop", type: "range", min: 0, max: 12, step: 1, unit: "pt", default: 2 },
     ],
