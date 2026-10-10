@@ -27,10 +27,11 @@ const DEVICES = {
   "16e": { label: "iPhone 16e", w: 390, h: 844 },
 } as const;
 type DeviceId = keyof typeof DEVICES;
-type StudioPrefs = { bg: string; device: DeviceId; open: Record<string, boolean> };
+type StudioPrefs = { bg: string; device: DeviceId; corners: number; open: Record<string, boolean> };
 const BG_SWATCHES = ["#14161B", "#0B0C0E", "#2A2D33", "#5B6170", "#C9CCD2", "#ECEAE4", "#FFFFFF"];
 const PREFS_KEY = "reveal.studio.prefs";
-const defaultPrefs: StudioPrefs = { bg: "#14161B", device: "17promax", open: { "studio": false, "card-layout": true } };
+// 55pt is close to the iPhone 17 Pro Max display corner.
+const defaultPrefs: StudioPrefs = { bg: "#14161B", device: "17promax", corners: 55, open: { "studio": false, "card-layout": true } };
 function loadPrefs(): StudioPrefs {
   try { return { ...defaultPrefs, ...JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") }; } catch { return defaultPrefs; }
 }
@@ -73,7 +74,7 @@ function StudioFrame({ children }: { children: ReactNode }) {
       <div style={css.stage}>
         <div style={{ width: dev.w * fit, height: dev.h * fit, flexShrink: 0 }}>
           {/* The transform also makes this box the containing block, so the app's overlays stay inside it. */}
-          <div className="studio-screen" style={{ ...css.screen, width: dev.w, height: dev.h, transform: `scale(${fit})`, boxShadow: light ? "0 10px 36px rgba(0,0,0,.18)" : "0 12px 40px rgba(0,0,0,.5)" }}>
+          <div className="studio-screen" style={{ ...css.screen, width: dev.w, height: dev.h, borderRadius: prefs.corners, transform: `scale(${fit})`, boxShadow: light ? "0 10px 36px rgba(0,0,0,.18)" : "0 12px 40px rgba(0,0,0,.5)" }}>
             {children}
             <div id="studio-layer" style={{ position: "absolute", inset: 0, zIndex: 1000, pointerEvents: "none" }} />
           </div>
@@ -131,10 +132,12 @@ function Panel({ prefs, setPrefs }: { prefs: StudioPrefs; setPrefs: (p: Partial<
         <div style={{ marginBottom: 18 }}>
           <div style={css.panelTitle}>Studio</div>
           <Section title="Background and device" hint="How the studio looks on this laptop. Not part of the app and not saved to the repo." open={isOpen("studio")} onToggle={() => toggle("studio")}
-            badge={prefs.bg !== defaultPrefs.bg || prefs.device !== defaultPrefs.device ? 1 : 0}>
+            badge={[prefs.bg !== defaultPrefs.bg, prefs.device !== defaultPrefs.device, prefs.corners !== defaultPrefs.corners].filter(Boolean).length}>
             <Row c={{ key: "studio.bg", label: "Background", type: "color", swatches: BG_SWATCHES, default: defaultPrefs.bg }} value={prefs.bg} onChange={(v) => setPrefs({ bg: v })} />
             <Row c={{ key: "studio.device", label: "Device size", type: "choice", default: defaultPrefs.device, options: Object.entries(DEVICES).map(([value, x]) => ({ value, label: x.label.replace("iPhone ", "") })) }}
               value={prefs.device} onChange={(v) => setPrefs({ device: v })} />
+            <Row c={{ key: "studio.corners", label: "Screen corners", type: "range", min: 0, max: 64, step: 1, unit: "pt", default: defaultPrefs.corners }}
+              value={prefs.corners} onChange={(v) => setPrefs({ corners: v })} />
           </Section>
         </div>
 
