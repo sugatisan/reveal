@@ -18,6 +18,7 @@ const { discoverFeed, cadence, cadenceLabel, normalizeUrl, articlePage } = await
 const { refresh, isRefreshing, fetchSource, storeItems, mergeDuplicates } = await import("./lib/ingest.js");
 const { buildFeed, suggestionsFor, subMatch } = await import("./lib/rank.js");
 const usage = await import("./lib/usage.js");
+const shop = await import("./lib/shop.js");
 const agent = await import("./lib/agent.js");
 const curator = await import("./lib/curator.js");
 const tuning = await import("./lib/tuning.js");
@@ -37,6 +38,10 @@ const design = (() => {
 })();
 
 const PORT = +(process.env.PORT || 5177);
+// A prototype server should log a surprise and keep serving, not die and leave the app saying "can't reach".
+process.on("uncaughtException", (e) => console.error("  Unexpected error (still running):", e?.stack || e));
+process.on("unhandledRejection", (e) => console.error("  Unhandled rejection (still running):", e?.stack || e));
+
 const API_VERSION = 5; // bump when the app starts relying on new routes
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
 const FOLLOW_FIRST = 3; // sources switched on per new interest; the rest wait as suggestions
@@ -199,9 +204,9 @@ async function itemDetail(id) {
   if (!it) throw new Error("Item not found");
   const src = d.sources[it.sourceId] || {};
   // The article page is fetched once: images go in the gallery, text is held briefly for the brief.
-  if (it.pageImages === undefined) {
-    try { const pg = await articlePage(it.link); it.pageImages = pg.images.slice(0, 12); if (pg.text) pageText.set(id, pg.text); }
-    catch { it.pageImages = []; }
+  if (it.pageImages === undefined || it.shopLinks === undefined) {
+    try { const pg = await articlePage(it.link); it.pageImages = pg.images.slice(0, 12); it.shopLinks = pg.shops; if (pg.text) pageText.set(id, pg.text); }
+    catch { it.pageImages ||= []; it.shopLinks = []; }
     save();
   }
   const gk = (u) => u.replace(/[?#].*$/, "").replace(/-\d{2,4}x\d{2,4}(?=\.\w+$)/, "").toLowerCase();
@@ -221,7 +226,7 @@ async function itemDetail(id) {
   return {
     ...it, sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s),
     interests: ints.map((i) => ({ id: i.id, label: i.label })), related, deeper, saved: !!d.events[id]?.save, gallery: gallery.slice(0, 12),
-    brief: it.brief?.v === agent.BRIEF_VERSION ? it.brief : null, forYou: forYou(it, ints),
+    brief: it.brief?.v === agent.BRIEF_VERSION ? it.brief : null, forYou: forYou(it, ints), shops: shop.withAffiliate(it.shopLinks || []),
   };
 }
 
@@ -233,6 +238,7 @@ function recordEvent(itemId, type) {
   const s = stat(it.sourceId);
   if (type === "save") { e.save = !e.save; e.savedAt = e.save ? Date.now() : undefined; s.save += e.save ? 1 : -1; }
   else if (type === "less") { e.less = !e.less; s.less += e.less ? 1 : -1; }
+  else if (type === "buy") { e.buy = (e.buy || 0) + 1; (load().meta.buyClicks ||= 0); load().meta.buyClicks++; }
   else if (["shown", "expand", "open"].includes(type)) { if (!e[type]) s[type]++; e[type] = (e[type] || 0) + 1; }
 }
 

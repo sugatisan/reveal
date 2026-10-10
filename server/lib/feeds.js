@@ -1,3 +1,4 @@
+import { shopLinks } from "./shop.js";
 // Fetching, parsing and discovering RSS/Atom feeds. No dependencies.
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 DiscoveryFeed/0.1";
@@ -298,5 +299,5 @@ export async function articlePage(url, { timeout = 7000 } = {}) {
   // Without a marked article body, the whole page is mostly navigation and ads; only trust og:image.
   // No marked body: fall back to the page's longer paragraphs, if there are enough of them to be an article.
   const fallback = body ? "" : articleText(text).split("\n").filter((p) => p.length > 80).join("\n");
-  return { images: [ogUrl, ...(body ? allImages(body, finalUrl, 12) : [])].filter(Boolean), text: body ? articleText(body) : fallback.length > 400 ? fallback : "" };
+  return { images: [ogUrl, ...(body ? allImages(body, finalUrl, 12) : [])].filter(Boolean), text: body ? articleText(body) : fallback.length > 400 ? fallback : "", shops: shopLinks(body || text, finalUrl) };
 }

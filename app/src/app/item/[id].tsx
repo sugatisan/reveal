@@ -21,14 +21,15 @@ export default function ItemScreen() {
   const [lessOpen, setLessOpen] = useState(false);
   const toast = useToast();
   const [brief, setBrief] = useState<StoryBrief | null | undefined>(undefined);
+  const [briefError, setBriefError] = useState("");
 
   useEffect(() => {
-    setIt(null); setBrief(undefined);
+    setIt(null); setBrief(undefined); setBriefError("");
     api<ItemDetail>(`/api/item?id=${encodeURIComponent(id)}`).then((x) => {
       setIt(x);
       // The brief is shared across readers; the first reader waits for it, everyone after gets it instantly.
       if (x.brief) setBrief(x.brief);
-      else api<{ brief: StoryBrief | null }>("/api/item/brief", { id: x.id }).then((r) => setBrief(r.brief)).catch(() => setBrief(null));
+      else api<{ brief: StoryBrief | null }>("/api/item/brief", { id: x.id }).then((r) => setBrief(r.brief)).catch((e) => { setBrief(null); setBriefError(e.message); });
     }).catch((e) => setError(e.message));
   }, [id]);
   const ask = (prompt: string) => router.navigate({ pathname: "/curator", params: { prompt, itemId: it!.id, n: String(Date.now()) } });
@@ -79,7 +80,8 @@ export default function ItemScreen() {
             {/* Gist when we have it; the publisher's excerpt while it's on the way or if there's no curator. */}
             <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26, opacity: brief === undefined ? 0.6 : 1 }} numberOfLines={brief?.gist ? undefined : 6}>{brief?.gist || it.excerpt || ""}</Text>
             {brief === undefined ? <Text style={{ color: t.faint, fontSize: 12 }}>The curator is reading the article…</Text>
-              : brief?.gist ? <Text style={{ color: t.faint, fontSize: 12 }}>Gist by the curator{brief.from === "excerpt" ? ", from the source's excerpt" : ""}.</Text> : null}
+              : brief?.gist ? <Text style={{ color: t.faint, fontSize: 12 }}>Gist by the curator{brief.from === "excerpt" ? ", from the source's excerpt" : ""}.</Text>
+              : __DEV__ && briefError ? <Text style={{ color: t.danger, fontSize: 12 }}>Brief failed (dev only): {briefError}</Text> : null}
             {brief?.facts?.length ? (
               <View style={[st.facts, { borderColor: t.line }]}>
                 {brief.facts.map((f) => (
@@ -88,6 +90,20 @@ export default function ItemScreen() {
                     <Text style={{ color: t.ink, fontSize: 15, fontWeight: "600" }}>{f.value}</Text>
                   </View>
                 ))}
+              </View>
+            ) : null}
+            {it.shops?.length ? (
+              <View style={{ gap: 6 }}>
+                <Text style={{ color: t.muted, fontSize: 12, fontWeight: "700", letterSpacing: 0.6 }}>WHERE TO BUY</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  {it.shops.map((s) => (
+                    <Chip key={s.shop} label={s.shop} icon="bag-handle-outline" onPress={() => {
+                      sendEvents([{ itemId: it.id, type: "buy" }]).catch(() => {});
+                      WebBrowser.openBrowserAsync(s.url);
+                    }} />
+                  ))}
+                </View>
+                {it.shops.some((s) => s.ours) ? <Text style={{ color: t.faint, fontSize: 12 }}>Reveal may earn a commission from these links. It never affects what you see.</Text> : null}
               </View>
             ) : null}
             <View style={{ flexDirection: "row", gap: space.s, flexWrap: "wrap", marginTop: space.s }}>

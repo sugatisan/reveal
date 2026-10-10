@@ -22,6 +22,7 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
   const [confirm, setConfirm] = useState("");
   const [overlap, setOverlap] = useState<Overlap | null>(null);
   const [usage, setUsage] = useState<Usage | null>(null);
+  const [tip, setTip] = useState("");
   useEffect(() => { api<Usage>("/api/usage?days=7").then(setUsage).catch(() => {}); }, []);
 
   const run = async (key: string, fn: () => Promise<AppState | { state: AppState }>) => {
@@ -148,6 +149,15 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
             ))}
           </Card>
         ) : null}
+
+        <Card title="Support Reveal" hint="Reveal is free, has no ads, and is made by one person. If it earns a spot on your phone, you can chip in.">
+          <View style={{ flexDirection: "row", gap: space.s, flexWrap: "wrap", marginTop: space.xs }}>
+            {["$2.99", "$4.99", "$9.99"].map((p) => (
+              <Button key={p} label={p} kind="secondary" onPress={() => setTip(p)} />
+            ))}
+          </View>
+          {tip ? <Text style={{ color: t.muted, fontSize: 13, marginTop: space.s }}>Thanks! Tips go through Apple's in-app purchase in the App Store build; they aren't live in this prototype ({tip}).</Text> : null}
+        </Card>
 
         {usage?.rows.length ? (
           <Card title="AI usage, last 7 days" hint={usage.priced ? "Estimated from the prices in .env (DF_PRICES)." : "Tokens only. Add DF_PRICES to .env for cost estimates."}>
