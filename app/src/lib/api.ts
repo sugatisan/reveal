@@ -7,7 +7,8 @@ import { Platform } from "react-native";
 function resolveBase(): string {
   const env = process.env.EXPO_PUBLIC_API_URL;
   if (env) return env.replace(/\/$/, "");
-  if (Platform.OS === "web" && typeof window !== "undefined") return `${window.location.protocol}//${window.location.hostname}:5177`;
+  // Web: same address as the page; the dev server passes /api through to the Reveal server (see metro.config.js).
+  if (Platform.OS === "web" && typeof window !== "undefined") return window.location.origin;
   const host = Constants.expoConfig?.hostUri?.split(":")[0];
   return `http://${host || "localhost"}:5177`;
 }
@@ -18,7 +19,7 @@ export async function api<T = any>(path: string, data?: unknown): Promise<T> {
   try {
     res = await fetch(API_BASE + path, data === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data) });
   } catch {
-    throw new Error(`Can't reach the Reveal server at ${API_BASE}. Is "npm run dev" running?`);
+    throw new Error(`Can't reach the Reveal server${Platform.OS === "web" ? "" : ` at ${API_BASE}`}. Is "npm run dev" running?`);
   }
   const out = await res.json().catch(() => ({}));
   if (res.status === 404) throw new Error("The Reveal server is older than the app. Stop it (Ctrl+C) and run npm run dev again.");
