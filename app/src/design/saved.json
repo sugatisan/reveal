@@ -42,5 +42,7 @@
   "pill.shadowY": 3,
   "pill.fillMode": "palette",
   "pill.fillColor": "#000000",
-  "pill.shadowColor": "#000000"
+  "pill.shadowColor": "#000000",
+  "card.layout": "hero",
+  "nav.ask": "unified"
 }

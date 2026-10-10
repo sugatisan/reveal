@@ -2,6 +2,7 @@
 // Implicit signal reorders. It never hides a source you chose.
 import { load, stat } from "./store.js";
 import { penalty } from "./tuning.js";
+import { best } from "./images.js";
 
 const singular = (w) => w.toLowerCase().replace(/ies$/, "y").replace(/s$/, "");
 export function subMatch(item, subs) {
@@ -54,7 +55,7 @@ export function buildFeed({ interestId, sourceId, limit = 120 } = {}) {
     else if (aff > 1.15) why = `You open a lot from ${src.name}`;
     else why = primary.label;
 
-    scored.push({ ...it, imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save });
+    scored.push({ ...it, imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save });
   }
   scored.sort((a, b) => b.score - a.score);
 

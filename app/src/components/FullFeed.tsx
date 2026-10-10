@@ -1,6 +1,6 @@
 // Full-screen feed (Feed cards › Layout › Full screen): one story per screen, swiped vertically.
 // Full-bleed image, the essentials at the bottom, and a Details control that opens a sheet with the rest.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { ActivityIndicator } from "react-native";
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, ViewToken } from "react-native";
 import { Image } from "expo-image";
@@ -8,6 +8,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { ago, CuratorCard, FeedEntry, FeedItem, sendEvents } from "@/lib/api";
 import { serif, space, useTheme } from "@/lib/theme";
 import { StorySheet } from "./StorySheet";
+import { BestImage } from "./BestImage";
 
 // A soft dark fade, built from bands (no gradient dependency).
 function Fade({ from, height, max }: { from: "top" | "bottom"; height: number; max: number }) {
@@ -31,6 +32,15 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
 }) {
   const t = useTheme();
   const [details, setDetails] = useState<string | null>(null);
+  // Preload the next two stories' large images so swiping doesn't show them loading.
+  const entriesRef = useRef(entries); entriesRef.current = entries;
+  const onView = useRef((info: { viewableItems: ViewToken[] }) => {
+    onViewable(info);
+    const i = info.viewableItems[0]?.index ?? -1;
+    if (i < 0) return;
+    const next = entriesRef.current.slice(i + 1, i + 3).flatMap((e) => (e.type === "item" ? [e.imageLarge || e.image] : [])).filter(Boolean) as string[];
+    if (next.length) Image.prefetch(next).catch(() => {});
+  }).current;
   const openDetails = (it: FeedItem) => { sendEvents([{ itemId: it.id, type: "expand" }]).catch(() => {}); setDetails(it.id); };
   if (!height) return null;
   // Nothing to page through: say so instead of showing a black screen.
@@ -53,7 +63,7 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
     const sub = img ? "rgba(255,255,255,0.82)" : t.muted;
     return (
       <View style={{ height, backgroundColor: img ? "#000" : t.card }}>
-        {img ? <Image source={{ uri: it.image }} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} /> : null}
+        {img ? <BestImage large={it.imageLarge} small={it.image} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} priority="high" /> : null}
         {img ? <Fade from="top" height={topSpace + 40} max={0.45} /> : null}
         {img ? <Fade from="bottom" height={height * 0.62} max={0.88} /> : null}
         <View style={[st.bottom, { paddingBottom: bottomSpace + space.m }]}>
@@ -97,7 +107,7 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
         getItemLayout={(_, i) => ({ length: height, offset: height * i, index: i })}
-        onViewableItemsChanged={onViewable}
+        onViewableItemsChanged={onView}
         viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fff" progressViewOffset={topSpace} />}
         windowSize={5}

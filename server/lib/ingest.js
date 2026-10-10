@@ -1,5 +1,6 @@
 // Pull every followed source, store new items, merge duplicates, fill missing images.
 import { fetchText, isFeed, parseFeed, discoverFeed, ogImage, stripTags, cadence } from "./feeds.js";
+import { looksSmall, isGeneratedCard } from "./images.js";
 import { load, save, hash, followedIds } from "./store.js";
 
 const MAX_AGE_DAYS = 45;
@@ -139,8 +140,26 @@ async function doRefresh({ onlyIds } = {}) {
     i.imageTried = true;
     i.image = await ogImage(i.link);
   });
+  await enrichImages();
   prune();
   d.meta.lastRefresh = Date.now();
   save();
   return { added, failed, sources: ids.length, ms: Date.now() - started };
+}
+
+// Newest stories whose only image is small: fetch the article's share image (og:image), which
+// publishers usually make 1200px or larger. A few at a time; each story is tried once.
+export async function enrichImages(limit = 60) {
+  const d = load();
+  const want = Object.values(d.items)
+    .filter((i) => i.image && !i.imageLarge && !i.largeTried && !i.dupOf && looksSmall(i.image))
+    .sort((a, b) => b.date - a.date).slice(0, limit);
+  let found = 0;
+  await pool(want, 4, async (i) => {
+    i.largeTried = true;
+    const og = await ogImage(i.link);
+    if (og && og !== i.image && !isGeneratedCard(og)) { i.imageLarge = og; found++; }
+  });
+  if (want.length) save();
+  return found;
 }

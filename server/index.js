@@ -15,10 +15,11 @@ try {
 
 const { load, save, flush, reset, hash, slug, upsertSource, sourceIdFor, followedIds, stat } = await import("./lib/store.js");
 const { discoverFeed, cadence, cadenceLabel, normalizeUrl, articlePage } = await import("./lib/feeds.js");
-const { refresh, isRefreshing, fetchSource, storeItems, mergeDuplicates } = await import("./lib/ingest.js");
+const { refresh, isRefreshing, fetchSource, storeItems, mergeDuplicates, enrichImages } = await import("./lib/ingest.js");
 const { buildFeed, suggestionsFor, subMatch } = await import("./lib/rank.js");
 const usage = await import("./lib/usage.js");
 const shop = await import("./lib/shop.js");
+const images = await import("./lib/images.js");
 const agent = await import("./lib/agent.js");
 const curator = await import("./lib/curator.js");
 const tuning = await import("./lib/tuning.js");
@@ -231,7 +232,8 @@ async function itemDetail(id) {
   }
   const gk = (u) => u.replace(/[?#].*$/, "").replace(/-\d{2,4}x\d{2,4}(?=\.\w+$)/, "").toLowerCase();
   const gallery = [];
-  for (const u of [it.image, ...(it.images || []), ...(it.pageImages || [])]) if (u && !gallery.some((g) => gk(g) === gk(u))) gallery.push(u);
+  // Largest version first: the share image or upgraded URL, then the rest.
+  for (const u of [images.best(it), it.image, ...(it.images || []), ...(it.pageImages || [])]) if (u && !gallery.some((g) => gk(g) === gk(u))) gallery.push(u);
   const ints = d.interests.filter((i) => i.sourceIds.includes(it.sourceId) || (it.also || []).some((s) => i.sourceIds.includes(s)));
   const intSources = new Set(ints.flatMap((i) => i.sourceIds));
   const t = tok(it.title + " " + it.excerpt);
@@ -604,5 +606,6 @@ server.listen(PORT, "0.0.0.0");
 // Keep the feed fresh while the app is running.
 const tick = () => { if (followedIds().length && Date.now() - load().meta.lastRefresh > 25 * 6e4) refresh().then((r) => console.log(`  Refreshed: ${r.added} new items, ${r.failed} sources failed`)).catch(() => {}); };
 setTimeout(tick, 1500);
+setTimeout(() => enrichImages().then((n) => n && console.log(`  Found larger images for ${n} stories`)).catch(() => {}), 5000);
 setInterval(tick, 5 * 6e4);
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { flush(); server.closeAllConnections?.(); process.exit(0); });

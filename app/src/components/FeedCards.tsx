@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
+import { BestImage } from "./BestImage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ago, CuratorCard, FeedItem } from "@/lib/api";
 import { radius, serif, space, useTheme } from "@/lib/theme";
@@ -63,8 +64,9 @@ export function ItemCard({ item, onOpen, onSave, onLess, inGrid = false }: { ite
     }]}>
       {showHero ? (
         <View style={flush && !bleed ? { paddingHorizontal: pad } : null}>
-          <Image source={{ uri: item.image }} style={{ width: "100%", aspectRatio: inGrid && d["card.ratio"] === "16:9" ? 4 / 3 : RATIO[d["card.ratio"]] || 16 / 9, backgroundColor: t.chip, borderRadius: flush && !bleed ? d["card.radius"] : 0 }}
-            contentFit="cover" transition={200} recyclingKey={item.id} onError={() => setImgFailed(true)} />
+          {/* Big image cards get the large version; the grid keeps the lighter original. */}
+          <BestImage large={inGrid ? null : item.imageLarge} small={item.image} style={{ width: "100%", aspectRatio: inGrid && d["card.ratio"] === "16:9" ? 4 / 3 : RATIO[d["card.ratio"]] || 16 / 9, backgroundColor: t.chip, borderRadius: flush && !bleed ? d["card.radius"] : 0 }}
+            contentFit="cover" transition={200} recyclingKey={item.id} onFail={() => setImgFailed(true)} />
           {badge}
         </View>
       ) : null}
