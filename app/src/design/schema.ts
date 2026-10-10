@@ -161,10 +161,12 @@ export const GROUPS: Group[] = [
     ],
   },
   {
-    id: "tab-search", panel: "Tab bar", title: "Search",
-    hint: "Search finds things you already have (a story you scrolled past, a source by name). Discovery stays with the curator.",
+    id: "tab-search", panel: "Tab bar", title: "Search and curator",
+    hint: "Separate: a Curator tab plus a search entry. Unified: one Ask entry that opens the curator, with quick matches from your feed as you type.",
     controls: [
-      choice("tab.search", "Search entry", "button", [["off", "Off"], ["tab", "A tab"], ["button", "Separate button"]]),
+      choice("nav.ask", "Model", "separate", [["separate", "Separate"], ["unified", "Unified (Ask)"]]),
+      choice("tab.search", "Entry placement", "button", [["off", "Off"], ["tab", "A tab"], ["button", "Separate button"]],
+        "Where Search (separate) or Ask (unified) lives. Unified ignores Off."),
     ],
   },
 ];

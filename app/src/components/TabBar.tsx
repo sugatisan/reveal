@@ -42,7 +42,10 @@ export function IslandTabBar({ state, navigation }: BarProps) {
   const labels: boolean = d["tab.labels"];
   const h: number = d["tab.height"];
   const radius: number = docked ? 0 : d["tab.radius"];
-  const search: string = d["tab.search"];
+  const unified = d["nav.ask"] === "unified";
+  // Unified: one "Ask" entry (opens the curator, with search built in). "Off" isn't allowed there.
+  const search: string = unified && d["tab.search"] === "off" ? "button" : d["tab.search"];
+  const entryRoute = unified ? "curator" : "search";
   const fill = rgba(t.card, d["tab.opacity"] / 100);
   const shadowOn = !docked && d["tab.shadowOpacity"] > 0;
   const surface = {
@@ -65,7 +68,10 @@ export function IslandTabBar({ state, navigation }: BarProps) {
     if (!e.defaultPrevented && current !== name) navigation.navigate(name);
   };
 
-  const inBar = TABS.filter((x) => x.name !== "search" || search === "tab");
+  const ASK = { name: "curator", title: "Ask", icon: "sparkles-outline" as Glyph, active: "sparkles" as Glyph };
+  const inBar = unified
+    ? [...TABS.filter((x) => x.name !== "search" && x.name !== "curator"), ...(search === "tab" ? [ASK] : [])]
+    : TABS.filter((x) => x.name !== "search" || search === "tab");
   const tab = (x: (typeof TABS)[number], solo = false) => {
     const on = current === x.name;
     const color = on ? t.accent : t.muted;
@@ -85,9 +91,9 @@ export function IslandTabBar({ state, navigation }: BarProps) {
   };
 
   const searchButton = search === "button" ? (
-    <Pressable ref={searchRef} onPress={() => go("search")} accessibilityLabel="Search" accessibilityRole="button"
+    <Pressable ref={searchRef} onPress={() => go(entryRoute)} accessibilityLabel={unified ? "Ask" : "Search"} accessibilityRole="button"
       style={{ width: h, height: h, borderRadius: Math.min(radius, h / 2), alignItems: "center", justifyContent: "center", ...surface }}>
-      <Ionicons name={current === "search" ? "search" : "search-outline"} size={24} color={current === "search" ? t.accent : t.ink} />
+      <Ionicons name={unified ? (current === "curator" ? "sparkles" : "sparkles-outline") : current === "search" ? "search" : "search-outline"} size={24} color={current === entryRoute ? t.accent : t.ink} />
     </Pressable>
   ) : null;
 

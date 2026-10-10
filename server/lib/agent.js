@@ -129,8 +129,12 @@ ${candidates.map((c) => `${c.id} | ${c.sourceName} | ${c.title} | ${(c.excerpt |
 
 The person says: """${message}"""
 
+First decide what they want:
+- FINDING something specific they've likely seen ("that Seiko article", "the Brickset post about retiring sets"): answer in one short sentence, put the best match first, at most 3 items, and no new sources.
+- EXPLORING or wanting more/new ("more like this", "something new about watches"): be the curator: pick the best items, say briefly why, and suggest new sources when they'd add something.
+
 Return:
-{"reply": "1-3 sentences answering them, pointing at what you picked and why",
+{"reply": "1-3 sentences answering them, pointing at what you picked and why (one sentence when finding)",
  "items": ["up to 6 candidate ids, best first; [] if none fit"],
  "sources": [up to 4 NEW sources not in their follows, only if they asked for new/different things or the candidates don't cover it; each {"name","site","feed","why","interest": "which of their interest labels it belongs to, or a new short label"}],
  "followups": ["2-3 short things they might ask next, in their voice, under 6 words each"]}

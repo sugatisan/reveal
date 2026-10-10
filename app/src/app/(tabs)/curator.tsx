@@ -8,6 +8,8 @@ import { api, Turn } from "@/lib/api";
 import { bumpFeed, reloadState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Chip, ErrorLine, Header, MiniItemRow, SourceRow } from "@/components/ui";
+import { QuickMatches } from "@/components/QuickMatches";
+import { useDesign } from "@/design/store";
 
 type Thread = { turns: Turn[]; starters: string[]; hasKey: boolean };
 
@@ -22,6 +24,7 @@ export default function CuratorScreen() {
   const [busy, setBusy] = useState("");
   const scroll = useRef<ScrollView>(null);
   const tabSpace = useTabBarSpace();
+  const unified = useDesign()["nav.ask"] === "unified";
   const handled = useRef<string | undefined>(undefined);
 
   useEffect(() => { api<Thread>("/api/curator").then(setThread).catch((e) => setError(e.message)); }, []);
@@ -58,14 +61,16 @@ export default function CuratorScreen() {
   const empty = thread && !thread.turns.length && !pending;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={["top"]}>
-      <Header title="Curator" subtitle={thread && !thread.hasKey ? "Keyword mode. Add your API key to .env for real answers." : "Ask for more of anything, or something new."}
+      <Header title={unified ? "Ask" : "Curator"} subtitle={thread && !thread.hasKey ? "Keyword mode. Add your API key to .env for real answers." : unified ? "Ask the curator for something new, or find something you've seen." : "Ask for more of anything, or something new."}
         right={thread?.turns.length ? <Pressable onPress={clear} hitSlop={10}><Text style={{ color: t.muted }}>Clear</Text></Pressable> : null} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={90}>
         <ScrollView ref={scroll} contentContainerStyle={{ padding: space.l, gap: space.l, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
           {!thread && !error ? <ActivityIndicator color={t.muted} style={{ marginTop: 40 }} /> : null}
           {empty ? (
             <View style={{ gap: space.m, marginTop: space.l }}>
-              <Text style={{ fontFamily: serif, fontSize: 22, lineHeight: 29, color: t.ink }}>I know your sources. Tell me what you're in the mood for and I'll dig, or find you somewhere new to look.</Text>
+              <Text style={{ fontFamily: serif, fontSize: 22, lineHeight: 29, color: t.ink }}>{unified
+                ? "I know your sources. Ask for something new, or start typing to find a story or source you've already seen."
+                : "I know your sources. Tell me what you're in the mood for and I'll dig, or find you somewhere new to look."}</Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
                 {thread!.starters.map((s) => <Chip key={s} label={s} onPress={() => ask(s)} />)}
               </View>
@@ -105,9 +110,10 @@ export default function CuratorScreen() {
           ) : null}
           <ErrorLine text={error} />
         </ScrollView>
+        {unified && !pending ? <QuickMatches query={text} onAsk={() => ask(text)} /> : null}
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.s, padding: space.m, marginBottom: tabSpace - space.s, borderTopWidth: 1, borderTopColor: t.line, backgroundColor: t.bg }}>
           <TextInput
-            value={text} onChangeText={setText} placeholder="More vintage Seiko, a new design blog…" placeholderTextColor={t.faint}
+            value={text} onChangeText={setText} placeholder={unified ? "Ask, or find something you've seen…" : "More vintage Seiko, a new design blog…"} placeholderTextColor={t.faint}
             onSubmitEditing={() => ask(text)} returnKeyType="send" multiline={false}
             style={{ flex: 1, color: t.ink, backgroundColor: t.card, borderRadius: radius.pill, paddingHorizontal: space.l, paddingVertical: 11, fontSize: 16, borderWidth: 1, borderColor: t.line }}
           />
