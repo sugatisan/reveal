@@ -68,90 +68,104 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
     sendEvents([{ itemId: it.id, type: "open" }]).catch(() => {});
     await WebBrowser.openBrowserAsync(it.link);
   };
+  const d = useDesign();
+  const gap: number = d["story.sectionGap"], labelGap: number = d["story.labelGap"];
+  const Label = ({ children }: { children: string }) => (
+    <Text style={{ color: t.muted, fontSize: 12, fontWeight: "700", letterSpacing: 0.8, marginBottom: labelGap }}>{children}</Text>
+  );
   return (
-    <>
-          <View style={{ paddingHorizontal: space.l, paddingTop: space.m, gap: space.m }}>
-            {it.forYou ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Ionicons name="sparkles" size={13} color={t.curatorAccent} />
-                <Text style={{ color: t.muted, fontSize: 14, flex: 1 }}>{it.forYou}</Text>
-              </View>
-            ) : null}
-            {/* Gist when we have it; the publisher's excerpt while it's on the way or if there's no curator. */}
-            {mode !== "gist" ? (
-              <>
-                <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{(mode === "lead" ? it.lead : it.excerpt) || (mode === "lead" ? "(Couldn't read the article's opening on this page.)" : "(This feed has no excerpt.)")}</Text>
-                <Text style={{ color: t.faint, fontSize: 12 }}>{mode === "lead" ? `Opening of the article at ${it.sourceName}. No AI.` : `From ${it.sourceName}'s feed. No AI.`}</Text>
-              </>
-            ) : (<>
+    // Each module is its own section, spaced by Story page › Spacing › Between sections.
+    <View style={{ paddingHorizontal: space.l, paddingTop: space.l, paddingBottom: space.xl, gap }}>
+      {/* Why it's here, then the description. Gist when we have it; the publisher's excerpt while it's on the way. */}
+      <View style={{ gap: 10 }}>
+        {it.forYou ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Ionicons name="sparkles" size={13} color={t.curatorAccent} />
+            <Text style={{ color: t.muted, fontSize: 14, flex: 1 }}>{it.forYou}</Text>
+          </View>
+        ) : null}
+        {mode !== "gist" ? (
+          <>
+            <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{(mode === "lead" ? it.lead : it.excerpt) || (mode === "lead" ? "(Couldn't read the article's opening on this page.)" : "(This feed has no excerpt.)")}</Text>
+            <Text style={{ color: t.faint, fontSize: 12 }}>{mode === "lead" ? `Opening of the article at ${it.sourceName}. No AI.` : `From ${it.sourceName}'s feed. No AI.`}</Text>
+          </>
+        ) : (
+          <>
             <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26, opacity: brief === undefined ? 0.6 : 1 }} numberOfLines={brief?.gist ? undefined : 6}>{brief?.gist || it.excerpt || ""}</Text>
             {brief === undefined ? <Text style={{ color: t.faint, fontSize: 12 }}>The curator is reading the article…</Text>
               : brief?.gist ? <Text style={{ color: t.faint, fontSize: 12 }}>Gist by the curator{brief.from === "excerpt" ? ", from the source's excerpt" : ""}.</Text>
               : __DEV__ && briefError ? <Text style={{ color: t.danger, fontSize: 12 }}>Brief failed (dev only): {briefError}</Text> : null}
-            </>)}
-            {shown?.facts?.length ? (
-              <View style={[st.facts, { borderColor: t.line }]}>
-                {shown.facts.map((f) => (
-                  <View key={f.label} style={st.fact}>
-                    <Text style={{ color: t.muted, fontSize: 12, fontWeight: "600" }}>{f.label}</Text>
-                    <Text style={{ color: t.ink, fontSize: 15, fontWeight: "600" }}>{f.value}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-            {it.shops?.length ? (
-              <View style={{ gap: 6 }}>
-                <Text style={{ color: t.muted, fontSize: 12, fontWeight: "700", letterSpacing: 0.6 }}>WHERE TO BUY</Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                  {it.shops.map((s) => (
-                    <Chip key={s.shop} label={s.shop} icon="bag-handle-outline" onPress={() => {
-                      sendEvents([{ itemId: it.id, type: "buy" }]).catch(() => {});
-                      WebBrowser.openBrowserAsync(s.url);
-                    }} />
-                  ))}
-                </View>
-                {it.shops.some((s) => s.ours) ? <Text style={{ color: t.faint, fontSize: 12 }}>Reveal may earn a commission from these links. It never affects what you see.</Text> : null}
-              </View>
-            ) : null}
-            <View style={{ flexDirection: "row", gap: space.s, flexWrap: "wrap", marginTop: space.s }}>
-              <Button label={`Read at ${it.sourceName}`} icon="open-outline" onPress={open} />
-              <Button label="More like this" kind="secondary" icon="sparkles-outline" onPress={() => ask("More like this")} />
+          </>
+        )}
+      </View>
+
+      {shown?.facts?.length ? (
+        <View style={[st.facts, { borderColor: t.line, paddingVertical: d["story.factsPad"], rowGap: d["story.factsGap"] }]}>
+          {shown.facts.map((f) => (
+            <View key={f.label} style={st.fact}>
+              <Text style={{ color: t.muted, fontSize: 12, fontWeight: "600" }}>{f.label}</Text>
+              <Text style={{ color: t.ink, fontSize: 15, lineHeight: 21, fontWeight: "600" }}>{f.value}</Text>
             </View>
-            {shown?.questions?.length ? (
-              <View style={{ gap: 6 }}>
-                <Text style={{ color: t.muted, fontSize: 12, fontWeight: "700", letterSpacing: 0.6 }}>ASK THE CURATOR</Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                  {shown.questions.map((q) => <Chip key={q} label={q} tone="curator" onPress={() => ask(q)} />)}
-                </View>
-              </View>
-            ) : null}
+          ))}
+        </View>
+      ) : null}
+
+      {it.shops?.length ? (
+        <View>
+          <Label>WHERE TO BUY</Label>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
+            {it.shops.map((s) => (
+              <Chip key={s.shop} label={s.shop} icon="bag-handle-outline" onPress={() => {
+                sendEvents([{ itemId: it.id, type: "buy" }]).catch(() => {});
+                WebBrowser.openBrowserAsync(s.url);
+              }} />
+            ))}
           </View>
+          {it.shops.some((s) => s.ours) ? <Text style={{ color: t.faint, fontSize: 12, marginTop: space.s }}>Reveal may earn a commission from these links. It never affects what you see.</Text> : null}
+        </View>
+      ) : null}
 
-          {it.related?.length ? (
-            <View style={{ paddingHorizontal: space.l, marginTop: space.m }}>
-              <Text style={{ fontWeight: "700", color: t.ink, marginBottom: space.s, fontSize: 15 }}>Related in your feed</Text>
-              {it.related.map((r) => <MiniItemRow key={r.id} item={r} onPress={() => onRelated(r.id)} />)}
-            </View>
-          ) : null}
+      <View style={{ flexDirection: "row", gap: space.s, flexWrap: "wrap" }}>
+        <Button label={`Read at ${it.sourceName}`} icon="open-outline" onPress={open} />
+        <Button label="More like this" kind="secondary" icon="sparkles-outline" onPress={() => ask("More like this")} />
+      </View>
 
-          {it.deeper?.length ? (
-            <View style={{ margin: space.l, padding: space.l, borderRadius: radius.l, backgroundColor: t.curatorBg }}>
-              <Text style={{ color: t.curatorAccent, fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }}>GO DEEPER</Text>
-              <Text style={{ color: t.curatorInk, fontFamily: serif, fontSize: 19, marginTop: 4, marginBottom: space.s }}>Sources that cover this in more depth</Text>
-              {it.deeper.map((s) => (
-                <SourceRow key={s.id} tone="curator" busy={busy === s.id} src={{ ...s, followed: !!followed[s.id] }} onFollow={async () => {
-                  setBusy(s.id);
-                  try { await api("/api/sources/follow", { interestId: s.interestId, sourceId: s.id, follow: true }); setFollowed((f) => ({ ...f, [s.id]: true })); reloadState(); bumpFeed(); }
-                  finally { setBusy(""); }
-                }} />
-              ))}
-            </View>
-          ) : null}
-    </>
+      {shown?.questions?.length ? (
+        <View>
+          <Label>ASK THE CURATOR</Label>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
+            {shown.questions.map((q) => <Chip key={q} label={q} tone="curator" onPress={() => ask(q)} />)}
+          </View>
+        </View>
+      ) : null}
+
+      {it.related?.length ? (
+        <View>
+          <Label>RELATED IN YOUR FEED</Label>
+          <View style={{ gap: space.s }}>
+            {it.related.map((r) => <MiniItemRow key={r.id} item={r} onPress={() => onRelated(r.id)} />)}
+          </View>
+        </View>
+      ) : null}
+
+      {it.deeper?.length ? (
+        <View style={{ padding: space.l, borderRadius: radius.l, backgroundColor: t.curatorBg }}>
+          <Text style={{ color: t.curatorAccent, fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }}>GO DEEPER</Text>
+          <Text style={{ color: t.curatorInk, fontFamily: serif, fontSize: 19, marginTop: 4, marginBottom: space.s }}>Sources that cover this in more depth</Text>
+          {it.deeper.map((s) => (
+            <SourceRow key={s.id} tone="curator" busy={busy === s.id} src={{ ...s, followed: !!followed[s.id] }} onFollow={async () => {
+              setBusy(s.id);
+              try { await api("/api/sources/follow", { interestId: s.interestId, sourceId: s.id, follow: true }); setFollowed((f) => ({ ...f, [s.id]: true })); reloadState(); bumpFeed(); }
+              finally { setBusy(""); }
+            }} />
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 const st = StyleSheet.create({
-  facts: { flexDirection: "row", flexWrap: "wrap", borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: space.s, rowGap: space.s },
-  fact: { width: "50%", gap: 2, paddingRight: space.s },
+  facts: { flexDirection: "row", flexWrap: "wrap", borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
+  fact: { width: "50%", gap: 4, paddingRight: space.m },
 });

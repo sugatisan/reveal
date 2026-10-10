@@ -189,6 +189,15 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    id: "story-spacing", panel: "Story page", title: "Spacing", hint: "Also used by the full-screen Details sheet.",
+    controls: [
+      { key: "story.sectionGap", label: "Between sections", hint: "Description, key facts, actions, questions, related.", type: "range", min: 12, max: 64, step: 2, unit: "pt", default: 36 },
+      { key: "story.factsGap", label: "Between key-fact rows", type: "range", min: 6, max: 32, step: 2, unit: "pt", default: 18 },
+      { key: "story.factsPad", label: "Inside key-facts lines", hint: "Space between the rules and the facts.", type: "range", min: 6, max: 32, step: 2, unit: "pt", default: 16 },
+      { key: "story.labelGap", label: "Heading to content", hint: "Under ASK THE CURATOR, RELATED IN YOUR FEED and similar.", type: "range", min: 4, max: 24, step: 1, unit: "pt", default: 12 },
+    ],
+  },
+  {
     id: "tab-shown", panel: "Tab bar", title: "Tabs shown",
     controls: [
       { key: "tab.sources", label: "Sources tab", hint: "Off: interests and sources are managed from the left panel (edit icons, All sources and settings).", type: "toggle", default: false },

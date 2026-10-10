@@ -1,8 +1,7 @@
-// Swipeable story images. Paging scroll on phones; arrow buttons too on the web, where you can't swipe with a mouse.
+// Swipeable story images with page dots (tap a dot to jump to it).
 import { useRef, useState } from "react";
-import { NativeScrollEvent, NativeSyntheticEvent, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Image } from "expo-image";
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "@/lib/theme";
 
 
@@ -46,28 +45,20 @@ export function Gallery({ images, aspect = 16 / 10, topInset = 0, fallback = nul
         </ScrollView>
       ) : null}
       {list.length > 1 ? (
-        <>
-          <View style={[st.count, { top: 12 + topInset, backgroundColor: "rgba(0,0,0,0.55)" }]}>
-            <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>{Math.min(index, list.length - 1) + 1} / {list.length}</Text>
-          </View>
-          <View style={st.dots} pointerEvents="none">
-            {list.slice(0, 12).map((u, i) => <View key={u} style={[st.dot, { backgroundColor: i === index ? "#fff" : "rgba(255,255,255,0.5)", width: i === index ? 16 : 6 }]} />)}
-          </View>
-          {Platform.OS === "web" ? (
-            <>
-              {index > 0 ? <Pressable onPress={() => go(index - 1)} style={[st.arrow, { left: 10 }]} accessibilityLabel="Previous image"><Ionicons name="chevron-back" size={20} color="#fff" /></Pressable> : null}
-              {index < list.length - 1 ? <Pressable onPress={() => go(index + 1)} style={[st.arrow, { right: 10 }]} accessibilityLabel="Next image"><Ionicons name="chevron-forward" size={20} color="#fff" /></Pressable> : null}
-            </>
-          ) : null}
-        </>
+        // Dots only. They're tappable, so the gallery works with a mouse too (no arrows or count).
+        <View style={st.dots} pointerEvents="box-none">
+          {list.slice(0, 12).map((u, i) => (
+            <Pressable key={u} onPress={() => go(i)} hitSlop={{ top: 10, bottom: 10, left: 3, right: 3 }} accessibilityLabel={`Image ${i + 1} of ${list.length}`}>
+              <View style={[st.dot, { backgroundColor: i === index ? "#fff" : "rgba(255,255,255,0.5)", width: i === index ? 16 : 6 }]} />
+            </Pressable>
+          ))}
+        </View>
       ) : null}
     </View>
   );
 }
 
 const st = StyleSheet.create({
-  count: { position: "absolute", top: 12, right: 12, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
   dots: { position: "absolute", bottom: 12, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 5 },
   dot: { height: 6, borderRadius: 3 },
-  arrow: { position: "absolute", top: "50%", marginTop: -18, width: 36, height: 36, borderRadius: 18, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
 });
