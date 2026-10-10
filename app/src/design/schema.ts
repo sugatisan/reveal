@@ -95,7 +95,7 @@ export const GROUPS: Group[] = [
   {
     id: "card-layout", panel: "Feed cards", title: "Layout", hint: "The overall shape of each story in the feed.",
     controls: [
-      choice("card.layout", "Layout", "hero", [["hero", "Big image"], ["compact", "Thumbnail"], ["text", "Text only"]]),
+      choice("card.layout", "Layout", "hero", [["hero", "Big image"], ["compact", "Thumbnail"], ["text", "Text only"], ["full", "Full screen"]], "Full screen: one story per screen, swiped vertically, with a Details sheet."),
       choice("card.ratio", "Image shape", "16:9", [["16:9", "16:9"], ["3:2", "3:2"], ["4:3", "4:3"], ["1:1", "1:1"]], "Big image layout only."),
       choice("card.surface", "Surface", "card", [["card", "Card"], ["flush", "Flush"]]),
     ],

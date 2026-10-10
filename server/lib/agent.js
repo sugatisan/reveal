@@ -231,7 +231,11 @@ Return JSON only:
 {"gist": "1-2 plain sentences: what happened or what this is, and the one detail that makes it worth reading. Facts only, in your own words. No commentary on the writing, tone or author. Don't add anything that isn't in the text.",
  "facts": [up to 4 {"label": "", "value": ""}: only prices, dates, places to buy or see it, sizes, specs or other numbers stated in the text. Never a brand, company, person or category name. Labels 1-2 words. [] when there are none, which is normal for news and opinion],
  "questions": [2-3 questions a curious reader might ask next, 3-5 words each, in their voice, e.g. "Who else makes these?", "When does it ship?"]}`;
-  const out = json(await claude({ system: "You brief readers on stories in a discovery feed. Reply with JSON only.", prompt, model: FAST(), maxTokens: 450, purpose: "story-brief" }));
+  const system = "You brief readers on stories in a discovery feed. Reply with valid JSON only. Inside strings, use single quotes or escape double quotes (\\\").";
+  // One retry: the fast model occasionally returns JSON with an unescaped quote from a title.
+  let out;
+  try { out = json(await claude({ system, prompt, model: FAST(), maxTokens: 450, purpose: "story-brief" })); }
+  catch (e) { if (!/JSON|unreadable|position/i.test(String(e.message))) throw e; out = json(await claude({ system, prompt, model: FAST(), maxTokens: 450, purpose: "story-brief" })); }
   return {
     gist: String(out.gist || "").trim(),
     facts: (Array.isArray(out.facts) ? out.facts : []).filter((f) => f?.label && f?.value).slice(0, 4).map((f) => ({ label: String(f.label).slice(0, 24), value: String(f.value).slice(0, 60) })),

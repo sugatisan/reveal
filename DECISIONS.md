@@ -78,3 +78,4 @@ These are ordered by how much they'd change what gets built.
 - 2026-10-10 — Curator ideas in Refine; overlap check when creating an interest; simpler tuner edit icon.
 - 2026-10-10 — Shipping and cost plan (SHIPPING.md); AI usage meter; shared story briefs; "why for you" without AI; "More like this" plus story questions.
 - 2026-10-10 — Costs covered by donations and affiliate links (no subscription, no ads); Where to buy on stories; Support Reveal card (mock); server keeps running after unexpected errors.
+- 2026-10-10 — Full-screen feed layout (one story per screen, Details sheet); story page content shared between page and sheet; studio values survive server restarts; story brief retries bad JSON.

@@ -25,15 +25,20 @@ const tuning = await import("./lib/tuning.js");
 const design = (() => {
   const FILE = path.resolve("app/src/design/saved.json"); // inside the app so a real build includes it
   const read = () => { try { return JSON.parse(fs.readFileSync(FILE, "utf8")); } catch { return {}; } };
+  // Unsaved studio values survive server restarts (every server code change restarts it).
+  const LIVE = path.resolve("data/design-live.json");
+  const readLive = () => { try { return JSON.parse(fs.readFileSync(LIVE, "utf8")); } catch { return null; } };
+  const writeLive = () => { try { fs.mkdirSync(path.dirname(LIVE), { recursive: true }); fs.writeFileSync(LIVE, JSON.stringify(values)); } catch {} };
+  const dropLive = () => { try { fs.unlinkSync(LIVE); } catch {} };
   let saved = read();
-  let values = { ...saved };
-  let version = 1;
+  let values = { ...saved, ...(readLive() || {}) };
+  let version = Math.floor(Date.now() / 1000); // keeps increasing across restarts
   const view = () => ({ version, values, saved, dirty: JSON.stringify(values) !== JSON.stringify(saved) });
   return {
     view,
-    set(v) { values = { ...values, ...v }; version++; return view(); },
-    save() { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(values, null, 2) + "\n"); saved = { ...values }; version++; return view(); },
-    revert() { saved = read(); values = { ...saved }; version++; return view(); },
+    set(v) { values = { ...values, ...v }; version++; writeLive(); return view(); },
+    save() { fs.mkdirSync(path.dirname(FILE), { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(values, null, 2) + "\n"); saved = { ...values }; version++; dropLive(); return view(); },
+    revert() { saved = read(); values = { ...saved }; version++; dropLive(); return view(); },
   };
 })();
 
@@ -196,10 +201,13 @@ async function storyBrief(id) {
   const it = d.items[id];
   if (!it) throw new Error("Item not found");
   if (it.brief && it.brief.v === agent.BRIEF_VERSION) return it.brief;
+  // A story that just failed isn't retried on every open (that would cost a call each time).
+  if (it.briefFailedAt && Date.now() - it.briefFailedAt < 864e5) return null;
   const src = d.sources[it.sourceId] || {};
   let text = pageText.get(id) || "";
   if (!text && it.link) { try { text = (await articlePage(it.link)).text; } catch {} }
-  it.brief = await agent.storyBrief(it, src.name, text);
+  try { it.brief = await agent.storyBrief(it, src.name, text); delete it.briefFailedAt; }
+  catch (e) { it.briefFailedAt = Date.now(); save(); throw e; }
   if (it.brief) pageText.delete(id);
   save();
   return it.brief;

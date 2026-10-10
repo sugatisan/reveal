@@ -13,6 +13,7 @@ import { Empty, ErrorLine, useToast } from "@/components/ui";
 import { CuratorCardView, ItemCard } from "@/components/FeedCards";
 import { LessResult, LessSheet, lessToast } from "@/components/LessSheet";
 import { useDrawer } from "@/components/Drawer";
+import { FullFeed } from "@/components/FullFeed";
 import { useDesign } from "@/design/store";
 
 // A "pair" is one row of the 2-column grid; everything else spans the full width.
@@ -28,7 +29,8 @@ export default function FeedScreen() {
   const insets = useSafeAreaInsets();
   const pillStyle = usePillStyle();
   const [headerH, setHeaderH] = useState(0);
-  const pinned = !!design["header.pinned"];
+  // Full screen always floats the pill row over the image.
+  const pinned = !!design["header.pinned"] || design["card.layout"] === "full";
   // Pinned pill row moves from "Space above pills" (at the top) to "…, scrolled" over the first stretch of scrolling.
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollPos = useRef(0);
@@ -41,7 +43,7 @@ export default function FeedScreen() {
     useNativeDriver: false,
     listener: (e: any) => { scrollPos.current = e.nativeEvent.contentOffset.y; },
   });
-  const backingRef = useBackdrop(pinned && design["header.backing"] ? design["header.blur"] : 0);
+  const backingRef = useBackdrop(pinned && design["header.backing"] && design["card.layout"] !== "full" ? design["header.blur"] : 0);
   const drawer = useDrawer();
   const pillScroll = useRef<ScrollView>(null);
   const [feed, setFeed] = useState<Feed | null>(null);
@@ -49,6 +51,8 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const toast = useToast();
   const [lessFor, setLessFor] = useState<string | null>(null);
+  const full = design["card.layout"] === "full";
+  const [pageH, setPageH] = useState(0);
 
   const load = useCallback(async () => {
     const q = !lens ? "" : lens.kind === "interest" ? `?interest=${encodeURIComponent(lens.id)}` : `?source=${encodeURIComponent(lens.id)}`;
@@ -165,7 +169,20 @@ export default function FeedScreen() {
   );
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={pinned ? [] : ["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: full ? "#000" : t.bg }} edges={pinned ? [] : ["top"]}
+      onLayout={(e) => setPageH(Math.round(e.nativeEvent.layout.height))}>
+      {full ? (
+        <>
+          <FullFeed entries={(feed?.entries || [])} height={pageH} topSpace={headerH || insets.top + 50} bottomSpace={tabSpace}
+            onSave={save} onLess={setLessFor} onViewable={onViewable} refreshing={refreshing} onRefresh={pull}
+            curator={{ follow, ask, dismiss: dismissCard }} />
+          {!feed || error || stateError ? (
+            <View style={{ position: "absolute", top: (headerH || insets.top + 50) + space.m, left: 0, right: 0 }}>
+              {!feed && !error ? <ActivityIndicator color="#fff" /> : <ErrorLine text={error || stateError} onRetry={() => { load(); reloadState(); }} />}
+            </View>
+          ) : null}
+        </>
+      ) : (
       <FlatList
         data={rows}
         keyExtractor={(r) => (r.type === "curator" ? "c-" + r.id : r.id)}
@@ -208,13 +225,14 @@ export default function FeedScreen() {
         }}
         contentContainerStyle={{ paddingBottom: tabSpace + space.l }}
       />
+      )}
       {/* Pinned pill row: stays at the top while the feed scrolls underneath, over an adjustable backing. */}
       {pinned ? (
         <View ref={backingRef} onLayout={(e) => { if (scrollPos.current <= 1) setHeaderH(Math.round(e.nativeEvent.layout.height)); }}
           style={{ position: "absolute", top: 0, left: 0, right: 0, paddingTop: insets.top,
-            backgroundColor: design["header.backing"] ? rgba(t.bg, design["header.opacity"] / 100) : "transparent",
-            borderBottomWidth: design["header.backing"] && design["header.border"] ? 1 : 0, borderBottomColor: t.line,
-            ...(design["header.backing"] && design["header.shadow"] > 0 ? ({ boxShadow: `0px ${design["header.shadowY"]}px ${design["header.shadowRadius"]}px rgba(0,0,0,${design["header.shadow"] / 100})` } as any) : null) }}>
+            backgroundColor: design["header.backing"] && !full ? rgba(t.bg, design["header.opacity"] / 100) : "transparent",
+            borderBottomWidth: design["header.backing"] && design["header.border"] && !full ? 1 : 0, borderBottomColor: t.line,
+            ...(design["header.backing"] && !full && design["header.shadow"] > 0 ? ({ boxShadow: `0px ${design["header.shadowY"]}px ${design["header.shadowRadius"]}px rgba(0,0,0,${design["header.shadow"] / 100})` } as any) : null) }}>
           <Animated.View style={{ height: topSpacer }} />
           {lensBar}
         </View>

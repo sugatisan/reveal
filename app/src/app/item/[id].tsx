@@ -10,39 +10,15 @@ import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Button, Chip, ErrorLine, MiniItemRow, SourceRow, useToast } from "@/components/ui";
 import { LessSheet, lessToast } from "@/components/LessSheet";
 import { Gallery } from "@/components/Gallery";
+import { StoryBody, useStoryDetail } from "@/components/StoryDetails";
 import { useDesign } from "@/design/store";
 
 export default function ItemScreen() {
   const t = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [it, setIt] = useState<ItemDetail | null>(null);
-  const [error, setError] = useState("");
-  const [followed, setFollowed] = useState<Record<string, boolean>>({});
-  const [busy, setBusy] = useState("");
+  const { it, setIt, error, brief, briefError, mode } = useStoryDetail(id);
   const [lessOpen, setLessOpen] = useState(false);
   const toast = useToast();
-  const [brief, setBrief] = useState<StoryBrief | null | undefined>(undefined);
-  const [briefError, setBriefError] = useState("");
-  const mode: "gist" | "excerpt" | "lead" = useDesign()["story.body"];
-
-  useEffect(() => {
-    setIt(null); setBrief(undefined); setBriefError("");
-    api<ItemDetail>(`/api/item?id=${encodeURIComponent(id)}`).then((x) => {
-      setIt(x);
-      // The brief is shared across readers; the first reader waits for it, everyone after gets it instantly.
-      if (x.brief) setBrief(x.brief);
-      else if (mode !== "gist") setBrief(null); // no AI: don't ask the curator at all
-      else api<{ brief: StoryBrief | null }>("/api/item/brief", { id: x.id }).then((r) => setBrief(r.brief)).catch((e) => { setBrief(null); setBriefError(e.message); });
-    }).catch((e) => setError(e.message));
-  }, [id, mode]);
-  const shown = mode === "gist" ? brief : null; // facts and questions only come with the AI brief
-  const ask = (prompt: string) => router.navigate({ pathname: "/curator", params: { prompt, itemId: it!.id, n: String(Date.now()) } });
-
-  const open = async () => {
-    if (!it) return;
-    sendEvents([{ itemId: it.id, type: "open" }]).catch(() => {});
-    await WebBrowser.openBrowserAsync(it.link);
-  };
   const save = async () => {
     if (!it) return;
     setIt({ ...it, saved: !it.saved });
@@ -75,82 +51,8 @@ export default function ItemScreen() {
           </View>
           <View style={{ paddingHorizontal: space.l, paddingTop: space.s, gap: space.m }}>
             <Text style={{ fontFamily: serif, fontSize: 28, lineHeight: 34, color: t.ink, letterSpacing: -0.3 }}>{it.title}</Text>
-            {it.forYou ? (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Ionicons name="sparkles" size={13} color={t.curatorAccent} />
-                <Text style={{ color: t.muted, fontSize: 14, flex: 1 }}>{it.forYou}</Text>
-              </View>
-            ) : null}
-            {/* Gist when we have it; the publisher's excerpt while it's on the way or if there's no curator. */}
-            {mode !== "gist" ? (
-              <>
-                <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{(mode === "lead" ? it.lead : it.excerpt) || (mode === "lead" ? "(Couldn't read the article's opening on this page.)" : "(This feed has no excerpt.)")}</Text>
-                <Text style={{ color: t.faint, fontSize: 12 }}>{mode === "lead" ? `Opening of the article at ${it.sourceName}. No AI.` : `From ${it.sourceName}'s feed. No AI.`}</Text>
-              </>
-            ) : (<>
-            <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26, opacity: brief === undefined ? 0.6 : 1 }} numberOfLines={brief?.gist ? undefined : 6}>{brief?.gist || it.excerpt || ""}</Text>
-            {brief === undefined ? <Text style={{ color: t.faint, fontSize: 12 }}>The curator is reading the article…</Text>
-              : brief?.gist ? <Text style={{ color: t.faint, fontSize: 12 }}>Gist by the curator{brief.from === "excerpt" ? ", from the source's excerpt" : ""}.</Text>
-              : __DEV__ && briefError ? <Text style={{ color: t.danger, fontSize: 12 }}>Brief failed (dev only): {briefError}</Text> : null}
-            </>)}
-            {shown?.facts?.length ? (
-              <View style={[st.facts, { borderColor: t.line }]}>
-                {shown.facts.map((f) => (
-                  <View key={f.label} style={st.fact}>
-                    <Text style={{ color: t.muted, fontSize: 12, fontWeight: "600" }}>{f.label}</Text>
-                    <Text style={{ color: t.ink, fontSize: 15, fontWeight: "600" }}>{f.value}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-            {it.shops?.length ? (
-              <View style={{ gap: 6 }}>
-                <Text style={{ color: t.muted, fontSize: 12, fontWeight: "700", letterSpacing: 0.6 }}>WHERE TO BUY</Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                  {it.shops.map((s) => (
-                    <Chip key={s.shop} label={s.shop} icon="bag-handle-outline" onPress={() => {
-                      sendEvents([{ itemId: it.id, type: "buy" }]).catch(() => {});
-                      WebBrowser.openBrowserAsync(s.url);
-                    }} />
-                  ))}
-                </View>
-                {it.shops.some((s) => s.ours) ? <Text style={{ color: t.faint, fontSize: 12 }}>Reveal may earn a commission from these links. It never affects what you see.</Text> : null}
-              </View>
-            ) : null}
-            <View style={{ flexDirection: "row", gap: space.s, flexWrap: "wrap", marginTop: space.s }}>
-              <Button label={`Read at ${it.sourceName}`} icon="open-outline" onPress={open} />
-              <Button label="More like this" kind="secondary" icon="sparkles-outline" onPress={() => ask("More like this")} />
-            </View>
-            {shown?.questions?.length ? (
-              <View style={{ gap: 6 }}>
-                <Text style={{ color: t.muted, fontSize: 12, fontWeight: "700", letterSpacing: 0.6 }}>ASK THE CURATOR</Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                  {shown.questions.map((q) => <Chip key={q} label={q} tone="curator" onPress={() => ask(q)} />)}
-                </View>
-              </View>
-            ) : null}
           </View>
-
-          {it.related?.length ? (
-            <View style={{ paddingHorizontal: space.l, marginTop: space.m }}>
-              <Text style={{ fontWeight: "700", color: t.ink, marginBottom: space.s, fontSize: 15 }}>Related in your feed</Text>
-              {it.related.map((r) => <MiniItemRow key={r.id} item={r} onPress={() => router.setParams({ id: r.id })} />)}
-            </View>
-          ) : null}
-
-          {it.deeper?.length ? (
-            <View style={{ margin: space.l, padding: space.l, borderRadius: radius.l, backgroundColor: t.curatorBg }}>
-              <Text style={{ color: t.curatorAccent, fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }}>GO DEEPER</Text>
-              <Text style={{ color: t.curatorInk, fontFamily: serif, fontSize: 19, marginTop: 4, marginBottom: space.s }}>Sources that cover this in more depth</Text>
-              {it.deeper.map((s) => (
-                <SourceRow key={s.id} tone="curator" busy={busy === s.id} src={{ ...s, followed: !!followed[s.id] }} onFollow={async () => {
-                  setBusy(s.id);
-                  try { await api("/api/sources/follow", { interestId: s.interestId, sourceId: s.id, follow: true }); setFollowed((f) => ({ ...f, [s.id]: true })); reloadState(); bumpFeed(); }
-                  finally { setBusy(""); }
-                }} />
-              ))}
-            </View>
-          ) : null}
+          <StoryBody it={it} brief={brief} briefError={briefError} mode={mode} />
         </ScrollView>
       )}
       <Pressable onPress={close} hitSlop={10} accessibilityLabel="Back" style={[st.back, { top: insets.top + space.s }]}>
