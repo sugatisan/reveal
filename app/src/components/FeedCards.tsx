@@ -10,20 +10,26 @@ import { useDesign } from "@/design/store";
 const RATIO: Record<string, number> = { "16:9": 16 / 9, "3:2": 3 / 2, "4:3": 4 / 3, "1:1": 1 };
 
 // The feed card. Its look comes from the design settings (tune them at localhost:8081/?studio).
-export function ItemCard({ item, onOpen, onSave, onLess }: { item: FeedItem; onOpen: () => void; onSave: () => void; onLess: () => void }) {
+// `inGrid`: rendered as one of two columns (the feed passes it when the 2-column grid is on).
+export function ItemCard({ item, onOpen, onSave, onLess, inGrid = false }: { item: FeedItem; onOpen: () => void; onSave: () => void; onLess: () => void; inGrid?: boolean }) {
   const t = useTheme();
   const d = useDesign();
   const [imgFailed, setImgFailed] = useState(false);
-  const layout: string = d["card.layout"];
+  // In the grid, the thumbnail layout becomes image-on-top: a side thumbnail doesn't fit half a screen.
+  const layout: string = inGrid && d["card.layout"] === "compact" ? "hero" : d["card.layout"];
+  const bleed: boolean = !!d["card.fullBleed"];
   const flush = d["card.surface"] === "flush";
   const hasImg = !!item.image && !imgFailed;
   const showHero = layout === "hero" && hasImg;
   const showThumb = layout === "compact" && hasImg;
-  const showExcerpt = !!item.excerpt && (d["card.excerpt"] === "always" || (d["card.excerpt"] === "noImage" && !showHero && !showThumb));
-  const pad: number = d["card.padding"];
-  const rad: number = flush ? 0 : d["card.radius"];
-  const titleSize: number = d["card.titleSize"];
-  const meta = [item.sourceName, item.alsoNames?.length ? `+${item.alsoNames.length}` : "", ago(item.date)].filter(Boolean).join(" · ");
+  const showExcerpt = !!item.excerpt && !inGrid && (d["card.excerpt"] === "always" || (d["card.excerpt"] === "noImage" && !showHero && !showThumb));
+  const pad: number = inGrid ? Math.min(d["card.padding"], 12) : d["card.padding"];
+  // Full bleed (single column): the card spans the screen, so it loses its corners and the text takes the side margin.
+  const fullWidth = bleed && !inGrid;
+  const rad: number = flush || bleed ? 0 : d["card.radius"]; // full bleed means square corners, in the grid too
+  const textPad: number = fullWidth ? Math.max(pad, d["card.inset"]) : pad;
+  const titleSize: number = inGrid ? Math.round(d["card.titleSize"] * 0.72) : d["card.titleSize"];
+  const meta = inGrid ? item.sourceName : [item.sourceName, item.alsoNames?.length ? `+${item.alsoNames.length}` : "", ago(item.date)].filter(Boolean).join(" · ");
 
   const title = (
     <Text style={{ color: t.ink, fontFamily: d["card.titleFont"] === "serif" ? serif : undefined, fontWeight: d["card.titleFont"] === "serif" ? "400" : "600",
@@ -31,8 +37,8 @@ export function ItemCard({ item, onOpen, onSave, onLess }: { item: FeedItem; onO
       numberOfLines={d["card.titleLines"]}>{item.title}</Text>
   );
   const footer = (
-    <View style={st.footer}>
-      <Text style={{ color: t.muted, fontSize: 13, flex: 1 }} numberOfLines={1}>{meta}</Text>
+    <View style={[st.footer, inGrid ? { gap: space.m } : null]}>
+      <Text style={{ color: t.muted, fontSize: inGrid ? 12 : 13, flex: 1 }} numberOfLines={1}>{meta}</Text>
       <Pressable hitSlop={10} onPress={onLess} accessibilityLabel="Less like this" style={st.icon}>
         <Ionicons name="eye-off-outline" size={19} color={t.faint} />
       </Pressable>
@@ -41,7 +47,7 @@ export function ItemCard({ item, onOpen, onSave, onLess }: { item: FeedItem; onO
       </Pressable>
     </View>
   );
-  const why = d["card.showWhy"] ? <Text style={[st.why, { color: t.accent }]} numberOfLines={1}>{item.why}</Text> : null;
+  const why = d["card.showWhy"] ? <Text style={[st.why, { color: t.accent }, inGrid ? { fontSize: 10 } : null]} numberOfLines={1}>{item.why}</Text> : null;
   const excerpt = showExcerpt ? <Text style={{ color: t.muted, lineHeight: 20 }} numberOfLines={d["card.excerptLines"]}>{item.excerpt}</Text> : null;
   const badge = (item.imageCount || 0) > 1 ? (
     <View style={st.badge}><Ionicons name="images-outline" size={12} color="#fff" /><Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>{item.imageCount}</Text></View>
@@ -49,19 +55,20 @@ export function ItemCard({ item, onOpen, onSave, onLess }: { item: FeedItem; onO
 
   return (
     <Pressable onPress={onOpen} style={({ pressed }) => [{
-      marginHorizontal: d["card.inset"], marginBottom: flush ? 0 : d["card.gap"], borderRadius: rad, overflow: "hidden",
+      marginHorizontal: inGrid || fullWidth ? 0 : d["card.inset"], marginBottom: flush ? 0 : d["card.gap"], borderRadius: rad, overflow: "hidden",
+      ...(inGrid ? { flex: 1 } : null),
       backgroundColor: flush ? "transparent" : t.card, opacity: pressed ? 0.85 : 1,
       ...(flush ? { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: t.line, paddingBottom: d["card.gap"] / 2, paddingTop: d["card.gap"] / 2 } : null),
     }]}>
       {showHero ? (
-        <View style={flush ? { paddingHorizontal: pad } : null}>
-          <Image source={{ uri: item.image }} style={{ width: "100%", aspectRatio: RATIO[d["card.ratio"]] || 16 / 9, backgroundColor: t.chip, borderRadius: flush ? d["card.radius"] : 0 }}
+        <View style={flush && !bleed ? { paddingHorizontal: pad } : null}>
+          <Image source={{ uri: item.image }} style={{ width: "100%", aspectRatio: inGrid && d["card.ratio"] === "16:9" ? 4 / 3 : RATIO[d["card.ratio"]] || 16 / 9, backgroundColor: t.chip, borderRadius: flush && !bleed ? d["card.radius"] : 0 }}
             contentFit="cover" transition={200} recyclingKey={item.id} onError={() => setImgFailed(true)} />
           {badge}
         </View>
       ) : null}
       {showThumb ? (
-        <View style={{ padding: pad, gap: space.s }}>
+        <View style={{ paddingVertical: pad, paddingHorizontal: textPad, gap: space.s }}>
           <View style={{ flexDirection: "row", gap: space.m }}>
             <View style={{ flex: 1, gap: 6 }}>{why}{title}</View>
             <Image source={{ uri: item.image }} style={{ width: 92, height: 92, borderRadius: Math.min(rad || 8, 14), backgroundColor: t.chip }}
@@ -71,7 +78,9 @@ export function ItemCard({ item, onOpen, onSave, onLess }: { item: FeedItem; onO
           {footer}
         </View>
       ) : (
-        <View style={{ padding: pad, gap: space.s }}>{why}{title}{excerpt}{footer}</View>
+        <View style={{ paddingVertical: pad, paddingHorizontal: textPad, gap: inGrid ? 6 : space.s, flex: inGrid ? 1 : undefined, justifyContent: "space-between" }}>
+          <View style={{ gap: inGrid ? 4 : space.s }}>{why}{title}{excerpt}</View>{footer}
+        </View>
       )}
     </Pressable>
   );

@@ -25,6 +25,13 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    id: "card-arrange", panel: "Feed card", title: "Arrangement", hint: "How stories are laid out across the screen.",
+    controls: [
+      { key: "card.grid", label: "2-column grid", hint: "Two stories per row. Curator cards stay full width.", type: "toggle", default: false },
+      { key: "card.fullBleed", label: "Full-bleed images", hint: "Images run to the screen edges with square corners; text keeps its margins.", type: "toggle", default: false },
+    ],
+  },
+  {
     id: "card-title", panel: "Feed card", title: "Title",
     controls: [
       choice("card.titleFont", "Font", "serif", [["serif", "Serif"], ["sans", "Sans"]]),

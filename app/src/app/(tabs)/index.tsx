@@ -10,14 +10,17 @@ import { Chip, Empty, ErrorLine, Header, useToast } from "@/components/ui";
 import { CuratorCardView, ItemCard } from "@/components/FeedCards";
 import { LessResult, LessSheet, lessToast } from "@/components/LessSheet";
 import { useDrawer } from "@/components/Drawer";
+import { useDesign } from "@/design/store";
 
-type Row = FeedEntry | { type: "divider"; id: string };
+// A "pair" is one row of the 2-column grid; everything else spans the full width.
+type Row = FeedEntry | { type: "divider"; id: string } | { type: "pair"; id: string; items: FeedItem[] };
 
 export default function FeedScreen() {
   const t = useTheme();
   const { state, error: stateError } = useAppState();
   const version = useFeedVersion();
   const lens = useLens();
+  const design = useDesign();
   const drawer = useDrawer();
   const pillScroll = useRef<ScrollView>(null);
   const [feed, setFeed] = useState<Feed | null>(null);
@@ -49,7 +52,8 @@ export default function FeedScreen() {
   const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
     for (const v of viewableItems) {
       const e = v.item as Row;
-      if (e.type === "item" && !seen.current.has(e.id)) { seen.current.add(e.id); queue.current.add(e.id); }
+      const ids = e.type === "item" ? [e.id] : e.type === "pair" ? e.items.map((x) => x.id) : [];
+      for (const id of ids) if (!seen.current.has(id)) { seen.current.add(id); queue.current.add(id); }
     }
   }).current;
 
@@ -99,11 +103,24 @@ export default function FeedScreen() {
   };
   const ask = (prompt: string, itemId?: string) => router.navigate({ pathname: "/curator", params: { prompt, ...(itemId ? { itemId } : {}), n: String(Date.now()) } });
 
-  const rows: Row[] = [];
+  const flat: Row[] = [];
   let itemIdx = 0;
   for (const e of feed?.entries || []) {
-    if (e.type === "item") { if (feed && feed.caughtUp > 0 && itemIdx === feed.caughtUp) rows.push({ type: "divider", id: "divider" }); itemIdx++; }
-    rows.push(e);
+    if (e.type === "item") { if (feed && feed.caughtUp > 0 && itemIdx === feed.caughtUp) flat.push({ type: "divider", id: "divider" }); itemIdx++; }
+    flat.push(e);
+  }
+  // 2-column grid: pair up consecutive stories; curator cards and the divider break the pairing and span the width.
+  const grid = !!design["card.grid"];
+  const rows: Row[] = [];
+  if (!grid) rows.push(...flat);
+  else {
+    let pending: FeedItem[] = [];
+    const flush = () => { if (pending.length) rows.push({ type: "pair", id: "p-" + pending.map((x) => x.id).join("-"), items: pending }); pending = []; };
+    for (const r of flat) {
+      if (r.type === "item") { pending.push(r); if (pending.length === 2) flush(); }
+      else { flush(); rows.push(r); }
+    }
+    flush();
   }
 
   // Pills: the five interests you opened most recently (new ones count as recent). The panel has the rest.
@@ -150,7 +167,20 @@ export default function FeedScreen() {
             </View>
           );
           if (r.type === "curator") return <CuratorCardView card={r} onFollow={follow} onAsk={ask} onDismiss={() => dismissCard(r.id)} />;
-          return <ItemCard item={r} onOpen={() => { sendEvents([{ itemId: r.id, type: "expand" }]).catch(() => {}); router.push({ pathname: "/item/[id]", params: { id: r.id } }); }} onSave={() => save(r)} onLess={() => setLessFor(r.id)} />;
+          const card = (it: FeedItem, inGrid = false) => (
+            <ItemCard key={it.id} inGrid={inGrid} item={it} onSave={() => save(it)} onLess={() => setLessFor(it.id)}
+              onOpen={() => { sendEvents([{ itemId: it.id, type: "expand" }]).catch(() => {}); router.push({ pathname: "/item/[id]", params: { id: it.id } }); }} />
+          );
+          if (r.type === "pair") {
+            const bleed = !!design["card.fullBleed"];
+            return (
+              <View style={{ flexDirection: "row", gap: bleed ? 2 : design["card.gap"], marginHorizontal: bleed ? 0 : design["card.inset"] }}>
+                {r.items.map((it) => card(it, true))}
+                {r.items.length === 1 ? <View style={{ flex: 1 }} /> : null}
+              </View>
+            );
+          }
+          return card(r);
         }}
         contentContainerStyle={{ paddingBottom: space.xxl }}
       />
