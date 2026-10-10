@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from "react-native";
 import { Layer } from "./Layer";
 import { router } from "expo-router";
+import { EditGlyph } from "./EditGlyph";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, AppState, LessKind, LessOption, LessOptions, TuningRule } from "@/lib/api";
@@ -85,7 +86,7 @@ export function LessSheet({ itemId, onClose, onDone }: { itemId: string | null; 
         ))}
         {data?.options.filter((o) => o.kind === "interest").slice(0, 1).map((o) => (
           <Pressable key="tune" onPress={() => { onClose(); router.push(`/interest/${o.value}`); }} style={({ pressed }) => [st.row, { borderTopWidth: 1, borderTopColor: t.line, marginTop: space.xs, backgroundColor: pressed ? t.chip : "transparent" }]} accessibilityRole="button">
-            <Ionicons name="create-outline" size={20} color={t.muted} />
+            <EditGlyph size={20} color={t.muted} cut={t.card} />
             <Text style={{ color: t.muted, fontSize: 15, flex: 1 }}>{o.label.replace(/^Less (.*) overall$/, "Tune $1…")}</Text>
             <Ionicons name="chevron-forward" size={16} color={t.faint} />
           </Pressable>

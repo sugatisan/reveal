@@ -5,6 +5,7 @@ import { useDesign } from "@/design/store";
 import { luminance } from "@/design/palettes";
 import { useTheme } from "@/lib/theme";
 import { rgba, useBackdrop } from "@/lib/backdrop";
+import { EditGlyph } from "./EditGlyph";
 
 export function usePillStyle() {
   const d = useDesign();
@@ -37,8 +38,8 @@ export function Pill({ label, active, onPress, onLongPress, onEdit, icon }: { la
       {onEdit ? (
         // Its own target so tapping the pencil edits, and tapping the label still toggles the pill.
         <Pressable onPress={(e) => { e.stopPropagation?.(); onEdit(); }} hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }} accessibilityLabel={`Edit ${label}`}
-          style={{ marginLeft: 2 * p.k, marginRight: -2 * p.k, paddingLeft: 4 * p.k, borderLeftWidth: 1, borderLeftColor: rgba(fg, 0.3) }}>
-          <Ionicons name="pencil" size={Math.round(p.font * 0.85)} color={fg} />
+          style={{ marginLeft: 3 * p.k, marginRight: -3 * p.k }}>
+          <EditGlyph size={Math.round(p.font * 1.15)} color={fg} cut={p.selBg} />
         </Pressable>
       ) : null}
     </Pressable>

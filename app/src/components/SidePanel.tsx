@@ -7,6 +7,7 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppState, Lens } from "@/lib/api";
+import { EditGlyph } from "./EditGlyph";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 
 const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
@@ -57,7 +58,7 @@ export function SidePanel({ state, lens, onClose, onPick }: {
                     <Count n={i.newCount} />
                   </Pressable>
                   <Pressable onPress={() => { onClose(); router.push(`/interest/${i.id}`); }} hitSlop={8} style={{ padding: 4 }} accessibilityLabel={`Edit ${i.label}`}>
-                    <Ionicons name="create-outline" size={18} color={t.muted} />
+                    <EditGlyph size={18} color={t.muted} cut={activeI ? t.card : t.chip} />
                   </Pressable>
                   {i.sources.length ? (
                     <Pressable onPress={() => setExpanded((e) => ({ ...e, [i.id]: !isOpen }))} hitSlop={10} style={{ padding: 4 }} accessibilityLabel={isOpen ? `Hide ${i.label} sources` : `Show ${i.label} sources`}>
