@@ -11,7 +11,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />
-        <Stack.Screen name="item/[id]" options={{ presentation: "modal", headerShown: false }} />
+        <Stack.Screen name="item/[id]" options={{ presentation: "card", animation: "slide_from_right", headerShown: false }} />
       </Stack>
     </SafeAreaProvider>
   );

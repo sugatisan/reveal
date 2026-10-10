@@ -6,7 +6,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTheme } from "@/lib/theme";
 
 
-export function Gallery({ images, aspect = 16 / 10 }: { images: string[]; aspect?: number }) {
+import type { ReactNode } from "react";
+export function Gallery({ images, aspect = 16 / 10, topInset = 0, fallback = null }: { images: string[]; aspect?: number; topInset?: number; fallback?: ReactNode }) {
   const t = useTheme();
   const [width, setWidth] = useState(0);
   const [index, setIndex] = useState(0);
@@ -14,7 +15,7 @@ export function Gallery({ images, aspect = 16 / 10 }: { images: string[]; aspect
   const ref = useRef<ScrollView>(null);
   const target = useRef<number | null>(null); // set while an arrow-triggered scroll is animating
   const list = images.filter((u) => !failed.has(u));
-  if (!list.length) return null;
+  if (!list.length) return <>{fallback}</>; // nothing loaded: let the screen keep its layout
 
   const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     if (!width) return;
@@ -46,7 +47,7 @@ export function Gallery({ images, aspect = 16 / 10 }: { images: string[]; aspect
       ) : null}
       {list.length > 1 ? (
         <>
-          <View style={[st.count, { backgroundColor: "rgba(0,0,0,0.55)" }]}>
+          <View style={[st.count, { top: 12 + topInset, backgroundColor: "rgba(0,0,0,0.55)" }]}>
             <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>{Math.min(index, list.length - 1) + 1} / {list.length}</Text>
           </View>
           <View style={st.dots} pointerEvents="none">

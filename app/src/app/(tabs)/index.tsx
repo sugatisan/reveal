@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, FlatList, PanResponder, Pressable, RefreshControl, ScrollView, Text, useWindowDimensions, View, ViewToken } from "react-native";
+import { ActivityIndicator, FlatList, LayoutAnimation, Pressable, RefreshControl, ScrollView, Text, View, ViewToken } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { ago, api, AppState, Feed, FeedEntry, FeedItem, Lens, NEEDS_API_VERSION, sendEvents } from "@/lib/api";
-import { reloadState, setAppState, useAppState, useFeedVersion } from "@/lib/store";
+import { ago, api, Feed, FeedEntry, FeedItem, Lens, NEEDS_API_VERSION, sendEvents } from "@/lib/api";
+import { chooseLens, reloadState, useAppState, useFeedVersion, useLens } from "@/lib/store";
 import { space, useTheme } from "@/lib/theme";
 import { Chip, Empty, ErrorLine, Header, useToast } from "@/components/ui";
 import { CuratorCardView, ItemCard } from "@/components/FeedCards";
 import { LessResult, LessSheet, lessToast } from "@/components/LessSheet";
-import { SidePanel } from "@/components/SidePanel";
+import { useDrawer } from "@/components/Drawer";
 
 type Row = FeedEntry | { type: "divider"; id: string };
 
@@ -17,7 +17,9 @@ export default function FeedScreen() {
   const t = useTheme();
   const { state, error: stateError } = useAppState();
   const version = useFeedVersion();
-  const [lens, setLens] = useState<Lens>(null);
+  const lens = useLens();
+  const drawer = useDrawer();
+  const pillScroll = useRef<ScrollView>(null);
   const [feed, setFeed] = useState<Feed | null>(null);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -51,28 +53,13 @@ export default function FeedScreen() {
     }
   }).current;
 
-  // ---------- left panel ----------
-  const { width: screenW } = useWindowDimensions();
-  const panelW = Math.min(340, Math.round(screenW * 0.86));
-  const progress = useRef(new Animated.Value(0)).current;
-  const [panelOpen, setPanelOpen] = useState(false);
-  const openPanel = () => { setPanelOpen(true); Animated.spring(progress, { toValue: 1, useNativeDriver: true, damping: 24, stiffness: 260 }).start(); };
-  const closePanel = () => Animated.timing(progress, { toValue: 0, duration: 180, useNativeDriver: true }).start(() => setPanelOpen(false));
-  const panelW_ = useRef(panelW); panelW_.current = panelW;
-  const edge = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_, g) => g.dx > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
-    onPanResponderGrant: () => setPanelOpen(true),
-    onPanResponderMove: (_, g) => progress.setValue(Math.max(0, Math.min(1, g.dx / panelW_.current))),
-    onPanResponderRelease: (_, g) => {
-      if (g.dx > panelW_.current * 0.35 || g.vx > 0.4) Animated.spring(progress, { toValue: 1, useNativeDriver: true, damping: 24, stiffness: 260 }).start();
-      else Animated.timing(progress, { toValue: 0, duration: 160, useNativeDriver: true }).start(() => setPanelOpen(false));
-    },
-  })).current;
+  // Picking a pill (or anything in the panel) moves it to the front, selected, and scrolls the row back to show it.
   const pick = (l: Lens) => {
-    setLens(l);
-    closePanel();
-    if (l?.kind === "interest") api<AppState>("/api/lens", { interestId: l.id }).then(setAppState).catch(() => {});
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    chooseLens(l);
+    pillScroll.current?.scrollTo({ x: 0, animated: true });
   };
+  useEffect(() => { pillScroll.current?.scrollTo({ x: 0, animated: true }); }, [lens]);
 
   if (state && !state.interests.length) return <Redirect href="/welcome" />;
 
@@ -127,8 +114,8 @@ export default function FeedScreen() {
     if (cur) recent.unshift(cur), recent.splice(5);
   }
   const lensBar = (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.s, paddingHorizontal: space.l, paddingBottom: space.m, alignItems: "center" }}>
-      <Pressable onPress={openPanel} accessibilityLabel="All interests and sources" hitSlop={6}
+    <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: space.s, paddingHorizontal: space.l, paddingBottom: space.m, alignItems: "center" }}>
+      <Pressable onPress={drawer.open} accessibilityLabel="All interests and sources" hitSlop={6}
         style={({ pressed }) => ({ width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: t.chip, opacity: pressed ? 0.7 : 1 })}>
         <Ionicons name="menu" size={20} color={t.ink} />
       </Pressable>
@@ -168,8 +155,7 @@ export default function FeedScreen() {
         contentContainerStyle={{ paddingBottom: space.xxl }}
       />
       {/* Swipe in from the left edge to open the panel. */}
-      <View {...edge.panHandlers} style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 18 }} />
-      <SidePanel state={state} lens={lens} progress={progress} width={panelW} open={panelOpen} onClose={closePanel} onPick={pick} />
+      <View {...drawer.edgeHandlers} style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 18 }} />
       <LessSheet itemId={lessFor} onClose={() => setLessFor(null)} onDone={onLess} />
       {toast.node}
     </SafeAreaView>

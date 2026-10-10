@@ -17,7 +17,8 @@ What's settled, what the code already assumes, and what's still open. Update thi
 | **The curator shows up both ways, lightly.** (2026-10-10) | It drops occasional cards into the feed (source bundles, "go deeper," prompts to ask), and has its own tab you can ask anytime. It answers from your sources first and suggests new sources only when they'd add something. |
 | **"Less of this" is granular and never a wall.** (2026-10-10) | The eye icon opens a sheet: this story only, a topic, a kind of post (deals, roundups, sponsored, rumors), the source, the whole interest, or unfollow. Everything except the single story is down-ranking, not hiding, and every rule is listed in Sources and can be removed. |
 | **Stories show all their real images.** (2026-10-10) | The story view is a swipeable gallery: feed images plus the article page's own images, with ads, trackers, logos and avatars filtered out. Images stay on the publisher's servers and the story always links out. |
-| **Navigation: a left panel for everything, five pills for what's recent.** (2026-10-10) | The panel (menu button before "All," or swipe in from the left edge) lists every interest with new-since-last-visit counts and expands to its sources, so you can read one source alone. The pill row shows the five interests you opened most recently. |
+| **Navigation: a left panel for everything, five pills for what's recent.** (2026-10-10) | The panel sits underneath the app: opening it (menu button before "All," or swipe from the left edge) slides the whole app, tab bar included, to the right. It lists every interest with new-since-last-visit counts and expands to its sources, so you can read one source alone. The pill row shows the five interests you opened most recently; tapping one moves it to the front, selected, and scrolls the row back to show it. |
+| **Stories open full screen.** (2026-10-10) | A standard push (swipe back on iOS), image edge to edge at the top with a back arrow over it. Hide and save sit just under the image on the right, above the title. |
 | **Differentiation vs. what's out there** | Feedly is fine but uninspired and reactive. Feeeed has a bad UI and makes adding sources hard. Reveal has to win on proactive source discovery and easy setup. |
 
 ## Build (decisions the code already makes)
@@ -59,3 +60,4 @@ These are ordered by how much they'd change what gets built.
 - 2026-10-10 — Chose Expo + Node API so it runs on iPhone now and ships later. Curator added to the feed and as its own tab.
 - 2026-10-10 — "Less of this" became a sheet of reversible options. Story view got a swipeable image gallery.
 - 2026-10-10 — Left panel for interests and sources; pills capped at the five most recently opened. The dev server now restarts itself when its code changes.
+- 2026-10-10 — Panel now reveals underneath (the app slides right). Tapping a pill brings it to the front. Stories open full screen instead of as a sheet.

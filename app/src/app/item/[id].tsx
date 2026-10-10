@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { ago, api, ItemDetail, sendEvents } from "@/lib/api";
 import { bumpFeed, reloadState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
@@ -38,26 +38,30 @@ export default function ItemScreen() {
     bumpFeed();
   };
   const close = () => (router.canGoBack() ? router.back() : router.replace("/"));
+  const insets = useSafeAreaInsets();
+  const images = it ? (it.gallery?.length ? it.gallery : it.image ? [it.image] : []) : [];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={["top", "bottom"]}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: space.l, paddingVertical: space.s }}>
-        <Pressable onPress={close} hitSlop={12} accessibilityLabel="Close"><Ionicons name="chevron-down" size={26} color={t.ink} /></Pressable>
-        {it ? (
-          <View style={{ flexDirection: "row", gap: space.xl }}>
-            <Pressable onPress={() => setLessOpen(true)} hitSlop={12} accessibilityLabel="Show me less of…"><Ionicons name="eye-off-outline" size={23} color={t.ink} /></Pressable>
-            <Pressable onPress={save} hitSlop={12} accessibilityLabel={it.saved ? "Unsave" : "Save"}><Ionicons name={it.saved ? "bookmark" : "bookmark-outline"} size={24} color={it.saved ? t.accent : t.ink} /></Pressable>
-          </View>
-        ) : null}
-      </View>
-      <ErrorLine text={error} />
-      {!it ? (!error ? <ActivityIndicator style={{ marginTop: 80 }} color={t.muted} /> : null) : (
+    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={["bottom"]}>
+      {/* Full screen: the image runs to the top edge, under the status bar; back sits over it. */}
+      {!it ? (!error ? <ActivityIndicator style={{ marginTop: insets.top + 120 }} color={t.muted} /> : <View style={{ marginTop: insets.top + 56 }}><ErrorLine text={error} /></View>) : (
         <ScrollView contentContainerStyle={{ paddingBottom: space.xxl }}>
-          <Gallery key={it.id} images={it.gallery?.length ? it.gallery : it.image ? [it.image] : []} />
-          <View style={{ padding: space.l, gap: space.m }}>
-            <Text style={{ color: t.muted, fontSize: 13 }}>
+          <Gallery key={it.id} images={images} aspect={4 / 3} topInset={insets.top} fallback={<View style={{ height: insets.top + 60 }} />} />
+          {/* Actions sit on the image's bottom edge, right side, just above the title. */}
+          <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space.l, paddingTop: space.m }}>
+            <Text style={{ color: t.muted, fontSize: 13, flex: 1 }} numberOfLines={1}>
               {[it.sourceName, ...(it.alsoNames || [])].join(" · ")} · {ago(it.date)}
             </Text>
+            <View style={{ flexDirection: "row", gap: space.l }}>
+              <Pressable onPress={() => setLessOpen(true)} hitSlop={10} accessibilityLabel="Show me less of…" style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
+                <Ionicons name="eye-off-outline" size={20} color={t.ink} />
+              </Pressable>
+              <Pressable onPress={save} hitSlop={10} accessibilityLabel={it.saved ? "Unsave" : "Save"} style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
+                <Ionicons name={it.saved ? "bookmark" : "bookmark-outline"} size={20} color={it.saved ? t.accent : t.ink} />
+              </Pressable>
+            </View>
+          </View>
+          <View style={{ paddingHorizontal: space.l, paddingTop: space.s, gap: space.m }}>
             <Text style={{ fontFamily: serif, fontSize: 28, lineHeight: 34, color: t.ink, letterSpacing: -0.3 }}>{it.title}</Text>
             <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{it.aiSummary || it.excerpt || ""}</Text>
             {it.aiSummary ? <Text style={{ color: t.faint, fontSize: 12 }}>Summary by the curator, from the source's excerpt.</Text> : null}
@@ -90,8 +94,16 @@ export default function ItemScreen() {
           ) : null}
         </ScrollView>
       )}
+      <Pressable onPress={close} hitSlop={10} accessibilityLabel="Back" style={[st.back, { top: insets.top + space.s }]}>
+        <Ionicons name="chevron-back" size={24} color="#fff" />
+      </Pressable>
       <LessSheet itemId={lessOpen && it ? it.id : null} onClose={() => setLessOpen(false)} onDone={(r) => { setLessOpen(false); bumpFeed(); toast.show(lessToast(r)); setTimeout(close, 900); }} />
       {toast.node}
     </SafeAreaView>
   );
 }
+
+const st = StyleSheet.create({
+  back: { position: "absolute", left: space.l, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
+  action: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+});
