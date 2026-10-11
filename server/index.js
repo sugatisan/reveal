@@ -711,7 +711,15 @@ const routes = {
     const d = load();
     return Object.entries(d.events)
       .filter(([, e]) => e.save)
-      .map(([id, e]) => d.items[id] && { ...d.items[id], sourceName: d.sources[d.items[id].sourceId]?.name, savedAt: e.savedAt })
+      .map(([id, e]) => {
+        const it = d.items[id];
+        if (!it) return null;
+        // Which interests it belongs to, for the Saved screen's filter pills.
+        const ints = d.interests.filter((i) => i.sourceIds.includes(it.sourceId) || (it.also || []).some((s) => i.sourceIds.includes(s))).map((i) => i.id);
+        if (!ints.length) { const h = curator.homeOf(it, d); if (h) ints.push(h.id); }
+        const { feedText, pageImages, shopLinks, lead, ...pub } = it;
+        return { ...pub, sourceName: d.sources[it.sourceId]?.name, savedAt: e.savedAt, interestIds: ints };
+      })
       .filter(Boolean)
       .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
   },

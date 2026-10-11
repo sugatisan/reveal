@@ -10,6 +10,16 @@ export const words = (s) => [...new Set(String(s).toLowerCase().replace(/[^a-z0-
 
 const likePending = new Set();
 
+// A story's interest: the one following its source, or for a web find, the interest its title has most in common with.
+export function homeOf(it, d = load()) {
+  const own = d.interests.find((i) => i.sourceIds.includes(it.sourceId) || (it.also || []).some((s) => i.sourceIds.includes(s)));
+  if (own || !it.web) return own || null;
+  const tw = new Set(words(it.title + " " + (it.excerpt || "")));
+  let home = null, best = 0;
+  for (const i of d.interests) { const n = words([i.label, ...(i.subs || [])].join(" ")).filter((w) => tw.has(w)).length; if (n > best) { best = n; home = i; } }
+  return best >= 1 ? home : null;
+}
+
 // ---------- thread ----------
 export function thread() {
   const d = load();
@@ -94,14 +104,7 @@ export function feedCards(items, { interestId } = {}) {
     const short = it.title.length > 70 ? it.title.slice(0, 67).trimEnd() + "…" : it.title;
     // A save shapes its interest: offer likes drawn from the story (written once in the background, cached on it).
     const saved = savedIds.includes(it.id);
-    // Its interest: the one following its source, or for a web find, the interest its title has most in common with.
-    let home = saved ? d.interests.find((i) => i.sourceIds.includes(it.sourceId)) : null;
-    if (saved && !home && it.web) {
-      const tw = new Set(words(it.title + " " + (it.excerpt || "")));
-      let best = 0;
-      for (const i of d.interests) { const n = words([i.label, ...(i.subs || [])].join(" ")).filter((w) => tw.has(w)).length; if (n > best) { best = n; home = i; } }
-      if (best < 1) home = null;
-    }
+    const home = saved ? homeOf(it, d) : null;
     let likes = [];
     if (home) {
       if (!it.likeIdeas && hasKey() && !likePending.has(it.id) && !(it.likeErrAt && Date.now() - it.likeErrAt < 36e5)) {
