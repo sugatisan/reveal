@@ -12,7 +12,7 @@ import { bumpFeed, chooseLens, setAppState, useAppState, useLens } from "@/lib/s
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Button, Chip, ErrorLine, SourceRow } from "@/components/ui";
 
-const KIND_LABEL: Record<TuningRule["kind"], string> = { topic: "Topic", format: "Kind of post", source: "Source", interest: "This whole interest" };
+const KIND_LABEL: Record<TuningRule["kind"], string> = { topic: "Topic", format: "Kind of post", source: "Source", interest: "This whole interest", exclude: "Hidden, in your words" };
 
 // As its own screen (from Settings, the "less of" sheet): a full page with a back button.
 export default function InterestScreen() {
@@ -36,6 +36,7 @@ export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: st
   const [naming, setNaming] = useState<string | null>(null);
   const [sub, setSub] = useState("");
   const [added, setAdded] = useState(""); // what the last "Add" did
+  const [showExcluded, setShowExcluded] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [note, setNote] = useState("");
@@ -92,6 +93,8 @@ export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: st
   const suggestions = [...(i.clarify?.options || []), ...i.subSuggestions].filter((s, k, a) => a.indexOf(s) === k && !i.subs.includes(s)).slice(0, 6);
   const sourceIds = new Set(i.sources.map((s) => s.id));
   const rules = (state.tuning || []).filter((r) => (r.kind === "interest" && r.value === i.id) || (r.kind === "source" && sourceIds.has(r.value)));
+  // Exclusions you wrote while looking at this interest's stories (they apply feed-wide).
+  const exclusions = (state.tuning || []).filter((r) => r.kind === "exclude" && (r.interestIds || []).includes(i.id));
   const feedWide = (state.tuning || []).filter((r) => r.kind === "topic" || r.kind === "format").length;
   const shownSuggested = moreOpen ? i.suggested : i.suggested.slice(0, 3);
 
@@ -230,7 +233,7 @@ export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: st
           {busy === "more" ? <Text style={{ color: t.muted, fontSize: 13 }}>The curator is looking and checking each feed. This can take half a minute.</Text> : note ? <Text style={{ color: t.muted, fontSize: 13 }}>{note}</Text> : null}
         </Section>
 
-        <Section title="Tune" hint="What you've turned down here. Rules push matching stories lower; they never hide them.">
+        <Section title="Tune" hint="What you've turned down here. Rules push matching stories lower; exclusions you wrote hide them.">
           {rules.length ? rules.map((r) => (
             <View key={r.id} style={st.rule}>
               <View style={{ flex: 1 }}>
@@ -240,6 +243,24 @@ export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: st
               <Button label="Undo" kind="ghost" busy={busy === r.id} style={{ paddingVertical: 6 }} onPress={() => run(r.id, () => api("/api/less/remove", { ruleId: r.id }))} />
             </View>
           )) : <Text style={{ color: t.muted }}>Nothing turned down. Use the eye on any story to tell the feed what to show less of.</Text>}
+          {exclusions.length ? (
+            <View style={{ borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.line, marginTop: space.s, paddingTop: space.s }}>
+              <Pressable onPress={() => setShowExcluded((v) => !v)} style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingVertical: 4 }} accessibilityRole="button" accessibilityState={{ expanded: showExcluded }}>
+                <Ionicons name={showExcluded ? "chevron-down" : "chevron-forward"} size={16} color={t.muted} />
+                <Text style={{ color: t.ink, fontWeight: "600", flex: 1 }}>Excluded ({exclusions.length})</Text>
+                <Text style={{ color: t.muted, fontSize: 12 }}>Hidden from every feed</Text>
+              </Pressable>
+              {showExcluded ? exclusions.map((r) => (
+                <View key={r.id} style={st.rule}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: t.ink, fontSize: 15, fontWeight: "500" }}>{r.label}</Text>
+                    <Text style={{ color: t.muted, fontSize: 12 }}>{r.hidden ? `${r.hidden} ${r.hidden === 1 ? "story" : "stories"} hidden so far` : "Nothing caught yet"}</Text>
+                  </View>
+                  <Button label="Remove" kind="ghost" busy={busy === r.id} style={{ paddingVertical: 6 }} onPress={() => run(r.id, () => api("/api/less/remove", { ruleId: r.id }))} />
+                </View>
+              )) : null}
+            </View>
+          ) : null}
           {feedWide ? (
             <Pressable onPress={() => router.push("/manage")} style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: space.xs }}>
               <Text style={{ color: t.muted, fontSize: 13 }}>{feedWide} feed-wide rule{feedWide === 1 ? "" : "s"} (topics, kinds of post) in All sources and settings</Text>

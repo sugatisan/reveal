@@ -474,3 +474,38 @@ Return JSON only: {"likes": ["", "", ""]}`;
   const seen = new Set(have.map((x) => x.toLowerCase()));
   return (out.likes || []).map((x) => String(x).trim()).filter((x) => x && x.length <= 32 && !seen.has(x.toLowerCase())).slice(0, 3);
 }
+
+// "Show me less of", in your words: turn what was typed (with the story it came from, so "this" or
+// "these" resolve) into a short label and a precise description of what to exclude.
+const EXCLUDE_SCHEMA = {
+  type: "object",
+  properties: {
+    label: { type: "string", description: "Short label, 2-6 words, e.g. 'Shoes on sale from Amazon'" },
+    rule: { type: "string", description: "One precise sentence describing which stories to exclude, specific enough to judge a headline by. Keep the person's narrowness: 'shoes on sale from Amazon' does not exclude all shoes or all Amazon deals." },
+  },
+  required: ["label", "rule"],
+};
+export async function describeExclusion(text, item, sourceName) {
+  if (!hasKey()) return { label: text.slice(0, 60), rule: text };
+  const prompt = `The person is looking at this story from ${sourceName}: "${item.title}"${item.excerpt ? `\n${item.excerpt.slice(0, 300)}` : ""}
+
+They typed what they want excluded from their feed from now on: """${text}"""`;
+  const out = await claudeForm({ system: "You turn a reader's request into a precise exclusion rule for their discovery feed.", prompt, schema: EXCLUDE_SCHEMA, model: FAST(), maxTokens: 200, purpose: "exclude-rule" });
+  return { label: String(out.label || text).trim().slice(0, 60), rule: String(out.rule || text).trim().slice(0, 300) };
+}
+
+// Which stories an exclusion rule covers. 1 = exclude, 0 = keep. One fast call per 40 stories.
+const MATCH_SCHEMA = { type: "object", properties: { match: { type: "array", items: { type: "integer" }, description: "numbers of stories the rule covers" } }, required: ["match"] };
+export async function exclusionCheck(rule, stories) {
+  if (!hasKey() || !stories.length) return stories.map(() => 0);
+  const prompt = `Exclusion rule: ${rule}
+
+Stories (number | source | headline | excerpt):
+${stories.map((s, n) => `${n + 1} | ${s.source || ""} | ${s.title} | ${(s.excerpt || "").replace(/\s+/g, " ").slice(0, 140)}`).join("\n")}
+
+Which stories does the rule cover? Be precise: only stories that clearly match it.`;
+  const out = await claudeForm({ system: "You apply a reader's exclusion rule to stories in their feed.", prompt, schema: MATCH_SCHEMA, model: FAST(), maxTokens: 300, purpose: "exclude-check" });
+  const res = stories.map(() => 0);
+  for (const n of out.match || []) if (res[n - 1] !== undefined) res[n - 1] = 1;
+  return res;
+}

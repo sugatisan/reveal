@@ -30,7 +30,7 @@ export async function api<T = any>(path: string, data?: unknown): Promise<T> {
 // ---------- types (mirror the server's responses) ----------
 export type SourceView = { id: string; name: string; site: string; newCount?: number; why?: string; about?: string; status?: string; error?: string; perWeek?: number; cadence?: string; followed?: boolean; interestId?: string; interestLabel?: string };
 export type Interest = { id: string; label: string; origin: string; strict?: boolean; scope?: string; scopeShort?: string; scopeMode?: "first" | "only" | "all"; scopeStats?: { checked: number; matched: number } | null; createdAt: number; lastViewedAt: number; newCount: number; subs: string[]; subSuggestions: string[]; clarify: { question: string; options: string[] } | null; merged: string[]; sources: SourceView[]; suggested: SourceView[] };
-export type TuningRule = { id: string; kind: "source" | "topic" | "interest" | "format"; value: string; label: string; at: number };
+export type TuningRule = { id: string; kind: "source" | "topic" | "interest" | "format" | "exclude"; value: string; label: string; at: number; interestIds?: string[]; hidden?: number };
 export const NEEDS_API_VERSION = 6;
 export type StoryBrief = { gist: string; facts: { label: string; value: string }[]; questions: string[]; from: "article" | "excerpt" };
 export type UsageRow = { purpose: string; calls: number; input: number; output: number; cost: number; today: number };
@@ -64,7 +64,7 @@ export function ago(ts?: number) {
 }
 
 // "Less of this" sheet
-export type LessKind = "item" | "topic" | "format" | "source" | "interest";
+export type LessKind = "item" | "topic" | "format" | "source" | "interest" | "exclude";
 export type LessOption = { kind: LessKind; value: string; label: string; hint: string };
 export type LessOptions = { item: { id: string; title: string; sourceName?: string }; options: LessOption[]; unfollow: { interestId: string; sourceId: string; label: string; interestLabel: string }[] };
 

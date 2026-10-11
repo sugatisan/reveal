@@ -127,12 +127,12 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
         ) : null}
 
         {rules.length ? (
-          <Card title="Showing you less of" hint="These push matching stories down. They never hide them.">
+          <Card title="Showing you less of" hint="Most push matching stories down. Ones in your own words hide them; ask the curator if you want them back.">
             {rules.map((r) => (
               <View key={r.id} style={{ flexDirection: "row", alignItems: "center", gap: space.m, paddingVertical: 6 }}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: t.ink, fontSize: 15, fontWeight: "500" }}>{r.label}</Text>
-                  <Text style={{ color: t.muted, fontSize: 12 }}>{{ topic: "Topic, feed-wide", format: "Kind of post, feed-wide", source: "Source", interest: "Interest" }[r.kind]}</Text>
+                  <Text style={{ color: t.muted, fontSize: 12 }}>{r.kind === "exclude" ? `Hidden, in your words${r.hidden ? ` · ${r.hidden} so far` : ""}` : { topic: "Topic, feed-wide", format: "Kind of post, feed-wide", source: "Source", interest: "Interest" }[r.kind]}</Text>
                 </View>
                 <Button label="Undo" kind="ghost" busy={busy === r.id} onPress={() => run(r.id, () => api("/api/less/remove", { ruleId: r.id }))} style={{ paddingVertical: 6 }} />
               </View>

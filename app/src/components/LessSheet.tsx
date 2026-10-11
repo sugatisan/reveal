@@ -2,7 +2,7 @@
 // the source, or the whole interest). Every choice is reversible from the toast or the Sources tab.
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from "react-native";
-import { Text } from "@/components/AppText";
+import { Text, TextInput } from "@/components/AppText";
 import { Layer } from "./Layer";
 import { router } from "expo-router";
 import { EditGlyph } from "./EditGlyph";
@@ -17,7 +17,7 @@ export type LessResult =
   | { type: "unfollow"; itemId: string; sourceId: string; interestId: string; label: string };
 
 const ICON: Record<LessKind, keyof typeof Ionicons.glyphMap> = {
-  item: "close-circle-outline", topic: "pricetag-outline", format: "layers-outline", source: "radio-outline", interest: "albums-outline",
+  item: "close-circle-outline", topic: "pricetag-outline", format: "layers-outline", source: "radio-outline", interest: "albums-outline", exclude: "eye-off-outline",
 };
 
 export function LessSheet({ itemId, onClose, onDone }: { itemId: string | null; onClose: () => void; onDone: (r: LessResult) => void }) {
@@ -26,11 +26,12 @@ export function LessSheet({ itemId, onClose, onDone }: { itemId: string | null; 
   const [data, setData] = useState<LessOptions | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  const [words, setWords] = useState("");
   const slide = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!itemId) return;
-    setData(null); setError(""); setBusy("");
+    setData(null); setError(""); setBusy(""); setWords("");
     slide.setValue(0);
     Animated.spring(slide, { toValue: 1, useNativeDriver: true, damping: 22, stiffness: 220 }).start();
     api<LessOptions>(`/api/less/options?itemId=${encodeURIComponent(itemId)}`).then(setData).catch((e) => setError(e.message));
@@ -43,6 +44,17 @@ export function LessSheet({ itemId, onClose, onDone }: { itemId: string | null; 
       const r = await api<{ rule: TuningRule | null; state: AppState }>("/api/less", { itemId, kind: o.kind, value: o.value });
       setAppState(r.state);
       onDone({ type: "rule", kind: o.kind, label: o.label, itemId, rule: r.rule });
+    } catch (e: any) { setError(e.message); setBusy(""); }
+  };
+  // In your own words: "shoes on sale from Amazon". Becomes an exclusion that hides matching stories from now on.
+  const describe = async () => {
+    const text = words.trim();
+    if (!itemId || !text || busy) return;
+    setBusy("words"); setError("");
+    try {
+      const r = await api<{ rule: TuningRule & { hidden: number }; state: AppState }>("/api/less/describe", { itemId, text });
+      setAppState(r.state);
+      onDone({ type: "rule", kind: "exclude", label: `Hiding ${r.rule.label}${r.rule.hidden ? ` · ${r.rule.hidden} ${r.rule.hidden === 1 ? "story" : "stories"} so far` : ""}`, itemId, rule: r.rule });
     } catch (e: any) { setError(e.message); setBusy(""); }
   };
   const unfollow = async (u: LessOptions["unfollow"][number]) => {
@@ -65,6 +77,15 @@ export function LessSheet({ itemId, onClose, onDone }: { itemId: string | null; 
         {data ? <Text style={{ color: t.muted, fontSize: 13, marginBottom: space.s }} numberOfLines={1}>{data.item.title}</Text> : null}
         {error ? <Text style={{ color: t.danger, marginVertical: space.s }}>{error}</Text> : null}
         {!data && !error ? <ActivityIndicator color={t.muted} style={{ marginVertical: space.xl }} /> : null}
+        {data ? (
+          <View style={[st.words, { borderColor: t.line, backgroundColor: t.bg }]}>
+            <TextInput value={words} onChangeText={setWords} onSubmitEditing={describe} returnKeyType="done" editable={busy !== "words"}
+              placeholder="Or say it, e.g. shoes on sale from Amazon" placeholderTextColor={t.faint} style={{ flex: 1, color: t.ink, fontSize: 15, paddingVertical: 10 }} />
+            {busy === "words" ? <ActivityIndicator size="small" color={t.muted} />
+              : words.trim() ? <Pressable onPress={describe} hitSlop={8} accessibilityLabel="Hide stories like this"><Ionicons name="arrow-up-circle" size={26} color={t.accent} /></Pressable> : null}
+          </View>
+        ) : null}
+        {busy === "words" ? <Text style={{ color: t.muted, fontSize: 12, marginBottom: space.xs }}>Working out what that covers and checking your feed…</Text> : null}
         {data?.options.map((o) => (
           <Pressable key={o.kind + o.value} disabled={!!busy} onPress={() => pick(o)} style={({ pressed }) => [st.row, { backgroundColor: pressed ? t.chip : "transparent" }]} accessibilityRole="button">
             <Ionicons name={ICON[o.kind]} size={20} color={t.ink} />
@@ -104,6 +125,7 @@ export function LessSheet({ itemId, onClose, onDone }: { itemId: string | null; 
 export function lessToast(r: LessResult) {
   if (r.type === "unfollow") return `${r.label.replace(/^Unfollow/, "Unfollowed")}.`;
   if (r.kind === "item") return "Hidden.";
+  if (r.kind === "exclude") return `${r.label}. Ask the curator if you ever want them.`;
   return `${r.label}. Your feed adjusts on the next refresh.`;
 }
 
@@ -113,5 +135,6 @@ const st = StyleSheet.create({
   grabber: { width: 40, height: 5, borderRadius: 3, alignSelf: "center", marginBottom: space.m },
   heading: { fontSize: 18, fontWeight: "700", marginBottom: 2 },
   row: { flexDirection: "row", alignItems: "center", gap: space.m, paddingVertical: space.m, paddingHorizontal: space.s, borderRadius: radius.s },
+  words: { flexDirection: "row", alignItems: "center", gap: space.s, borderWidth: 1, borderRadius: radius.m, paddingHorizontal: space.m, marginTop: space.s, marginBottom: space.s },
   cancel: { marginTop: space.m, paddingVertical: 14, borderRadius: radius.m, alignItems: "center" },
 });

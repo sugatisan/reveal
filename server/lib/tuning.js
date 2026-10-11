@@ -1,7 +1,7 @@
 // "Less of this": explicit, reversible tuning rules. Each rule down-ranks matching stories.
 // Nothing is hidden except the single story you acted on, so you can't accidentally wall off a topic.
 import { load, save, hash, stat } from "./store.js";
-import { topicsFor } from "./agent.js";
+import { topicsFor, describeExclusion, exclusionCheck } from "./agent.js";
 
 // How hard each kind of rule pushes a matching story down (multiplies its score).
 export const WEIGHT = { source: 0.35, topic: 0.25, interest: 0.5, format: 0.3 };
@@ -43,6 +43,58 @@ const has = (it, term) => {
 };
 
 export function rules() { return (load().tuning ||= []); }
+
+// ---------- exclusions in your own words ----------
+// "Don't show me shoes on sale from Amazon": a rule in plain language. Unlike the others, it hides
+// what it covers (from every feed). Asking the curator for it directly still finds it.
+// Each story is checked once per rule (fast model, 40 a call); results live on the rule: r.m = { itemId: 1|0 }.
+export const excluded = (it) => rules().some((r) => r.kind === "exclude" && r.m?.[it.id] === 1);
+
+export async function addExclusion({ itemId, text }) {
+  const d = load();
+  const it = d.items[itemId];
+  if (!it) throw new Error("Story not found");
+  if (!String(text || "").trim()) throw new Error("Say what you'd like to see less of");
+  const src = d.sources[it.sourceId] || {};
+  const { label, rule: desc } = await describeExclusion(String(text).trim().slice(0, 200), it, src.name || "");
+  const ints = d.interests.filter((i) => i.sourceIds.includes(it.sourceId)).map((i) => i.id);
+  const rule = { id: hash("exclude" + desc + Date.now()), kind: "exclude", value: desc, label, at: Date.now(), fromItem: itemId, interestIds: ints, m: {} };
+  rules().push(rule);
+  (d.events[itemId] ||= {}).less = true; // the story you were looking at goes away too
+  save();
+  // Check what's in the feed now before answering (a few seconds at most); the rest finishes behind.
+  await Promise.race([checkExclusion(rule.id), new Promise((r) => setTimeout(r, 8000))]);
+  return { ...publicRule(rule), hidden: Object.values(rule.m).filter((v) => v === 1).length };
+}
+
+const running = new Map();
+export function checkExclusion(ruleId, { max = 400 } = {}) {
+  if (running.has(ruleId)) return running.get(ruleId);
+  const p = (async () => {
+    const d = load();
+    const r = rules().find((x) => x.id === ruleId);
+    if (!r) return 0;
+    r.m ||= {};
+    const followed = new Set(d.interests.flatMap((i) => i.sourceIds));
+    const since = Date.now() - 21 * 864e5;
+    const todo = Object.values(d.items).filter((it) => !it.dupOf && followed.has(it.sourceId) && it.date > since && r.m[it.id] === undefined).sort((a, b) => b.date - a.date).slice(0, max);
+    const batches = []; for (let k = 0; k < todo.length; k += 40) batches.push(todo.slice(k, k + 40));
+    const queue = [...batches];
+    await Promise.all(Array.from({ length: 3 }, async () => {
+      for (let b = queue.shift(); b; b = queue.shift()) {
+        try { const res = await exclusionCheck(r.value, b.map((it) => ({ title: it.title, excerpt: it.excerpt, source: d.sources[it.sourceId]?.name }))); b.forEach((it, k) => { r.m[it.id] = res[k]; }); }
+        catch (e) { console.error("  Exclusion check failed:", e.message); }
+      }
+    }));
+    for (const id of Object.keys(r.m)) if (!d.items[id]) delete r.m[id];
+    save();
+    return todo.length;
+  })().finally(() => running.delete(ruleId));
+  running.set(ruleId, p);
+  return p;
+}
+export async function checkAllExclusions() { for (const r of rules()) if (r.kind === "exclude") await checkExclusion(r.id).catch(() => 0); }
+export const publicRule = (r) => ({ id: r.id, kind: r.kind, value: r.value, label: r.label, at: r.at, interestIds: r.interestIds || [], hidden: r.kind === "exclude" ? Object.values(r.m || {}).filter((v) => v === 1).length : undefined });
 
 // Multiplier for one story, plus the rule that hit it hardest (for the "why" line, if needed later).
 export function penalty(it, interestIds) {

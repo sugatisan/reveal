@@ -1,7 +1,7 @@
 // Ranking: recency, how you treat each source, sub-interest matches, and coverage across sources.
 // Implicit signal reorders. It never hides a source you chose.
 import { load, stat } from "./store.js";
-import { penalty } from "./tuning.js";
+import { penalty, excluded } from "./tuning.js";
 import { best } from "./images.js";
 import { fitOf, scoped } from "./scope.js";
 
@@ -36,7 +36,7 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     if (!ints.length) continue;
     if (sourceId && it.sourceId !== sourceId && !(it.also || []).includes(sourceId)) continue;
     const ev = d.events[it.id] || {};
-    if (ev.less) continue;
+    if (ev.less || excluded(it)) continue; // "less of" on this story, or an exclusion in your words
     const src = d.sources[it.sourceId] || {};
     const ageH = (now - it.date) / 36e5;
     const recency = Math.exp(-ageH / 60);

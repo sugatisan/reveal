@@ -179,7 +179,7 @@ function state() {
     refreshing: isRefreshing(),
     itemCount: Object.keys(d.items).length,
     savedCount: Object.values(d.events).filter((e) => e.save).length,
-    tuning: tuning.rules().map((r) => ({ id: r.id, kind: r.kind, value: r.value, label: r.label, at: r.at })),
+    tuning: tuning.rules().map(tuning.publicRule),
   };
 }
 
@@ -796,6 +796,11 @@ const routes = {
     const rule = tuning.addRule({ itemId, kind, value });
     return { rule, state: state() };
   },
+  "POST /api/less/describe": async (req) => {
+    const { itemId, text } = await body(req);
+    const rule = await tuning.addExclusion({ itemId, text });
+    return { rule, state: state() };
+  },
   "POST /api/less/remove": async (req) => {
     const { ruleId, itemId } = await body(req);
     tuning.removeRule({ ruleId, itemId });
@@ -914,6 +919,8 @@ setInterval(() => fillMissingImages().catch(() => {}), 10 * 6e4);
 // New stories in scoped interests get checked against the scope shortly after they arrive.
 setTimeout(() => scope.scoreAll().catch(() => {}), 6000);
 setInterval(() => scope.scoreAll().catch(() => {}), 2 * 6e4);
+// New stories get checked against exclusions in your words, too.
+setInterval(() => tuning.checkAllExclusions().catch(() => {}), 2 * 6e4);
 setTimeout(() => enrichImages().then((n) => n && console.log(`  Found larger images for ${n} stories`)).catch(() => {}), 5000);
 setInterval(tick, 5 * 6e4);
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { flush(); server.closeAllConnections?.(); process.exit(0); });
