@@ -9,6 +9,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesign } from "@/design/store";
 import { useTheme } from "@/lib/theme";
+import { luminance } from "@/design/palettes";
 import { openCurator, useCuratorSheet } from "@/lib/curatorSheet";
 
 type Glyph = keyof typeof Ionicons.glyphMap;
@@ -38,19 +39,34 @@ export function useTabBarSpace() {
 export function useBarSurface() {
   const t = useTheme();
   const d = useDesign();
+  const ink = useBarInk();
   const docked = d["tab.style"] === "docked";
   const shadowOn = !docked && d["tab.shadowOpacity"] > 0;
   return {
+    ...ink,
     h: d["tab.height"] as number,
     radius: (docked ? 0 : d["tab.radius"]) as number,
     blur: d["tab.blur"] as number,
     surface: {
-      backgroundColor: rgba(t.card, d["tab.opacity"] / 100),
+      backgroundColor: rgba(ink.fill, d["tab.opacity"] / 100),
       borderColor: t.line,
       borderWidth: d["tab.border"] && !docked ? StyleSheet.hairlineWidth : 0,
       ...(shadowOn ? ({ boxShadow: `${d["tab.shadowX"]}px ${d["tab.shadowY"]}px ${d["tab.shadowRadius"]}px rgba(0,0,0,${d["tab.shadowOpacity"] / 100})` } as any) : null),
     },
   };
+}
+
+// The bar's fill and the icon/text colors that read on it. Custom fills pick light or dark icons for contrast.
+export function useBarInk() {
+  const t = useTheme();
+  const d = useDesign();
+  const custom = d["tab.fillMode"] === "custom" && /^#[0-9a-f]{6}$/i.test(d["tab.fillColor"] || "");
+  const fill: string = custom ? d["tab.fillColor"] : t.card;
+  if (!custom) return { fill, ink: t.ink, muted: t.muted, faint: t.faint, wash: rgba(t.ink, 0.06) };
+  const light = luminance(fill) > 0.45;
+  return light
+    ? { fill, ink: "#14110F", muted: "rgba(20,17,15,0.62)", faint: "rgba(20,17,15,0.42)", wash: "rgba(20,17,15,0.07)" }
+    : { fill, ink: "#FFFFFF", muted: "rgba(255,255,255,0.68)", faint: "rgba(255,255,255,0.45)", wash: "rgba(255,255,255,0.1)" };
 }
 
 // Keyboard height, so the bar can ride above the keyboard while it holds the Ask field.
@@ -81,7 +97,8 @@ export function IslandTabBar({ state, navigation }: BarProps) {
   // Unified: one "Ask" entry (opens the curator, with search built in). "Off" isn't allowed there.
   const search: string = unified && d["tab.search"] === "off" ? "button" : d["tab.search"];
   const entryRoute = unified ? "curator" : "search";
-  const fill = rgba(t.card, d["tab.opacity"] / 100);
+  const bar = useBarInk();
+  const fill = rgba(bar.fill, d["tab.opacity"] / 100);
   const shadowOn = !docked && d["tab.shadowOpacity"] > 0;
   const surface = {
     backgroundColor: fill,
@@ -122,7 +139,7 @@ export function IslandTabBar({ state, navigation }: BarProps) {
     : base.filter((x) => x.name !== "search" || search === "tab");
   const tab = (x: (typeof TABS)[number], solo = false) => {
     const on = current === x.name;
-    const color = on ? t.accent : t.muted;
+    const color = on ? t.accent : bar.muted;
     const highlight = on && d["tab.active"] === "pill";
     const size = labels ? 22 : 24;
     return (
@@ -145,15 +162,15 @@ export function IslandTabBar({ state, navigation }: BarProps) {
   const field = composing ? (
     <View key="ask-field" style={[{ flex: 1, flexDirection: "row", alignItems: "center", gap: sep ? 10 : 6 }, sep ? null : { paddingRight: 6, paddingLeft: 2 }]}>
       <View ref={sep ? searchRef : undefined} style={[{ flex: 1, height: inner, borderRadius: sep ? Math.min(radius, h / 2) : inner / 2, justifyContent: "center", paddingHorizontal: 16 },
-        sep ? surface : { backgroundColor: rgba(t.ink, 0.06) }]}>
+        sep ? surface : { backgroundColor: bar.wash }]}>
         <TextInput ref={input} value={askText} onChangeText={setAskText} onSubmitEditing={submitAsk} returnKeyType="send" blurOnSubmit={false}
-          placeholder="Ask, or find something you've seen…" placeholderTextColor={t.faint} accessibilityLabel="Ask the curator"
-          style={{ color: t.ink, fontSize: 16, paddingVertical: 0, height: inner }} />
+          placeholder="Ask, or find something you've seen…" placeholderTextColor={bar.faint} accessibilityLabel="Ask the curator"
+          style={{ color: bar.ink, fontSize: 16, paddingVertical: 0, height: inner }} />
       </View>
       <Pressable onPress={submitAsk} disabled={!ready} accessibilityLabel="Send" accessibilityRole="button"
         style={[{ width: inner, height: inner, borderRadius: inner / 2, alignItems: "center", justifyContent: "center" },
-          ready ? { backgroundColor: t.accent } : sep ? surface : { backgroundColor: rgba(t.ink, 0.06) }]}>
-        <Ionicons name="arrow-up" size={sep ? 22 : 20} color={ready ? t.accentInk : t.faint} />
+          ready ? { backgroundColor: t.accent } : sep ? surface : { backgroundColor: bar.wash }]}>
+        <Ionicons name="arrow-up" size={sep ? 22 : 20} color={ready ? t.accentInk : bar.faint} />
       </Pressable>
     </View>
   ) : null;
@@ -161,7 +178,7 @@ export function IslandTabBar({ state, navigation }: BarProps) {
   const searchButton = search === "button" && !composing ? (
     <Pressable ref={searchRef} onPress={() => go(entryRoute)} accessibilityLabel={unified ? "Ask" : "Search"} accessibilityRole="button"
       style={{ width: h, height: h, borderRadius: Math.min(radius, h / 2), alignItems: "center", justifyContent: "center", ...surface }}>
-      <Ionicons name={unified ? (current === "curator" ? "chatbubble-ellipses" : "chatbubble-ellipses-outline") : current === "search" ? "search" : "search-outline"} size={24} color={current === entryRoute ? t.accent : t.ink} />
+      <Ionicons name={unified ? (current === "curator" ? "chatbubble-ellipses" : "chatbubble-ellipses-outline") : current === "search" ? "search" : "search-outline"} size={24} color={current === entryRoute ? t.accent : bar.ink} />
     </Pressable>
   ) : null;
 

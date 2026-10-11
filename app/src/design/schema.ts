@@ -169,6 +169,8 @@ export const GROUPS: Group[] = [
   {
     id: "tab-fill", panel: "Tab bar", title: "Fill",
     controls: [
+      choice("tab.fillMode", "Fill color", "palette", [["palette", "From palette"], ["custom", "Custom"]], "Custom also picks readable icon colors."),
+      { key: "tab.fillColor", label: "Custom fill color", hint: "Used when Fill color is Custom.", type: "color", default: "#1C1C1E", swatches: ["#FFFFFF", "#ECE7DE", "#1C1C1E", "#000000", "#1E2A43", "#2F6B3F"] },
       { key: "tab.opacity", label: "Opacity", hint: "100% is solid.", type: "range", min: 20, max: 100, step: 5, unit: "%", default: 82 },
       { key: "tab.blur", label: "Background blur", hint: "Blurs what scrolls behind the bar. Shows in the studio; on the phone it needs expo-blur (see README).", type: "range", min: 0, max: 40, step: 2, unit: "px", default: 18 },
       { key: "tab.border", label: "Hairline border", type: "toggle", default: true },

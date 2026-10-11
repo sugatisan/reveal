@@ -32,7 +32,7 @@ export function CuratorSheet() {
   const insets = useSafeAreaInsets();
   const sheet = useCuratorSheet();
   const pathname = usePathname();
-  const { surface, blur, h, radius } = useBarSurface();
+  const { surface, blur, h, radius, muted: barMuted, faint: barFaint, ink: barInk } = useBarSurface();
   const kb = useKeyboardHeight();
   const askText = useAskText();
   const askBusy = useAskBusy();
@@ -154,19 +154,19 @@ export function CuratorSheet() {
           style={{ position: "absolute", left: SIDE, right: SIDE, bottom: barBottom, height: h, opacity: fromBar ? 1 : p, transform: fromBar ? [] : [{ translateY: p.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }}>
           {base.slice(1).map((x, i) => (
             <Glass key={x.name} blur={blur} style={[circle, surface, { left: at(i + 1), opacity: fromBar ? p.interpolate({ inputRange: [0, 0.5], outputRange: [1, 0], extrapolate: "clamp" }) : 0 }]}>
-              <Ionicons name={x.icon} size={24} color={t.muted} />
+              <Ionicons name={x.icon} size={24} color={barMuted} />
             </Glass>
           ))}
           <Glass blur={blur} style={[circle, surface, { left: feedLeft }]}>
             <Pressable onPress={goFeed} accessibilityRole="button" accessibilityLabel="Close and go to the feed" style={st.fill}>
-              <Ionicons name="albums-outline" size={24} color={t.muted} />
+              <Ionicons name="albums-outline" size={24} color={barMuted} />
             </Pressable>
           </Glass>
           <Glass blur={blur} style={[surface, { position: "absolute", top: 0, height: h, borderRadius: Math.min(radius, h / 2), left: fieldLeft, width: fieldW, justifyContent: "center", paddingHorizontal: 16, opacity: fromBar ? p.interpolate({ inputRange: [0.25, 1], outputRange: [0, 1], extrapolate: "clamp" }) : 1, overflow: "hidden" }]}>
             <TextInput ref={input} value={askText} onChangeText={setAskText} onSubmitEditing={submitAsk} returnKeyType="send" blurOnSubmit={false}
               onFocus={() => setCuratorDetent("full")}
-              placeholder="Ask, or find something you've seen…" placeholderTextColor={t.faint} accessibilityLabel="Ask the curator"
-              style={{ color: t.ink, fontSize: 16, paddingVertical: 0, height: h }} />
+              placeholder="Ask, or find something you've seen…" placeholderTextColor={barFaint} accessibilityLabel="Ask the curator"
+              style={{ color: barInk, fontSize: 16, paddingVertical: 0, height: h }} />
           </Glass>
           <Glass blur={blur} style={[circle, ready ? { backgroundColor: t.accent } : surface, { left: askLeft }]}>
             <Pressable onPress={ready ? submitAsk : closeCurator} accessibilityRole="button" accessibilityLabel={ready ? "Send" : "Close the curator"} style={st.fill}>
