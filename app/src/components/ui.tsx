@@ -114,7 +114,8 @@ export function SourceRow({ src, onFollow, onUnfollow, tone = "default", busy }:
   );
 }
 
-export function MiniItemRow({ item, onPress, tone = "default" }: { item: MiniItem; onPress: () => void; tone?: "default" | "curator" }) {
+// A story in a list. `note` is a one-line reason (the curator's); `onSave` adds a bookmark on the right.
+export function MiniItemRow({ item, onPress, tone = "default", onSave, saved }: { item: MiniItem; onPress: () => void; tone?: "default" | "curator"; onSave?: () => void; saved?: boolean }) {
   const t = useTheme();
   const [failed, setFailed] = useState(false);
   const ink = tone === "curator" ? t.curatorInk : t.ink;
@@ -125,7 +126,13 @@ export function MiniItemRow({ item, onPress, tone = "default" }: { item: MiniIte
       <View style={{ flex: 1 }}>
         <Text style={{ color: muted, fontSize: 12, marginBottom: 2 }} numberOfLines={1}>{item.sourceName}</Text>
         <Text style={{ color: ink, fontFamily: serif, fontSize: 16, lineHeight: 21 }} numberOfLines={3}>{item.title}</Text>
+        {item.note ? <Text style={{ color: muted, fontSize: 13, lineHeight: 18, marginTop: 3 }} numberOfLines={2}>{item.note}</Text> : null}
       </View>
+      {onSave ? (
+        <Pressable onPress={onSave} hitSlop={10} accessibilityLabel={saved ? "Saved" : "Save"} accessibilityRole="button" style={{ paddingTop: 2, paddingLeft: 4 }}>
+          <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={20} color={saved ? (tone === "curator" ? t.curatorAccent : t.accent) : muted} />
+        </Pressable>
+      ) : null}
     </Pressable>
   );
 }

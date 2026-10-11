@@ -229,6 +229,7 @@ function ensurePage(id) {
   const p = (async () => {
     try {
       const pg = await articlePage(it.link); it.pageImages = pg.images.slice(0, 12); it.shopLinks = pg.shops; if (pg.text) pageText.set(id, pg.text);
+      if (it.web && !it.image && it.pageImages[0]) it.image = it.pageImages[0]; // web finds have no feed image
       // The article's opening, for comparing against the AI gist (studio: Story page › Description). Short, never the full text.
       it.lead = leadOf(pg.text);
     } catch { it.pageImages ||= []; it.shopLinks ||= []; it.lead = ""; }
@@ -323,6 +324,27 @@ async function itemDetail(id) {
     interests: ints.map((i) => ({ id: i.id, label: i.label })), related, deeper, saved: !!d.events[id]?.save, gallery: gallery.slice(0, 12),
     brief: briefReady(it) ? it.brief : null, forYou: forYou(it, ints), feedText: undefined, shops: shop.withAffiliate(it.shopLinks || []),
   };
+}
+
+// Articles the curator found on the web, stored as stories under a source per site that nobody follows,
+// so they never enter a feed but open, summarize and save like any story. Waits a few seconds for
+// their pages (for the image); the summaries finish in the background.
+async function keepWebFinds(articles = []) {
+  if (!articles.length) return [];
+  const d = load();
+  const ids = [];
+  for (const a of articles) {
+    const id = hash(a.url);
+    const sid = "web:" + (a.site || "web");
+    if (!d.sources[sid]) upsertSource({ id: sid, name: a.site, site: "https://" + a.site, status: "ok", origin: "web" });
+    if (!d.items[id]) d.items[id] = { id, sourceId: sid, title: a.title.slice(0, 220), link: a.url, date: Date.now(), excerpt: a.why || "", feedText: "", image: "", images: [], tags: [], also: [], dupOf: null, fetchedAt: Date.now(), web: true };
+    ids.push(id);
+  }
+  save();
+  await Promise.race([Promise.all(ids.map((id) => ensurePage(id))), new Promise((r) => setTimeout(r, 5000))]);
+  for (const id of ids) { const it = d.items[id]; if (!it.image && it.pageImages?.length) it.image = it.pageImages[0]; storyBrief(id).catch(() => {}); }
+  save();
+  return ids.map((id, k) => { const it = d.items[id]; return { id, title: it.title, image: it.image, link: it.link, sourceName: articles[k].site, note: articles[k].why || undefined, saved: !!d.events[id]?.save }; });
 }
 
 function recordEvent(itemId, type) {
@@ -749,14 +771,15 @@ const routes = {
       if (v && v.status === "ok") sources.push({ ...v, interestId: i.id, interestLabel: i.label });
       else missing.push({ name: p.name, site: p.site });
     }
-    const web = await webP;
+    // Web finds become stories (never in a feed): an image, the same summary page, and saving.
+    const web = await keepWebFinds(await webP);
     // Interests created only to hold sources that all failed verification are dropped.
     d.interests = d.interests.filter((i) => i.origin !== "curator" || i.sourceIds.length || i.suggestedIds.length);
 
     const valid = new Set(listed.map((x) => x.id));
     const items = ans.items.filter((id) => valid.has(id)).map((id) => {
       const it = d.items[id];
-      return { id, title: it.title, image: it.image, excerpt: it.excerpt, link: it.link, date: it.date, sourceName: d.sources[it.sourceId]?.name, saved: !!d.events[id]?.save };
+      return { id, title: it.title, image: it.image, excerpt: it.excerpt, link: it.link, date: it.date, sourceName: d.sources[it.sourceId]?.name, saved: !!d.events[id]?.save, note: ans.notes?.[id] || undefined };
     });
     const turnUser = { role: "user", text: message.trim(), itemId: itemId || undefined, at: Date.now() };
     // Offer a new interest only when it isn't one already.

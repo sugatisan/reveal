@@ -30,7 +30,7 @@ export function StorySheet({ itemId, onClose, onPick }: { itemId: string | null;
         ) : (
           <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + space.xl }}>
             <View style={{ paddingHorizontal: space.l, gap: 4 }}>
-              <Text style={{ color: t.muted, fontSize: 13 }} numberOfLines={1}>{[it.sourceName, ...(it.alsoNames || [])].join(" · ")} · {ago(it.date)}</Text>
+              <Text style={{ color: t.muted, fontSize: 13 }} numberOfLines={1}>{[it.sourceName, ...(it.alsoNames || [])].join(" · ")}{it.web ? " · from the web" : ` · ${ago(it.date)}`}</Text>
               <Text style={{ fontFamily: serif, fontSize: 22, lineHeight: 28, color: t.ink }}>{it.title}</Text>
             </View>
             <StoryBody it={it} brief={brief} briefError={briefError} mode={mode} onRelated={onPick} onLeave={onClose} />

@@ -137,20 +137,22 @@ First decide what they want:
 - EXPLORING or wanting more/new ("more like this", "something new about watches"): be the curator: pick the best items, say briefly why, and suggest new sources when they'd add something.
 
 Return:
-{"reply": "1-3 sentences answering them, pointing at what you picked and why (one sentence when finding)",
+{"reply": "ONE short sentence, at most 25 words, framing what you found. Don't describe the items or sources (each card shows its own note), don't list names, and never say you added or followed anything",
  "items": ["up to 6 candidate ids, best first; [] if none fit"],
+ "notes": {"<item id>": "why this one, at most 10 words"},
  "sources": [up to 4 NEW sources not in their follows, only if they asked for new/different things or the candidates don't cover it; each {"name","site","feed","why","interest": "which of their interest labels it belongs to, or a new short label"}],
  "followups": ["2-3 short things they might ask next, in their voice, under 6 words each"],
  "web": "a web search query, ONLY if they want articles, guides or explainers (how to start something, learn something, find out about something) and the candidates don't cover it; else null",
  "interest": "a short interest name (2-4 words) ONLY if they're exploring a subject none of their interests cover and it sounds ongoing (e.g. learning a craft); else null"}
 
-If you set "web", don't claim there's nothing to read: say you looked further afield.
+If you set "web", don't claim there's nothing to read: say you looked further afield. Only put an item in "items" if it genuinely fits; a loose match is worse than none.
 
 ${SOURCE_RULES}`;
   const out = json(await claude({ system, prompt, maxTokens: 1800, purpose: "curator" }));
   return {
     reply: String(out.reply || "").trim(),
     items: Array.isArray(out.items) ? out.items.map(String) : [],
+    notes: out.notes && typeof out.notes === "object" ? Object.fromEntries(Object.entries(out.notes).map(([k, v]) => [String(k), String(v).slice(0, 90)])) : {},
     sources: Array.isArray(out.sources) ? out.sources.slice(0, 4) : [],
     followups: Array.isArray(out.followups) ? out.followups.slice(0, 3).map(String) : [],
     web: typeof out.web === "string" && out.web.trim() ? out.web.trim().slice(0, 120) : null,
@@ -183,6 +185,9 @@ export async function webArticles(query, message) {
   let picks = [];
   try { picks = json(text).articles || []; } catch {}
   const host = (x) => { try { return new URL(x).hostname.replace(/^www\./, ""); } catch { return ""; } };
+  // Shops, marketplaces and social feeds aren't articles.
+  const SHOPS = /(^|\.)(amazon|etsy|ebay|walmart|target|temu|aliexpress|pinterest|facebook|instagram|tiktok|x|twitter)\.[a-z.]+$/i;
+  for (const [u] of found) if (SHOPS.test(host(u))) found.delete(u);
   const out = picks.filter((a) => a?.url && found.has(a.url)).map((a) => ({ title: String(a.title || found.get(a.url).title || "").trim(), url: a.url, site: host(a.url), why: String(a.why || "").trim() }));
   // If the picks don't line up with what the search returned, fall back to the search's own top results.
   if (!out.length) for (const r of [...found.values()].slice(0, 4)) out.push({ title: r.title, url: r.url, site: host(r.url), why: "" });

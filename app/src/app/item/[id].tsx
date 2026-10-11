@@ -48,7 +48,7 @@ export default function ItemScreen() {
           {/* Actions sit on the image's bottom edge, right side, just above the title. */}
           <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space.l, paddingTop: space.m }}>
             <Text style={{ color: t.muted, fontSize: 13, flex: 1 }} numberOfLines={1}>
-              {[it.sourceName, ...(it.alsoNames || [])].join(" · ")} · {ago(it.date)}
+              {[it.sourceName, ...(it.alsoNames || [])].join(" · ")}{it.web ? " · from the web" : ` · ${ago(it.date)}`}
             </Text>
             <View style={{ flexDirection: "row", gap: space.l }}>
               <Pressable onPress={() => setLessOpen(true)} hitSlop={10} accessibilityLabel="Show me less of…" style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>

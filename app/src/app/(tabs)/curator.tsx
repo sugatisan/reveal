@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTabBarSpace } from "@/components/TabBar";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { api, Turn } from "@/lib/api";
+import { api, MiniItem, sendEvents, Turn } from "@/lib/api";
 import { bumpFeed, reloadState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Chip, ErrorLine, Header, MiniItemRow, SourceRow } from "@/components/ui";
@@ -24,6 +24,10 @@ export default function CuratorScreen() {
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
+  const [savedMap, setSavedMap] = useState<Record<string, boolean>>({});
+  const isSaved = (it: MiniItem) => savedMap[it.id] ?? !!it.saved;
+  const toggleSave = (it: MiniItem) => { setSavedMap((m) => ({ ...m, [it.id]: !isSaved(it) })); sendEvents([{ itemId: it.id, type: "save" }]).catch(() => {}); };
+  const openItem = (it: MiniItem) => router.push({ pathname: "/item/[id]", params: { id: it.id } });
   const [busy, setBusy] = useState("");
   const scroll = useRef<ScrollView>(null);
   const tabSpace = useTabBarSpace();
@@ -96,20 +100,17 @@ export default function CuratorScreen() {
                 <Text style={{ color: t.curatorAccent, fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }}>CURATOR</Text>
               </View>
               <Text style={{ color: t.curatorInk, fontFamily: serif, fontSize: 18, lineHeight: 25 }}>{turn.text}</Text>
-              {turn.items?.map((it) => <MiniItemRow key={it.id} tone="curator" item={it} onPress={() => router.push({ pathname: "/item/[id]", params: { id: it.id } })} />)}
+              {turn.items?.map((it) => <MiniItemRow key={it.id} tone="curator" item={it} onPress={() => openItem(it)} onSave={() => toggleSave(it)} saved={isSaved(it)} />)}
               {turn.web?.length ? (
                 <View style={{ gap: 2, marginTop: space.s }}>
-                  <Text style={{ color: t.curatorMuted, fontSize: 13 }}>From the web · not from your sources</Text>
-                  {turn.web.map((a) => (
-                    <Pressable key={a.url} onPress={() => Linking.openURL(a.url)} accessibilityRole="link" style={({ pressed }) => ({ paddingVertical: 8, opacity: pressed ? 0.6 : 1 })}>
-                      <Text style={{ color: t.curatorMuted, fontSize: 12 }} numberOfLines={1}>{a.site}</Text>
-                      <Text style={{ color: t.curatorInk, fontFamily: serif, fontSize: 16, lineHeight: 21 }} numberOfLines={2}>{a.title}</Text>
-                      {a.why ? <Text style={{ color: t.curatorMuted, fontSize: 13 }} numberOfLines={1}>{a.why}</Text> : null}
-                    </Pressable>
-                  ))}
+                  <Text style={{ color: t.curatorMuted, fontSize: 11, fontWeight: "800", letterSpacing: 1 }}>FROM THE WEB</Text>
+                  {turn.web.map((it: any) => it.id
+                    ? <MiniItemRow key={it.id} tone="curator" item={it} onPress={() => openItem(it)} onSave={() => toggleSave(it)} saved={isSaved(it)} />
+                    // Older answers kept web finds as bare links.
+                    : <MiniItemRow key={it.url} tone="curator" item={{ id: it.url, title: it.title, sourceName: it.site, note: it.why }} onPress={() => Linking.openURL(it.url)} />)}
                 </View>
               ) : null}
-              {turn.sources?.length ? <Text style={{ color: t.curatorMuted, fontSize: 13, marginTop: space.s }}>New places to look</Text> : null}
+              {turn.sources?.length ? <Text style={{ color: t.curatorMuted, fontSize: 11, fontWeight: "800", letterSpacing: 1, marginTop: space.s }}>NEW PLACES TO LOOK</Text> : null}
               {turn.sources?.map((s) => <SourceRow key={s.id} tone="curator" busy={busy === s.id} src={{ ...s, followed: s.followed || !!followed[s.id] }} onFollow={() => follow(s.id, s.interestId)} />)}
               {turn.missing?.length ? (
                 <Text style={{ color: t.curatorMuted, fontSize: 12 }}>

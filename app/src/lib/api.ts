@@ -45,11 +45,11 @@ export type CuratorCard =
   | { type: "curator"; kind: "ask"; id: string; title: string; prompts: string[] };
 export type FeedEntry = FeedItem | CuratorCard;
 export type Feed = { entries: FeedEntry[]; caughtUp: number; broaderAt?: number; broaderLabel?: string; scoping?: boolean; lastRefresh: number; refreshing: boolean };
-export type MiniItem = { id: string; title: string; image?: string; excerpt?: string; link?: string; date?: number; sourceName?: string; saved?: boolean };
+export type MiniItem = { id: string; title: string; image?: string; excerpt?: string; link?: string; date?: number; sourceName?: string; saved?: boolean; note?: string };
 export type WebArticle = { title: string; url: string; site: string; why: string };
-export type Turn = { role: "user" | "curator"; text: string; itemId?: string; items?: MiniItem[]; sources?: SourceView[]; missing?: { name: string; site: string }[]; web?: WebArticle[]; offerInterest?: string; followups?: string[]; at: number };
+export type Turn = { role: "user" | "curator"; text: string; itemId?: string; items?: MiniItem[]; sources?: SourceView[]; missing?: { name: string; site: string }[]; web?: MiniItem[]; offerInterest?: string; followups?: string[]; at: number };
 export type ShopLink = { shop: string; url: string; ours: boolean };
-export type ItemDetail = FeedItem & { gallery?: string[]; aiSummary?: string | null; brief?: StoryBrief | null; forYou?: string | null; shops?: ShopLink[]; lead?: string; interests: { id: string; label: string }[]; related: MiniItem[]; deeper: SourceView[] };
+export type ItemDetail = FeedItem & { web?: boolean; gallery?: string[]; aiSummary?: string | null; brief?: StoryBrief | null; forYou?: string | null; shops?: ShopLink[]; lead?: string; interests: { id: string; label: string }[]; related: MiniItem[]; deeper: SourceView[] };
 
 export const sendEvents = (events: { itemId: string; type: "shown" | "expand" | "open" | "save" | "less" | "buy" }[]) => api<{ ok: boolean; saved?: boolean }>("/api/events", { events });
 
