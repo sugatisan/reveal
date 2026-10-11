@@ -135,7 +135,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
       <View style={{ flexDirection: "row", gap: space.s, flexWrap: "wrap" }}>
         {readInHeader ? null : <Button label={readLabel(it)}
           icon={it.kind === "audio" ? "headset-outline" : it.kind === "video" ? "play" : "open-outline"} onPress={open} />}
-        <Button label="More like this" kind="secondary" onPress={() => ask("More like this")} />
+        {readInHeader ? null : <Button label="More like this" kind="secondary" onPress={() => ask("More like this")} />}
       </View>
 
       {shown?.questions?.length ? (
