@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, View } from "react-native";
+import { openLink } from "@/lib/openLink";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { Text, TextInput } from "@/components/AppText";
 import { router, useLocalSearchParams } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -108,7 +109,7 @@ export default function CuratorScreen() {
                   {turn.web.map((it: any) => it.id
                     ? <MiniItemRow key={it.id} tone="curator" item={it} onPress={() => openItem(it)} onSave={() => toggleSave(it)} saved={isSaved(it)} />
                     // Older answers kept web finds as bare links.
-                    : <MiniItemRow key={it.url} tone="curator" item={{ id: it.url, title: it.title, sourceName: it.site, note: it.why }} onPress={() => Linking.openURL(it.url)} />)}
+                    : <MiniItemRow key={it.url} tone="curator" item={{ id: it.url, title: it.title, sourceName: it.site, note: it.why }} onPress={() => openLink(it.url)} />)}
                 </View>
               ) : null}
               {turn.sources?.length ? <Text style={{ color: t.curatorMuted, fontSize: 11, fontWeight: "800", letterSpacing: 1, marginTop: space.s }}>NEW PLACES TO LOOK</Text> : null}

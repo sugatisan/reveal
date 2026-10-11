@@ -2,10 +2,10 @@
 // studio's Story page › Description), key facts, where to buy, actions, curator questions, related
 // stories and deeper sources. Shared by the story page and the full-screen feed's details sheet.
 import { useEffect, useRef, useState } from "react";
+import { openLink } from "@/lib/openLink";
 import { Animated, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/AppText";
 import { router } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { api, ItemDetail, mediaLabel, sendEvents, StoryBrief } from "@/lib/api";
 import { bumpFeed, reloadState } from "@/lib/store";
@@ -74,7 +74,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
   const ask = (prompt: string) => { onLeave?.(); router.navigate({ pathname: "/curator", params: { prompt, itemId: it.id, n: String(Date.now()) } }); };
   const open = async () => {
     sendEvents([{ itemId: it.id, type: "open" }]).catch(() => {});
-    await WebBrowser.openBrowserAsync(it.link || it.mediaUrl || "");
+    await openLink(it.link || it.mediaUrl || "");
   };
   const d = useDesign();
   const gap: number = d["story.sectionGap"], labelGap: number = d["story.labelGap"];
@@ -116,7 +116,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
             {it.shops.map((s) => (
               <Chip key={s.shop} label={s.shop} icon="bag-handle-outline" onPress={() => {
                 sendEvents([{ itemId: it.id, type: "buy" }]).catch(() => {});
-                WebBrowser.openBrowserAsync(s.url);
+                openLink(s.url);
               }} />
             ))}
           </View>
