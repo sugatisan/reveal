@@ -139,8 +139,7 @@ export function Composer({ text, state, go, onDone, onOpen }: {
                 {draft.likes.map((x) => (
                   <Pressable key={x.term} onPress={() => setLikes((l) => ({ ...l, [x.term]: !l[x.term] }))} accessibilityRole="checkbox" accessibilityState={{ checked: !!likes[x.term] }}
                     style={[st.chip, likes[x.term] ? { backgroundColor: t.ink } : { backgroundColor: t.curatorChip }]}>
-                    <Ionicons name={likes[x.term] ? "checkmark" : "add"} size={13} color={likes[x.term] ? t.bg : t.curatorInk} />
-                    <Text style={{ color: likes[x.term] ? t.bg : t.curatorInk, fontSize: 13, fontWeight: "600" }} numberOfLines={1}>{x.term}</Text>
+                    <Text style={{ color: likes[x.term] ? t.bg : t.curatorInk, fontSize: 14, lineHeight: 18, fontWeight: "600", includeFontPadding: false, textAlignVertical: "center" }} numberOfLines={1}>{x.term}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -193,7 +192,7 @@ export function Composer({ text, state, go, onDone, onOpen }: {
     return (
       <Pressable onPress={onPress} accessibilityRole="radio" accessibilityState={{ selected: on }}
         style={[st.choice, on ? { backgroundColor: t.ink } : { borderWidth: 1, borderColor: t.line }]}>
-        <Text style={{ color: on ? t.bg : t.ink, fontWeight: "600", fontSize: 13 }} numberOfLines={1}>{l}</Text>
+        <Text style={{ color: on ? t.bg : t.ink, fontWeight: "600", fontSize: 14, lineHeight: 18, includeFontPadding: false }} numberOfLines={1}>{l}</Text>
       </Pressable>
     );
   }
@@ -216,8 +215,8 @@ const st = StyleSheet.create({
   line: { flexDirection: "row", alignItems: "center", gap: 6 },
   cap: { fontSize: 11, fontWeight: "700", letterSpacing: 0.6 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: space.s },
-  chip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, maxWidth: "100%" },
-  choice: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, maxWidth: "100%" },
+  chip: { flexDirection: "row", alignItems: "center", justifyContent: "center", height: 34, paddingHorizontal: 14, borderRadius: 999, maxWidth: "100%" },
+  choice: { height: 36, justifyContent: "center", paddingHorizontal: 14, borderRadius: 999, maxWidth: "100%" },
   scope: { fontSize: 14, lineHeight: 19, borderWidth: 1, borderRadius: radius.s, paddingHorizontal: 10, paddingVertical: 8, minHeight: 44 },
   src: { flexDirection: "row", alignItems: "flex-start", gap: space.m, paddingVertical: space.s + 2 },
   primary: { flexDirection: "row", gap: space.s, alignItems: "center", justifyContent: "center", paddingVertical: 13, borderRadius: 999 },
