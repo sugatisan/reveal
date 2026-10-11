@@ -35,7 +35,7 @@ export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: st
   const [error, setError] = useState("");
   const [naming, setNaming] = useState<string | null>(null);
   const [sub, setSub] = useState("");
-  const [url, setUrl] = useState("");
+  const [added, setAdded] = useState(""); // what the last "Add" did
   const [moreOpen, setMoreOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [note, setNote] = useState("");
@@ -77,7 +77,17 @@ export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: st
   );
 
   const setSubs = (subs: string[]) => run("subs", () => api("/api/interests/update", { id: i.id, subs }));
-  const addSub = () => { const v = sub.trim(); if (!v) return; setSub(""); if (!i.subs.includes(v)) setSubs([...i.subs, v]); };
+  const addAny = () => {
+    const v = sub.trim(); if (!v || busy) return;
+    run("add", () => api<{ results: { kind: "like" | "site"; text: string; ok: boolean }[]; state: AppState }>("/api/interests/add", { id: i.id, text: v })).then((r: any) => {
+      if (!r) return;
+      setSub("");
+      const likes = r.results.filter((x: any) => x.kind === "like").map((x: any) => x.text);
+      const sites = r.results.filter((x: any) => x.kind === "site" && x.ok).map((x: any) => x.text);
+      const missed = r.results.filter((x: any) => x.kind === "site" && !x.ok).map((x: any) => x.text);
+      setAdded([likes.length ? `Liked ${likes.join(", ")}` : "", sites.length ? `Following ${sites.join(", ")}` : "", missed.length ? `No feed for ${missed.join(", ")}, kept as ${missed.length === 1 ? "a like" : "likes"}` : ""].filter(Boolean).join(" · ") + ".");
+    });
+  };
   const rename = () => { const v = naming?.trim(); setNaming(null); if (v && v !== i.label) run("name", () => api("/api/interests/update", { id: i.id, label: v })); };
   const suggestions = [...(i.clarify?.options || []), ...i.subSuggestions].filter((s, k, a) => a.indexOf(s) === k && !i.subs.includes(s)).slice(0, 6);
   const sourceIds = new Set(i.sources.map((s) => s.id));
@@ -107,6 +117,12 @@ export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: st
           <Text style={{ color: t.muted, marginTop: 4 }}>
             {i.sources.length} source{i.sources.length === 1 ? "" : "s"}{i.newCount ? ` · ${i.newCount} new` : ""}{i.subs.length ? ` · ${i.subs.length} things you like` : ""}
           </Text>
+          {/* One field for everything: the curator splits it into likes and sites, and finds each site's feed. */}
+          <View style={{ marginTop: space.l }}>
+            <Field value={sub} onChange={setSub} onSubmit={addAny} placeholder="Add likes or sites, e.g. car shows, autoblog" action="Add" busy={busy === "add"} />
+          </View>
+          {busy === "add" ? <Text style={{ color: t.muted, fontSize: 13, marginTop: space.s }}>Sorting likes from sites and checking feeds…</Text>
+            : added ? <Text style={{ color: t.muted, fontSize: 13, marginTop: space.s }}>{added}</Text> : null}
         </View>
         <ErrorLine text={error} />
 
@@ -151,7 +167,6 @@ export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: st
               {i.subs.map((s) => <Chip key={s} label={s} active icon="close" onPress={() => setSubs(i.subs.filter((x) => x !== s))} />)}
             </View>
           ) : <Text style={{ color: t.muted }}>Nothing added yet. Add names, terms or ideas you like.</Text>}
-          <Field value={sub} onChange={setSub} onSubmit={addSub} placeholder="Add something you like, e.g. Knoll, teak, Eichler" action="Add" busy={busy === "subs"} />
           <View style={[st.ideasHead, { borderTopColor: t.line }]}>
             <Text style={{ color: t.ink, fontWeight: "600", fontSize: 16, flex: 1 }}>Add to this interest</Text>
           </View>
@@ -213,8 +228,6 @@ export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: st
               onPress={() => run("more", () => api("/api/interests/more", { id: i.id })).then((r: any) => r && setNote(r.added ? `Added ${r.added} suggestion${r.added === 1 ? "" : "s"}.` : "No new sources found this time."))} />
           </View>}
           {busy === "more" ? <Text style={{ color: t.muted, fontSize: 13 }}>The curator is looking and checking each feed. This can take half a minute.</Text> : note ? <Text style={{ color: t.muted, fontSize: 13 }}>{note}</Text> : null}
-          <Field value={url} onChange={setUrl} placeholder="Add a site by address, e.g. core77.com" action="Add" busy={busy === "url"} keyboard="url"
-            onSubmit={() => { const u = url.trim(); if (!u) return; run("url", () => api("/api/sources/add", { interestId: i.id, url: u })).then((r: any) => { if (r) { setUrl(""); setNote(`Following ${r.name}.`); } }); }} />
         </Section>
 
         <Section title="Tune" hint="What you've turned down here. Rules push matching stories lower; they never hide them.">

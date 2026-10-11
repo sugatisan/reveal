@@ -115,11 +115,14 @@ async function findFeed(url) {
   found.set(url, { f, at: Date.now() });
   return f;
 }
-async function followSite(url, { origin = "user", why } = {}) {
+// A feed title that reads like a page title ("The best vintage and classic cars for sale online | Bring a Trailer")
+// loses to a clean name when we have one.
+const pageTitle = (t = "") => t.length > 32 || /\s[|–—-]\s/.test(t);
+async function followSite(url, { origin = "user", why, name } = {}) {
   const f = await findFeed(url);
   const id = sourceIdFor(f.site || url);
   const had = load().sources[id];
-  upsertSource({ id, name: f.title || url, site: normalizeUrl(f.site || url), feedUrl: f.feedUrl, status: "ok", kind: sourceKind(f.items), perWeek: cadence(f.items), lastFetched: Date.now(), about: f.description?.slice(0, 200), origin: had?.origin || origin, addedAt: had?.addedAt || Date.now(), ...(why ? { why } : {}) });
+  upsertSource({ id, name: had?.name && !pageTitle(had.name) ? had.name : name && (!f.title || pageTitle(f.title)) ? name : f.title || url, site: normalizeUrl(f.site || url), feedUrl: f.feedUrl, status: "ok", kind: sourceKind(f.items), perWeek: cadence(f.items), lastFetched: Date.now(), about: f.description?.slice(0, 200), origin: had?.origin || origin, addedAt: had?.addedAt || Date.now(), ...(why ? { why } : {}) });
   storeItems(id, f.items);
   mergeDuplicates();
   return id;
@@ -603,6 +606,38 @@ const routes = {
     if (!i.sourceIds.includes(id)) i.sourceIds.push(id);
     save();
     return { created: [{ id: i.id }], state: state() };
+  },
+
+  "POST /api/interests/add": async (req) => {
+    // One field for everything: ideas become likes, named or typed sites get their feed found and followed.
+    const { id, text } = await body(req);
+    const i = load().interests.find((x) => x.id === id);
+    if (!i) throw new Error("Interest not found");
+    if (!String(text || "").trim()) throw new Error("Type something to add");
+    const items = await agent.splitAdditions(String(text).trim().slice(0, 400), i.label);
+    const results = await Promise.all(items.map(async (x) => {
+      if (x.kind === "like") {
+        if (!i.subs.some((s) => s.toLowerCase() === x.text.toLowerCase())) i.subs.push(x.text);
+        return { kind: "like", text: x.text, ok: true };
+      }
+      try {
+        // The homepage first; if no feed is found there, the feed address the curator knows.
+        let sid;
+        try { sid = await followSite(x.url || x.text, { name: x.text }); }
+        catch (e) { if (!x.feed) throw e; sid = await followSite(x.feed, { name: x.text }); }
+        i.suggestedIds = i.suggestedIds.filter((s) => s !== sid);
+        if (!i.sourceIds.includes(sid)) i.sourceIds.push(sid);
+        i.subs = i.subs.filter((s) => s.toLowerCase() !== x.text.toLowerCase()); // kept as a like on an earlier try
+        return { kind: "site", text: load().sources[sid]?.name || x.text, ok: true };
+      } catch (e) {
+        // A site we couldn't follow is still kept as a like, so nothing typed is lost.
+        if (!i.subs.some((s) => s.toLowerCase() === x.text.toLowerCase())) i.subs.push(x.text);
+        return { kind: "site", text: x.text, ok: false, error: String(e.message || e) };
+      }
+    }));
+    save();
+    if (i.scope) scope.scoreInterest(i.id).catch(() => {});
+    return { results, state: state() };
   },
 
   "POST /api/sources/add": async (req) => {

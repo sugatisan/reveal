@@ -427,3 +427,36 @@ Which stories are in scope? Judge by what each story is about, not by whether th
   for (const n of out.inScope || []) if (res[n - 1] !== undefined) res[n - 1] = 2;
   return res;
 }
+
+// "Add to this interest": one free-text field. Split it into things the person likes (ideas, names,
+// terms) and sites or channels to follow (named or typed as addresses), resolving names to homepages.
+const SPLIT_SCHEMA = {
+  type: "object",
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          kind: { type: "string", enum: ["like", "site"], description: "site: a publication, blog, YouTube channel or podcast to follow (named like 'autoblog' or 'bring a trailer', or an address). like: an idea, topic, maker, person or term to give more weight to" },
+          text: { type: "string", description: "For a like: the phrase, tidied (capitalized as it would appear in a headline). For a site: its proper name, e.g. 'Bring a Trailer'" },
+          url: { type: "string", description: "For a site: its homepage URL (YouTube channel URL or Apple Podcasts page for those). Empty for a like" },
+          feed: { type: "string", description: "For a site: its RSS/Atom feed URL if you know it, else empty" },
+        },
+        required: ["kind", "text", "url", "feed"],
+      },
+    },
+  },
+  required: ["items"],
+};
+export async function splitAdditions(text, interestLabel) {
+  const looksSite = (x) => /^(https?:\/\/)?([\w-]+\.)+[a-z]{2,}(\/\S*)?$/i.test(x);
+  const parts = text.split(/[,;\n]|\band\b/i).map((x) => x.trim()).filter(Boolean);
+  if (!hasKey()) return parts.map((p) => (looksSite(p) ? { kind: "site", text: p, url: p } : { kind: "like", text: p.charAt(0).toUpperCase() + p.slice(1), url: "" }));
+  const prompt = `Interest: "${interestLabel}"
+The person typed things to add to it: """${text}"""
+
+Split it into separate items. Decide for each whether it's a site to follow or something they like. Names of well-known publications, blogs, auction sites, YouTube channels and podcasts are sites even without ".com" (e.g. "autoblog" -> Autoblog, https://www.autoblog.com; "bring a trailer" -> Bring a Trailer, https://bringatrailer.com). Only call it a site if you're confident it exists.`;
+  const out = await claudeForm({ system: "You sort what a person types into a discovery feed's interest settings.", prompt, schema: SPLIT_SCHEMA, model: FAST(), maxTokens: 500, purpose: "interest-add" });
+  return (out.items || []).map((x) => ({ kind: x.kind === "site" && x.url ? "site" : "like", text: String(x.text || "").trim().slice(0, 60), url: String(x.url || "").trim(), feed: String(x.feed || "").trim() })).filter((x) => x.text).slice(0, 12);
+}
