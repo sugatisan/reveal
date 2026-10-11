@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, AppState as AppActivity, Easing, FlatList, LayoutAnimation, Pressable, RefreshControl, ScrollView, View, ViewToken } from "react-native";
+import { ActivityIndicator, Animated, AppState as AppActivity, Easing, FlatList, LayoutAnimation, PanResponder, Pressable, RefreshControl, ScrollView, View, ViewToken } from "react-native";
 import { Text } from "@/components/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router, useNavigation } from "expo-router";
@@ -18,7 +18,6 @@ import { FullFeed } from "@/components/FullFeed";
 import { seedBriefs } from "@/components/StoryDetails";
 import { useDesign } from "@/design/store";
 import { openCurator } from "@/lib/curatorSheet";
-import { GestureDetector, usePanGesture } from "react-native-gesture-handler";
 
 // A "pair" is one row of the 2-column grid; everything else spans the full width.
 type Row = FeedEntry | { type: "divider"; id: string; label?: string } | { type: "pair"; id: string; items: FeedItem[] };
@@ -258,22 +257,23 @@ export default function FeedScreen() {
   const settle = () => Animated.spring(swipeX, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start();
   // Native pan (gesture handler): starts only on a clear sideways drag, fails on vertical movement so the
   // list keeps scrolling, and cancels the card's tap once it takes over. Not from the left edge (the panel's).
-  const swipe = usePanGesture({
-    runOnJS: true,
-    activeOffsetX: [-20, 20],
-    failOffsetY: [-14, 14],
-    hitSlop: { left: -30 },
-    onActivate: () => { swipingUntil.current = Date.now() + 60000; },
-    onUpdate: (e) => {
-      const has = neighbor(e.translationX < 0 ? 1 : -1) !== undefined;
-      swipeX.setValue(has ? e.translationX : e.translationX * 0.25); // resist at the ends
+  // Sideways drags are claimed in the capture phase, before the list or the card under your finger
+  // (feed cards have no sideways scrolling of their own). Not from the left edge: that opens the interests panel.
+  const swipe = useRef(PanResponder.create({
+    onMoveShouldSetPanResponderCapture: (_, g) => g.x0 > 30 && Math.abs(g.dx) > 16 && Math.abs(g.dx) > Math.abs(g.dy) * 1.8,
+    onPanResponderGrant: () => { swipingUntil.current = Date.now() + 60000; },
+    onPanResponderTerminationRequest: () => false,
+    onShouldBlockNativeResponder: () => true,
+    onPanResponderMove: (_, g) => {
+      const has = neighbor(g.dx < 0 ? 1 : -1) !== undefined;
+      swipeX.setValue(has ? g.dx : g.dx * 0.25); // resist at the ends
     },
-    onDeactivate: (e) => {
+    onPanResponderRelease: (_, g) => {
       swipingUntil.current = Date.now() + 350;
-      const dir = e.translationX < 0 ? 1 : -1;
+      const dir = g.dx < 0 ? 1 : -1;
       const next = neighbor(dir);
-      const far = Math.abs(e.translationX) > pageW.current * 0.22 || (Math.abs(e.velocityX) > 500 && Math.abs(e.translationX) > 40);
-      if (e.canceled || !far || next === undefined) { settle(); return; }
+      const far = Math.abs(g.dx) > pageW.current * 0.22 || (Math.abs(g.vx) > 0.5 && Math.abs(g.dx) > 40);
+      if (!far || next === undefined) { settle(); return; }
       Animated.timing(swipeX, { toValue: -dir * pageW.current, duration: 150, easing: Easing.in(Easing.quad), useNativeDriver: false }).start(() => {
         swiped.current = true;
         chooseLens(next, { quiet: true });
@@ -281,7 +281,8 @@ export default function FeedScreen() {
         Animated.timing(swipeX, { toValue: 0, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
       });
     },
-  });
+    onPanResponderTerminate: () => { swipingUntil.current = Date.now() + 350; settle(); },
+  })).current;
   const swipeStyle = {
     flex: 1,
     transform: [{ translateX: swipeX }],
@@ -291,8 +292,7 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: full ? "#000" : t.bg }} edges={pinned ? [] : ["top"]}
       onLayout={(e) => setPageH(Math.round(e.nativeEvent.layout.height))}>
-      <GestureDetector gesture={swipe}>
-      <Animated.View style={swipeStyle} onLayout={(e) => { pageW.current = e.nativeEvent.layout.width || 400; }}>
+      <Animated.View {...swipe.panHandlers} style={swipeStyle} onLayout={(e) => { pageW.current = e.nativeEvent.layout.width || 400; }}>
       {full ? (
         <>
           <FullFeed entries={(feed?.entries || [])} loaded={!!feed} listKey={lens ? `${lens.kind}:${lens.id}` : "all"} height={pageH} topSpace={headerH || insets.top + 50} bottomSpace={tabSpace}
@@ -350,7 +350,6 @@ export default function FeedScreen() {
       />
       )}
       </Animated.View>
-      </GestureDetector>
       {/* Pinned pill row: stays at the top while the feed scrolls underneath, over an adjustable backing. */}
       {pinned ? (
         <View ref={backingRef} onLayout={(e) => { if (scrollPos.current <= 1) setHeaderH(Math.round(e.nativeEvent.layout.height)); }}

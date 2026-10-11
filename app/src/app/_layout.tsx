@@ -2,7 +2,6 @@ import Stack from "expo-router/stack";
 import { Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useTheme } from "@/lib/theme";
 import { Studio, StudioInsets } from "@/components/Studio";
 import { FontLoader } from "@/design/fonts";
@@ -25,7 +24,6 @@ if (Platform.OS === "web" && typeof document !== "undefined" && !document.getEle
 export default function RootLayout() {
   const t = useTheme();
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
     <Studio>
     <SafeAreaProvider>
     <StudioInsets>
@@ -42,6 +40,5 @@ export default function RootLayout() {
     </StudioInsets>
     </SafeAreaProvider>
     </Studio>
-    </GestureHandlerRootView>
   );
 }
