@@ -19,7 +19,7 @@ const choice = (key: string, label: string, def: string, options: [string, strin
 
 export const GROUPS: Group[] = [
   {
-    id: "color-palette", panel: "Color", title: "Palette", hint: "Colors for the whole app. Paper follows the phone's light/dark setting; the others are fixed.",
+    id: "color-palette", panel: "Color", title: "Palette", hint: "Colors for the whole app. Pick from the list or step through with the arrows. Paper follows the phone's light/dark setting; the others are fixed.",
     controls: [{ key: "color.palette", label: "Palette", type: "palette", default: "paper" }],
   },
   {

@@ -9,7 +9,7 @@ import { createContext, ReactNode, useContext, useEffect, useState } from "react
 import { SafeAreaFrameContext, SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { GROUPS, Control, DEFAULTS, Group } from "@/design/schema";
 import { resetToDefaults, revertDesign, saveDesign, setDesign, useDesign, useDesignRemote } from "@/design/store";
-import { PALETTES, preview, SavedPalette } from "@/design/palettes";
+import { luminance, PALETTES, preview, SavedPalette } from "@/design/palettes";
 
 // ---------- studio mode on/off (survives navigation inside the app) ----------
 function studioOn(): boolean {
@@ -239,44 +239,49 @@ function Section({ title, hint, open, onToggle, badge = 0, children }: { title: 
   );
 }
 
-// Built-in palettes, the ones you've saved, and Custom. With Custom selected, "Add to palettes" keeps
-// the current custom colors as a named palette you can pick again later (saved with the design).
+// Palette: a dropdown (light, dark, yours, Custom) with a preview of the colors, and arrows to step
+// through them quickly. Saved palettes can be edited (copied into Custom) or removed.
 function PalettePicker({ value, onChange, design }: { value: string; onChange: (v: any) => void; design: Record<string, any> }) {
   const saved: SavedPalette[] = design["color.saved"] || [];
   const custom = { bg: design["color.bg"], card: design["color.card"], ink: design["color.ink"], muted: design["color.muted"], accent: design["color.accent"], curatorBg: design["color.curatorBg"], curatorAccent: design["color.curatorAccent"] };
-  const tiles = [
-    ...PALETTES.filter((p) => p.id !== "custom").map((p) => ({ id: p.id, label: p.label, note: p.note, mine: false })),
-    ...saved.map((p) => ({ id: p.id, label: p.label, note: "Yours", mine: true })),
-    { id: "custom", label: "Custom", note: "Your colors below", mine: false },
-  ];
-  const remove = (id: string) => setDesign({ "color.saved": saved.filter((x) => x.id !== id), ...(value === id ? { "color.palette": "custom" } : null) });
-  // Start from a saved palette: copy its colors into Custom to tweak them.
+  const isDark = (p: (typeof PALETTES)[number]) => !!p.base && luminance(p.base.bg) < 0.2;
+  const groups: { label: string; items: { id: string; label: string; note: string }[] }[] = [
+    { label: "Light", items: PALETTES.filter((p) => p.id !== "custom" && !isDark(p)) },
+    { label: "Dark", items: PALETTES.filter((p) => isDark(p)) },
+    { label: "Yours", items: saved.map((p) => ({ id: p.id, label: p.label, note: "Saved from Custom" })) },
+    { label: "Custom", items: [{ id: "custom", label: "Custom", note: "The colors in Custom palette below" }] },
+  ].filter((g) => g.items.length);
+  const all = groups.flatMap((g) => g.items);
+  const at = Math.max(0, all.findIndex((x) => x.id === value));
+  const cur = all[at];
+  const step = (n: number) => onChange(all[(at + n + all.length) % all.length].id);
+  const mine = saved.find((x) => x.id === value);
+  const remove = (id: string) => setDesign({ "color.saved": saved.filter((x) => x.id !== id), "color.palette": "custom" });
   const edit = (p: SavedPalette) => setDesign({ "color.palette": "custom", ...Object.fromEntries(Object.entries(p.base).map(([k, v]) => [`color.${k}`, v])) });
+  const arrow: React.CSSProperties = { width: 32, flex: "none", background: "#12151B", border: "1px solid #2A2E37", borderRadius: 8, color: "#E9ECF2", cursor: "pointer", fontSize: 16 };
   return (
-    <div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginTop: 8 }}>
-        {tiles.map((p) => {
-          const on = value === p.id;
-          const mine = saved.find((x) => x.id === p.id);
-          return (
-            <div key={p.id} style={{ position: "relative" }}>
-              <button onClick={() => onChange(p.id)} title={p.note} aria-pressed={on}
-                style={{ width: "100%", padding: 6, borderRadius: 10, cursor: "pointer", textAlign: "left", background: "#12151B", border: on ? "2px solid #E6E9EF" : "1px solid #2A2E37", color: "#E9ECF2" }}>
-                <div style={{ display: "flex", height: 26, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,.08)" }}>
-                  {preview(p.id, custom, saved).map((col, i) => <div key={i} style={{ flex: i === 0 ? 2 : 1, background: col }} />)}
-                </div>
-                <div style={{ fontSize: 12, fontWeight: 600, marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.label}</div>
-                <div style={{ fontSize: 10.5, color: "#8FA0BA", marginTop: 1, lineHeight: 1.25 }}>{p.note}</div>
-              </button>
-              {mine ? (
-                <div style={{ position: "absolute", right: 6, bottom: 6, display: "flex", gap: 6 }}>
-                  <button style={css.link} onClick={() => edit(mine)} title="Copy into Custom to change it">edit</button>
-                  <button style={css.link} onClick={() => remove(mine.id)} title="Remove this palette">×</button>
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+    <div style={{ marginTop: 8 }}>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button style={arrow} onClick={() => step(-1)} title="Previous palette" aria-label="Previous palette">‹</button>
+        <select value={cur?.id} onChange={(e) => onChange(e.target.value)} aria-label="Palette"
+          style={{ flex: 1, minWidth: 0, background: "#12151B", border: "1px solid #2A2E37", borderRadius: 8, color: "#E9ECF2", padding: "7px 8px", fontSize: 13 }}>
+          {groups.map((g) => (
+            <optgroup key={g.label} label={g.label}>
+              {g.items.map((p) => <option key={p.id} value={p.id}>{p.label} — {p.note}</option>)}
+            </optgroup>
+          ))}
+        </select>
+        <button style={arrow} onClick={() => step(1)} title="Next palette" aria-label="Next palette">›</button>
+      </div>
+      <div style={{ display: "flex", height: 30, borderRadius: 8, overflow: "hidden", border: "1px solid rgba(255,255,255,.08)", marginTop: 8 }}>
+        {cur ? preview(cur.id, custom, saved).map((col, i) => <div key={i} title={col} style={{ flex: i === 0 ? 2 : 1, background: col }} />) : null}
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 6 }}>
+        <div style={{ fontSize: 11.5, color: "#8FA0BA", flex: 1 }}>{cur ? `${at + 1} of ${all.length} · ${cur.note}` : ""}</div>
+        {mine ? <>
+          <button style={css.link} onClick={() => edit(mine)} title="Copy into Custom to change it">edit</button>
+          <button style={css.link} onClick={() => remove(mine.id)} title="Remove this palette">remove</button>
+        </> : null}
       </div>
     </div>
   );
