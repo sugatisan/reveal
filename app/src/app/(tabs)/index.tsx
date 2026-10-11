@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, AppState as AppActivity, FlatList, LayoutAnimation, Pressable, RefreshControl, ScrollView, View, ViewToken } from "react-native";
 import { Text } from "@/components/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Redirect, router } from "expo-router";
+import { Redirect, router, useNavigation } from "expo-router";
 import { useTabBarSpace } from "@/components/TabBar";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { MenuButton, Pill, usePillStyle } from "@/components/FeedPills";
@@ -125,6 +125,16 @@ export default function FeedScreen() {
     pillScroll.current?.scrollTo({ x: 0, animated: true });
   };
   useEffect(() => { pillScroll.current?.scrollTo({ x: 0, animated: true }); }, [lens]);
+
+  // Tapping Feed while already on it: from a filtered view, go back to All; on All, jump to the top.
+  const navigation = useNavigation();
+  const lensRef = useRef(lens);
+  lensRef.current = lens;
+  useEffect(() => (navigation as any).addListener("tabPress", () => {
+    if (!navigation.isFocused()) return;
+    if (lensRef.current) pick(null);
+    else listRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }), [navigation]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (state && !state.interests.length) return <Redirect href="/welcome" />;
 
