@@ -92,6 +92,13 @@ export const GROUPS: Group[] = [
     controls: [
       choice("pill.selected", "Color", "ink", [["ink", "Text color"], ["accent", "Accent"], ["custom", "Custom"]]),
       { key: "pill.selectedColor", label: "Custom color", hint: "Used when Color is Custom. The label color is picked automatically for contrast.", type: "color", default: "#2563EB", swatches: ["#2563EB", "#D24A1C", "#2F6B3F", "#D9466F", "#7C3AED", "#F5C542"] },
+      { key: "pill.selOpacity", label: "Fill opacity", type: "range", min: 10, max: 100, step: 5, unit: "%", default: 100 },
+      { key: "pill.selBlur", label: "Blur", hint: "Blurs what's behind it when the fill isn't solid. Shows in the studio; on the phone it needs expo-blur.", type: "range", min: 0, max: 30, step: 2, unit: "px", default: 0 },
+      choice("pill.selGlowMode", "Glow color", "self", [["self", "Its own color"], ["custom", "Custom"]], "A shadow in the pill's color reads as a glow."),
+      { key: "pill.selGlowColor", label: "Custom glow color", hint: "Used when Glow color is Custom.", type: "color", default: "#000000", swatches: ["#000000", "#FFFFFF", "#F5C542", "#6EA8FE", "#D24A1C", "#C9E27A"] },
+      { key: "pill.selGlow", label: "Glow amount", hint: "0 turns it off.", type: "range", min: 0, max: 100, step: 2, unit: "%", default: 40 },
+      { key: "pill.selGlowRadius", label: "Glow softness", type: "range", min: 0, max: 40, step: 1, unit: "pt", default: 14 },
+      { key: "pill.selGlowY", label: "Glow offset", hint: "0 glows evenly; higher drops it like a shadow.", type: "range", min: 0, max: 12, step: 1, unit: "pt", default: 0 },
       { key: "pill.edit", label: "Edit icon on selected interest", hint: "Opens the interest page. Long-press any interest pill does the same.", type: "toggle", default: true },
     ],
   },

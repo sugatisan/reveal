@@ -184,8 +184,11 @@ export default function FeedScreen() {
     const cur = state?.interests.find((i) => i.id === lens.id);
     if (cur) recent.unshift(cur), recent.splice(5);
   }
+  const glowRoom = (design["pill.selGlow"] ?? 0) > 0 ? Math.ceil((design["pill.selGlowRadius"] ?? 14) + (design["pill.selGlowY"] ?? 0)) : 0;
   const lensBar = (
-    <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: pillStyle.gap, paddingHorizontal: space.l, paddingTop: pinned ? topBase : topRest, paddingBottom: design["header.below"], alignItems: "center" }}>
+    // Extra room above and below (taken back with negative margins) so the selected pill's glow isn't clipped by the scroll area.
+    <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: -glowRoom }}
+      contentContainerStyle={{ gap: pillStyle.gap, paddingHorizontal: space.l, paddingTop: (pinned ? topBase : topRest) + glowRoom, paddingBottom: design["header.below"] + glowRoom, alignItems: "center" }}>
       <MenuButton onPress={drawer.open} />
       <Pill label="All" active={!lens} onPress={() => pick(null)} />
       {lens?.kind === "source" ? <Pill label={lens.name} active icon="close" onPress={() => pick(null)} /> : null}

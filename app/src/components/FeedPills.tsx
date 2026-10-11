@@ -21,6 +21,9 @@ export function usePillStyle() {
     padX: d["pill.padX"] * k, padY: d["pill.padY"] * k,
     selBg: sel, selInk: luminance(sel) > 0.45 ? "#14110F" : "#FFFFFF",
     bg: rgba(fill, d["pill.fillOpacity"] / 100), ink: customFill ? (luminance(fill) > 0.45 ? "#14110F" : "#FFFFFF") : t.ink, blur: d["pill.blur"] as number,
+    // Selected pill: its own opacity, blur and glow (a shadow in its own color by default).
+    selFill: rgba(sel, (d["pill.selOpacity"] ?? 100) / 100), selBlur: (d["pill.selBlur"] ?? 0) as number,
+    selGlow: (d["pill.selGlow"] ?? 0) > 0 ? ({ boxShadow: `0px ${d["pill.selGlowY"] ?? 0}px ${d["pill.selGlowRadius"] ?? 14}px ${rgba(d["pill.selGlowMode"] === "custom" ? d["pill.selGlowColor"] : sel, d["pill.selGlow"] / 100)}` } as any) : null,
     shadow: d["pill.shadow"] > 0 ? ({ boxShadow: `0px ${d["pill.shadowY"]}px ${d["pill.shadowRadius"]}px ${rgba(d["pill.shadowColor"], d["pill.shadow"] / 100)}` } as any) : null,
   };
 }
@@ -28,12 +31,12 @@ export function usePillStyle() {
 export function Pill({ label, active, onPress, onLongPress, onEdit, icon }: { label: string; active?: boolean; onPress: () => void; onLongPress?: () => void; onEdit?: () => void; icon?: keyof typeof Ionicons.glyphMap }) {
   const p = usePillStyle();
   const fg = active ? p.selInk : p.ink;
-  const ref = useBackdrop(active ? 0 : p.blur);
+  const ref = useBackdrop(active ? p.selBlur : p.blur);
   return (
-    // The selected pill stays solid so it always reads clearly; fill opacity and blur apply to the others.
+    // Selected and unselected pills each have their own fill opacity, blur and shadow (studio: Selected pill / Pill fill).
     <Pressable ref={ref} onPress={onPress} onLongPress={onLongPress} delayLongPress={400} accessibilityRole="button" accessibilityState={{ selected: !!active }}
       style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 4 * p.k, paddingHorizontal: p.padX, paddingVertical: p.padY, borderRadius: 999,
-        backgroundColor: active ? p.selBg : p.bg, opacity: pressed ? 0.7 : 1, maxWidth: 260 * p.k, ...p.shadow })}>
+        backgroundColor: active ? p.selFill : p.bg, opacity: pressed ? 0.7 : 1, maxWidth: 260 * p.k, ...(active ? p.selGlow : p.shadow) })}>
       {icon ? <Ionicons name={icon} size={p.font} color={fg} /> : null}
       <Text style={{ color: fg, fontSize: p.font, fontWeight: active ? (Number(p.weight) < 600 ? "600" : p.weight) : p.weight }} numberOfLines={1}>{label}</Text>
       {onEdit ? (
