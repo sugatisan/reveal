@@ -130,13 +130,17 @@ function prune() {
 }
 
 let running = null;
+let quietRun = null;
 export function refresh(opts) {
+  // Background refreshes of suggested sources run on their own, so a pull to refresh never waits on them
+  // (or gets their result instead of its own).
+  if (opts?.quiet) { if (!quietRun) quietRun = doRefresh(opts).finally(() => (quietRun = null)); return quietRun; }
   if (!running) running = doRefresh(opts).finally(() => (running = null));
   return running;
 }
 export const isRefreshing = () => !!running;
 
-async function doRefresh({ onlyIds } = {}) {
+async function doRefresh({ onlyIds, quiet } = {}) {
   const d = load();
   const ids = onlyIds || followedIds();
   const started = Date.now();
@@ -173,7 +177,7 @@ async function doRefresh({ onlyIds } = {}) {
   });
   await enrichImages();
   prune();
-  d.meta.lastRefresh = Date.now();
+  if (!quiet) d.meta.lastRefresh = Date.now();
   save();
   return { added, failed, sources: ids.length, ms: Date.now() - started };
 }

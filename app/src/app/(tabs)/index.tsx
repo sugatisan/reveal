@@ -20,7 +20,9 @@ import { useDesign } from "@/design/store";
 import { openCurator } from "@/lib/curatorSheet";
 
 // A "pair" is one row of the 2-column grid; everything else spans the full width.
-type Row = FeedEntry | { type: "divider"; id: string; label?: string } | { type: "pair"; id: string; items: FeedItem[] };
+type Row = FeedEntry | { type: "divider"; id: string; label?: string } | { type: "pair"; id: string; items: FeedItem[] } | { type: "end"; id: string };
+// Past the end of a feed: stories from sources you don't follow yet, a batch at a time as you keep scrolling.
+type More = { items: FeedItem[]; loading: boolean; done: boolean };
 
 export default function FeedScreen() {
   const t = useTheme();
@@ -225,11 +227,39 @@ export default function FeedScreen() {
   };
   const ask = (prompt: string, itemId?: string) => openCurator({ prompt, itemId });
 
-  const rowsFor = (f: Feed | null): Row[] => {
+  const [more, setMore] = useState<Record<string, More>>({});
+  const moreBusy = useRef(new Set<string>());
+  const [following, setFollowing] = useState<Record<string, boolean>>({});
+  const loadMore = (l: Lens) => {
+    const key = keyOf(l);
+    const cur = more[key];
+    if (l?.kind === "source" || moreBusy.current.has(key) || cur?.done) return;
+    moreBusy.current.add(key);
+    setMore((m) => ({ ...m, [key]: { items: m[key]?.items || [], loading: true, done: false } }));
+    const exclude = (cur?.items || []).map((x) => x.id).join(",");
+    const q = new URLSearchParams({ ...(l?.kind === "interest" ? { interest: l.id } : {}), ...(exclude ? { exclude } : {}) }).toString();
+    api<{ items: FeedItem[] }>(`/api/more${q ? "?" + q : ""}`)
+      .then((r) => { seedBriefs(r.items); setMore((m) => ({ ...m, [key]: { items: [...(m[key]?.items || []), ...r.items], loading: false, done: r.items.length < 4 } })); })
+      .catch(() => setMore((m) => ({ ...m, [key]: { items: m[key]?.items || [], loading: false, done: true } })))
+      .finally(() => moreBusy.current.delete(key));
+  };
+  // Anything that changes the feed starts "more" over too.
+  useEffect(() => { setMore({}); }, [version]);
+  const followBeyond = async (b: NonNullable<FeedItem["beyond"]>) => {
+    setFollowing((f) => ({ ...f, [b.sourceId]: true }));
+    try {
+      await api("/api/sources/follow", { interestId: b.interestId, sourceId: b.sourceId, follow: true });
+      toast.show(`Following ${b.sourceName} in ${b.interestLabel}.`);
+      reloadState();
+    } catch (e: any) { setFollowing((f) => ({ ...f, [b.sourceId]: false })); toast.show(e.message); }
+  };
+
+  const rowsFor = (f: Feed | null, more?: More, showEnd = false): Row[] => {
     const flat: Row[] = [];
     let itemIdx = 0;
-    for (const e of f?.entries || []) {
-      if (e.type === "item") {
+    const tail: Row[] = showEnd ? [{ type: "end", id: "end" }, ...(more?.items || [])] : [];
+    for (const e of [...(f?.entries || []), ...tail]) {
+      if (e.type === "item" && !e.beyond) {
         if (f && f.caughtUp > 0 && itemIdx === f.caughtUp) flat.push({ type: "divider", id: "divider" });
         // Scoped interest: what fits its scope first, then broader stories from the same sources.
         if (f && (f.broaderAt ?? -1) >= 0 && itemIdx === f.broaderAt) flat.push({ type: "divider", id: "broader", label: f.broaderAt === 0 ? `Nothing new fits ${f.broaderLabel} yet · broader stories` : `Beyond ${f.broaderLabel} · broader stories` });
@@ -263,6 +293,7 @@ export default function FeedScreen() {
   const orderKey = order.map(keyOf).join("|");
   const lensIdx = Math.max(0, order.findIndex((l) => keyOf(l) === curKey));
   const [pageW, setPageW] = useState(0);
+  const [pagerH, setPagerH] = useState(0);
   const [pagerIdx, setPagerIdx] = useState(lensIdx);
   const pagerIdxRef = useRef(pagerIdx);
   pagerIdxRef.current = pagerIdx;
@@ -328,7 +359,20 @@ export default function FeedScreen() {
 
   const errorText = error || stateError || (state && (state.apiVersion || 0) < NEEDS_API_VERSION ? "The Reveal server is older than the app. Stop it (Ctrl+C) and run npm run dev again." : "");
   const [barH, setBarH] = useState(0);
-  const renderRow = (r: Row) => {
+  const renderRow = (r: Row, pageKey: string) => {
+    if (r.type === "end") {
+      const m = more[pageKey];
+      return (
+        <View style={{ alignItems: "center", gap: 6, marginHorizontal: space.l, marginTop: space.l, marginBottom: space.xl }}>
+          <View style={{ width: 36, height: 3, borderRadius: 2, backgroundColor: t.line, marginBottom: space.m }} />
+          <Text style={{ color: t.ink, fontSize: 17, fontWeight: "700" }}>You're all caught up</Text>
+          <Text style={{ color: t.muted, fontSize: 14, textAlign: "center" }}>
+            {m?.items.length ? "More you might like, from sources you don't follow yet." : m?.loading ? "Looking beyond your sources…" : m?.done ? "That's everything for now. More arrives through the day." : "Keep scrolling for more from beyond your sources."}
+          </Text>
+          {m?.loading && !m.items.length ? <ActivityIndicator style={{ marginTop: space.s }} color={t.muted} /> : null}
+        </View>
+      );
+    }
     if (r.type === "divider") return (
       <View style={{ flexDirection: "row", alignItems: "center", gap: space.m, marginHorizontal: space.l, marginBottom: space.l }}>
         <View style={{ flex: 1, height: 1, backgroundColor: t.line }} />
@@ -337,10 +381,30 @@ export default function FeedScreen() {
       </View>
     );
     if (r.type === "curator") return <CuratorCardView card={r} onFollow={follow} onAsk={ask} onDismiss={() => dismissCard(r.id)} />;
-    const card = (it: FeedItem, inGrid = false) => (
-      <ItemCard key={it.id} inGrid={inGrid} item={it} onSave={() => save(it)} onLess={() => setLessFor(it.id)}
-        onOpen={() => { sendEvents([{ itemId: it.id, type: "expand" }]).catch(() => {}); router.push({ pathname: "/item/[id]", params: { id: it.id } }); }} />
-    );
+    const card = (it: FeedItem, inGrid = false) => {
+      const c = (
+        <ItemCard key={it.id} inGrid={inGrid} item={it} onSave={() => save(it)} onLess={() => setLessFor(it.id)}
+          onOpen={() => { sendEvents([{ itemId: it.id, type: "expand" }]).catch(() => {}); router.push({ pathname: "/item/[id]", params: { id: it.id } }); }} />
+      );
+      if (!it.beyond) return c;
+      // A story from beyond your sources: say so, and offer to follow its source.
+      const b = it.beyond;
+      const on = !!following[b.sourceId];
+      return (
+        <View key={it.id} style={inGrid ? { flex: 1 } : null}>
+          {c}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginHorizontal: inGrid ? 4 : design["card.inset"] + space.s, marginTop: -space.s, marginBottom: space.l }}>
+            <Text style={{ flex: 1, color: t.muted, fontSize: 12 }} numberOfLines={1}>{on ? `Following ${b.sourceName}` : `${b.sourceName} · not followed`}</Text>
+            {on ? <Ionicons name="checkmark-circle" size={18} color={t.accent} /> : (
+              <Pressable onPress={() => followBeyond(b)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Follow ${b.sourceName} in ${b.interestLabel}`}
+                style={({ pressed }) => ({ paddingHorizontal: 12, height: 28, borderRadius: 14, justifyContent: "center", backgroundColor: t.chip, opacity: pressed ? 0.7 : 1 })}>
+                <Text style={{ color: t.ink, fontSize: 13, fontWeight: "600" }}>Follow</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      );
+    };
     if (r.type === "pair") {
       const bleed = !!design["card.fullBleed"];
       return (
@@ -356,7 +420,7 @@ export default function FeedScreen() {
     const key = keyOf(l);
     const f = feeds[key] ?? null;
     const here = key === curKey;
-    if (Math.abs(index - pagerIdx) > 1) return <View style={{ width: pageW }} />;
+    if (Math.abs(index - pagerIdx) > 1) return <View style={{ width: pageW, height: pagerH }} />;
     if (full) return (
       <View style={{ width: pageW, height: pageH }}>
         <FullFeed entries={f?.entries || []} loaded={!!f} listKey={key} height={pageH} topSpace={headerH || insets.top + 50} bottomSpace={tabSpace}
@@ -372,8 +436,10 @@ export default function FeedScreen() {
     return (
       <FlatList
         ref={(r) => { lists.current.set(key, r); }}
-        style={{ width: pageW }}
-        data={rowsFor(f)}
+        style={{ width: pageW, height: pagerH }}
+        data={rowsFor(f, more[key], !!f && f.entries.length > 0 && l?.kind !== "source")}
+        onEndReached={() => { if (f && l?.kind !== "source") loadMore(l); }}
+        onEndReachedThreshold={1.5}
         keyExtractor={(r) => (r.type === "curator" ? "c-" + r.id : r.id)}
         onViewableItemsChanged={viewFor(key)}
         onScroll={onPageScroll(key)}
@@ -389,7 +455,7 @@ export default function FeedScreen() {
           </View>
         }
         ListEmptyComponent={f ? <Empty title="Nothing here yet" body="Pull down to check your sources, or follow a few more in Sources." /> : <ActivityIndicator style={{ marginTop: 60 }} color={t.muted} />}
-        renderItem={({ item: r }) => renderRow(r)}
+        renderItem={({ item: r }) => renderRow(r, key)}
         contentContainerStyle={{ paddingBottom: tabSpace + space.l }}
       />
     );
@@ -400,7 +466,7 @@ export default function FeedScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: full ? "#000" : t.bg }} edges={pinned ? [] : ["top"]}
       onLayout={(e) => setPageH(Math.round(e.nativeEvent.layout.height))}>
-      <View style={{ flex: 1 }} onLayout={(e) => setPageW(Math.round(e.nativeEvent.layout.width))}>
+      <View style={{ flex: 1 }} onLayout={(e) => { setPageW(Math.round(e.nativeEvent.layout.width)); setPagerH(Math.round(e.nativeEvent.layout.height)); }}>
         {pageW ? (
           <FlatList
             ref={pager}
@@ -416,7 +482,7 @@ export default function FeedScreen() {
             windowSize={3}
             initialNumToRender={3}
             maxToRenderPerBatch={3}
-            extraData={[feeds, pagerIdx, curKey, headerH, barH, refreshing, design, errorText, pageH]}
+            extraData={[feeds, more, following, pagerIdx, pagerH, curKey, headerH, barH, refreshing, design, errorText, pageH]}
             onScroll={onPagerScroll}
             onMomentumScrollEnd={commit}
             scrollEventThrottle={16}

@@ -16,7 +16,7 @@ try {
 const { load, save, flush, reset, hash, slug, upsertSource, sourceIdFor, followedIds, stat } = await import("./lib/store.js");
 const { discoverFeed, cadence, cadenceLabel, normalizeUrl, articlePage, sourceKind } = await import("./lib/feeds.js");
 const { refresh, isRefreshing, fetchSource, storeItems, mergeDuplicates, enrichImages, cleanSourceName } = await import("./lib/ingest.js");
-const { buildFeed, suggestionsFor, subMatch } = await import("./lib/rank.js");
+const { buildFeed, buildMore, suggestionsFor, subMatch } = await import("./lib/rank.js");
 const usage = await import("./lib/usage.js");
 const shop = await import("./lib/shop.js");
 const images = await import("./lib/images.js");
@@ -713,7 +713,12 @@ const routes = {
     const interestId = url.searchParams.get("interest") || undefined;
     const sourceId = url.searchParams.get("source") || undefined;
     const mediaEvery = Number(design.view().values["feed.mediaEvery"] ?? 8);
-    const { items, caughtUp, broaderAt, broaderLabel, pending } = buildFeed({ interestId, sourceId, mediaEvery });
+    const built = buildFeed({ interestId, sourceId, mediaEvery });
+    const { caughtUp, broaderAt, broaderLabel, pending } = built;
+    // The feed ends: what's new since your last visit plus the best 20 older stories (40 when nothing's new).
+    // Past the end, "More you might like" brings stories from beyond your sources.
+    const cap = sourceId || (broaderAt ?? -1) >= 0 ? Infinity : caughtUp > 0 ? caughtUp + 20 : 40;
+    const items = built.items.slice(0, cap);
     if (pending && interestId) scope.scoreInterest(interestId).catch(() => {});
     // A single-source view is for reading that source; the curator stays out of it.
     const entries = (sourceId ? items.map((it) => ({ type: "item", ...it })) : curator.weave(items, curator.feedCards(items, { interestId })))
@@ -724,6 +729,14 @@ const routes = {
 
   "GET /api/item": async (req, url) => itemDetail(url.searchParams.get("id")),
   "POST /api/item/brief": async (req) => { const { id } = await body(req); return { brief: await storyBrief(id) }; },
+  // Past the end of the feed: stories from sources suggested for your interests that you don't follow yet.
+  "GET /api/more": async (req, url) => {
+    const interestId = url.searchParams.get("interest") || undefined;
+    const exclude = (url.searchParams.get("exclude") || "").split(",").filter(Boolean);
+    const items = buildMore({ interestId, exclude, limit: 10 });
+    items.forEach((it) => { if (!briefReady(load().items[it.id])) storyBrief(it.id).catch(() => {}); });
+    return { items: items.map((e) => ({ ...e, brief: briefReady(load().items[e.id]) ? load().items[e.id].brief : null })) };
+  },
   "POST /api/item/links": async (req) => { const { id } = await body(req); const links = await subjectLinks(id); return { links, shops: shop.withAffiliate(load().items[id]?.shopLinks || []) }; },
   "GET /api/usage": async (req, url) => usage.summary(Number(url.searchParams.get("days")) || 7),
 
@@ -981,4 +994,15 @@ setInterval(() => scope.scoreAll().catch(() => {}), 2 * 6e4);
 setInterval(() => tuning.checkAllExclusions().catch(() => {}), 2 * 6e4);
 setTimeout(() => enrichImages().then((n) => n && console.log(`  Found larger images for ${n} stories`)).catch(() => {}), 5000);
 setInterval(tick, 5 * 6e4);
+const suggestedIds = () => { const d = load(); const fol = new Set(followedIds()); return [...new Set(d.interests.filter((i) => !i.strict).flatMap((i) => i.suggestedIds || []))].filter((s) => !fol.has(s) && !d.dismissed.includes(s)); };
+const refreshBeyond = () => {
+  const d = load();
+  if (Date.now() - (d.meta.beyondRefresh || 0) < 3 * 36e5) return;
+  const ids = suggestedIds();
+  if (!ids.length) return;
+  d.meta.beyondRefresh = Date.now();
+  refresh({ onlyIds: ids, quiet: true }).then((r) => console.log(`  Refreshed suggested sources: ${r.added} new items`)).catch(() => {});
+};
+setTimeout(refreshBeyond, 90 * 1000);
+setInterval(refreshBeyond, 15 * 6e4);
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { flush(); server.closeAllConnections?.(); process.exit(0); });

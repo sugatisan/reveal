@@ -122,6 +122,55 @@ function spread(list, limit) {
   return out;
 }
 
+// Past the end of your feed: the best recent stories from sources suggested for your interests that you
+// don't follow yet, each with its source so you can follow it. Nothing you've already been shown, nothing
+// you said less of; at most two per source per batch, spread across interests and sources.
+export function buildMore({ interestId, exclude = [], limit = 12 } = {}) {
+  const d = load();
+  const now = Date.now();
+  const ints = (interestId ? d.interests.filter((i) => i.id === interestId) : d.interests).filter((i) => !i.strict);
+  const followed = new Set(d.interests.flatMap((i) => i.sourceIds));
+  const skip = new Set(exclude);
+  const home = new Map(); // sourceId -> interest
+  for (const i of ints) for (const s of i.suggestedIds || []) if (!followed.has(s) && !d.dismissed.includes(s) && !home.has(s)) home.set(s, i);
+  const pool = [];
+  for (const it of Object.values(d.items)) {
+    const i = home.get(it.sourceId);
+    if (!i || it.dupOf || skip.has(it.id)) continue;
+    const ev = d.events[it.id] || {};
+    if (ev.shown || ev.less || ev.expand || excluded(it)) continue;
+    const ageH = (now - it.date) / 36e5;
+    if (ageH > 24 * 7) continue;
+    const sub = subMatch(it, i.subs || []);
+    const score = Math.exp(-ageH / 48) + (sub ? 0.4 : 0) + (it.image ? 0.15 : 0);
+    pool.push({ it, i, sub, score });
+  }
+  pool.sort((a, b) => b.score - a.score);
+  // Round-robin by interest, at most two per source.
+  const byInt = new Map();
+  for (const p of pool) (byInt.get(p.i.id) || byInt.set(p.i.id, []).get(p.i.id)).push(p);
+  const out = [], perSource = new Map();
+  const lists = [...byInt.values()];
+  for (let r = 0; out.length < limit && lists.some((l) => l.length); r++) {
+    for (const l of lists) {
+      while (l.length) {
+        const p = l.shift();
+        if ((perSource.get(p.it.sourceId) || 0) >= 2) continue;
+        perSource.set(p.it.sourceId, (perSource.get(p.it.sourceId) || 0) + 1);
+        out.push(p);
+        break;
+      }
+      if (out.length >= limit) break;
+    }
+  }
+  return out.map(({ it, i, sub }) => {
+    const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, linkCands, subjectLinks, ...pub } = it;
+    const src = d.sources[it.sourceId] || {};
+    return { ...pub, type: "item", why: sub ? `${i.label} · ${sub}` : i.label, sourceName: src.name, imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length,
+      interestIds: [i.id], saved: !!d.events[it.id]?.save, beyond: { sourceId: it.sourceId, sourceName: src.name, interestId: i.id, interestLabel: i.label } };
+  });
+}
+
 // Source suggestions to drop into the scroll: one every 9 cards, never in the first 5.
 export function suggestionsFor({ interestId } = {}) {
   const d = load();
