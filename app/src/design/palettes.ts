@@ -55,16 +55,21 @@ export const PALETTES: { id: string; label: string; note: string; base?: Base }[
   { id: "custom", label: "Custom", note: "Your colors below" },
 ];
 
-export function themeFor(id: string, systemDark: boolean, custom: Base): Theme {
+// Custom palettes you've saved from the studio ("Add to palettes"), kept in the design values as color.saved.
+export type SavedPalette = { id: string; label: string; base: Base };
+
+export function themeFor(id: string, systemDark: boolean, custom: Base, saved: SavedPalette[] = []): Theme {
   if (id === "custom") return derive(custom);
+  const mine = saved.find((x) => x.id === id);
+  if (mine) return derive(mine.base);
   const p = PALETTES.find((x) => x.id === id);
   if (!p || !p.base) return systemDark ? PAPER_DARK : PAPER_LIGHT;
   return derive(p.base);
 }
 
 // Swatches shown on the palette tiles: background, card, text, accent, curator.
-export const preview = (id: string, custom: Base) => {
-  const t = id === "paper" ? PAPER_LIGHT : themeFor(id, false, custom);
+export const preview = (id: string, custom: Base, saved: SavedPalette[] = []) => {
+  const t = id === "paper" ? PAPER_LIGHT : themeFor(id, false, custom, saved);
   return [t.bg, t.card, t.ink, t.accent, t.curatorBg];
 };
 export type { Base };

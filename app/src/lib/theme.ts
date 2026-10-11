@@ -10,7 +10,7 @@ export function useTheme(): Theme {
   return themeFor(d["color.palette"], systemDark, {
     bg: d["color.bg"], card: d["color.card"], ink: d["color.ink"], muted: d["color.muted"],
     accent: d["color.accent"], curatorBg: d["color.curatorBg"], curatorAccent: d["color.curatorAccent"],
-  });
+  }, d["color.saved"] || []);
 }
 
 export const serif = Platform.select({ ios: "Georgia", android: "serif", default: "Georgia, 'Times New Roman', serif" });
