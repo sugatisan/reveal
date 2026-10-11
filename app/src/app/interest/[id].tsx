@@ -117,6 +117,7 @@ export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: st
               <Ionicons name="pencil" size={16} color={t.faint} />
             </Pressable>
           )}
+          {i.longLabel ? <Text style={{ color: t.muted, fontSize: 13, marginTop: 2 }}>{i.longLabel}</Text> : null}
           <Text style={{ color: t.muted, marginTop: 4 }}>
             {i.sources.length} source{i.sources.length === 1 ? "" : "s"}{i.newCount ? ` · ${i.newCount} new` : ""}{i.subs.length ? ` · ${i.subs.length} things you like` : ""}
           </Text>

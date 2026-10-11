@@ -109,7 +109,7 @@ export function feedCards(items, { interestId } = {}) {
     if (home) {
       if (!it.likeIdeas && hasKey() && !likePending.has(it.id) && !(it.likeErrAt && Date.now() - it.likeErrAt < 36e5)) {
         likePending.add(it.id);
-        likeIdeas(it, d.sources[it.sourceId]?.name || "", home.label, home.subs || []).then((l) => { it.likeIdeas = l; save(); }).catch((e) => { console.error("  Like ideas failed:", e.message); it.likeErr = String(e.message || e).slice(0, 200); it.likeErrAt = Date.now(); save(); }).finally(() => likePending.delete(it.id));
+        likeIdeas(it, d.sources[it.sourceId]?.name || "", home.longLabel || home.label, home.subs || []).then((l) => { it.likeIdeas = l; save(); }).catch((e) => { console.error("  Like ideas failed:", e.message); it.likeErr = String(e.message || e).slice(0, 200); it.likeErrAt = Date.now(); save(); }).finally(() => likePending.delete(it.id));
       }
       likes = (it.likeIdeas || []).filter((x) => !(home.subs || []).some((s) => s.toLowerCase() === x.toLowerCase()));
     }

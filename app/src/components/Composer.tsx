@@ -86,7 +86,7 @@ export function Composer({ text, state, go, onDone, onOpen }: {
     setCreating(true); setErr("");
     try {
       const r = await api<{ id: string; state: AppState }>("/api/interests/compose", {
-        label, scope: into ? "" : scope, short: draft?.short || "", likes: picked,
+        label, name: draft?.name || "", scope: into ? "" : scope, short: draft?.short || "", likes: picked,
         skipped: (draft?.likes || []).map((x) => x.term).filter((x) => !likes[x]),
         into, focus: overlap?.kind === "narrower" ? overlap.focus : undefined,
         sources: (rows || []).filter((x) => x.check?.ok).map((x) => ({ url: x.check!.url, why: x.why, fit: x.fit, follow: x.on })),
@@ -121,7 +121,8 @@ export function Composer({ text, state, go, onDone, onOpen }: {
 
           {!into ? (
             <View style={{ gap: space.s }}>
-              <Text style={{ color: t.ink, fontWeight: "700", fontSize: 18 }}>{label}</Text>
+              <Text style={{ color: t.ink, fontWeight: "700", fontSize: 18 }}>{draft.name || label}</Text>
+              {draft.name && draft.name !== label ? <Text style={{ color: t.muted, fontSize: 12 }}>Short for “{label}”</Text> : null}
               {draft.qualified ? (
                 <>
                   <TextInput value={scope} onChangeText={setScope} multiline placeholder="What belongs here" placeholderTextColor={t.faint}

@@ -29,7 +29,7 @@ export async function api<T = any>(path: string, data?: unknown): Promise<T> {
 
 // ---------- types (mirror the server's responses) ----------
 export type SourceView = { id: string; name: string; site: string; newCount?: number; why?: string; about?: string; status?: string; error?: string; perWeek?: number; cadence?: string; followed?: boolean; interestId?: string; interestLabel?: string };
-export type Interest = { id: string; label: string; origin: string; strict?: boolean; scope?: string; scopeShort?: string; scopeMode?: "first" | "only" | "all"; scopeStats?: { checked: number; matched: number } | null; createdAt: number; lastViewedAt: number; newCount: number; subs: string[]; subSuggestions: string[]; clarify: { question: string; options: string[] } | null; merged: string[]; sources: SourceView[]; suggested: SourceView[] };
+export type Interest = { id: string; label: string; longLabel?: string; origin: string; strict?: boolean; scope?: string; scopeShort?: string; scopeMode?: "first" | "only" | "all"; scopeStats?: { checked: number; matched: number } | null; createdAt: number; lastViewedAt: number; newCount: number; subs: string[]; subSuggestions: string[]; clarify: { question: string; options: string[] } | null; merged: string[]; sources: SourceView[]; suggested: SourceView[] };
 export type TuningRule = { id: string; kind: "source" | "topic" | "interest" | "format" | "exclude"; value: string; label: string; at: number; interestIds?: string[]; hidden?: number };
 export const NEEDS_API_VERSION = 6;
 export type StoryBrief = { gist: string; facts: { label: string; value: string }[]; questions: string[]; from: "article" | "excerpt" };
@@ -84,6 +84,6 @@ export const looksLikeSite = (x: string) => /^(https?:\/\/)?([\w-]+\.)+[a-z]{2,}
 export type SitePreview = { name: string; site: string; kind: "podcast" | "video" | "site"; about: string; guess: string | null; already: string[] };
 
 // Interest composer: a quick read while typing, then proposed sources to pick from.
-export type Draft = { label: string; qualified: boolean; subject: string; short: string; scope: string; likes: { term: string; why: string }[]; home: string };
+export type Draft = { label: string; name?: string; qualified: boolean; subject: string; short: string; scope: string; likes: { term: string; why: string }[]; home: string };
 export type Proposal = { name: string; site: string; feed: string | null; why: string; fit: "dedicated" | "broad" };
 export type ProposalCheck = { ok: boolean; url?: string; name?: string; kind?: "podcast" | "video" | "site"; cadence?: string; titles?: { title: string; excerpt: string }[] };

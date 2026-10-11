@@ -87,7 +87,7 @@ export async function moreSources(interest, existing) {
     return (t?.sources || []).filter((s) => !existing.some((e) => e.site && sameHost(e.site, s.site)));
   }
   const system = `You are the curator inside a personal discovery feed. Reply with JSON only.`;
-  const prompt = `Interest: "${interest.label}"${interest.subs?.length ? ` (leaning toward: ${interest.subs.join(", ")})` : ""}.${interest.scope ? `\nWhat belongs: ${interest.scope}` : ""}
+  const prompt = `Interest: "${interest.longLabel || interest.label}"${interest.subs?.length ? ` (leaning toward: ${interest.subs.join(", ")})` : ""}.${interest.scope ? `\nWhat belongs: ${interest.scope}` : ""}
 The person already has these sources: ${existing.map((e) => e.name).join(", ") || "none"}.
 
 Find 8 more sources they don't have, best first. ${interest.scope ? "Favor sources dedicated to exactly what belongs (specialist blogs, fan sites, archives, newsletters, podcasts), even small ones, over general sources about the wider subject." : "Include a few specialist or smaller sources, not only the biggest names."}
@@ -233,7 +233,7 @@ const KINDS = {
 // More of one kind, skipping everything already shown.
 export async function moreConcepts(interest, kind, exclude = [], titles = []) {
   if (!hasKey() || !KINDS[kind]) return [];
-  const prompt = `Interest: "${interest.label}"${interest.subs?.length ? `. Already focused on: ${interest.subs.join(", ")}` : ""}.
+  const prompt = `Interest: "${interest.longLabel || interest.label}"${interest.subs?.length ? `. Already focused on: ${interest.subs.join(", ")}` : ""}.
 Recent story titles from their sources:
 ${titles.slice(0, 15).map((x) => `- ${x}`).join("\n") || "(none yet)"}
 
@@ -254,7 +254,7 @@ export async function concepts(interest, titles = []) {
     const items = [...(interest.subSuggestions || []), ...(t?.subs || [])].filter((s, k, a) => a.indexOf(s) === k && !(interest.subs || []).includes(s));
     return items.length ? [{ kind: "terms", title: "Ideas", items: items.slice(0, 8).map((term) => ({ term, why: "" })) }] : [];
   }
-  const prompt = `Interest: "${interest.label}"${interest.subs?.length ? `. Already focused on: ${interest.subs.join(", ")}` : ""}.
+  const prompt = `Interest: "${interest.longLabel || interest.label}"${interest.subs?.length ? `. Already focused on: ${interest.subs.join(", ")}` : ""}.
 Recent story titles from their sources:
 ${titles.slice(0, 15).map((x) => `- ${x}`).join("\n") || "(none yet)"}
 
@@ -342,6 +342,7 @@ const DRAFT_SCHEMA = {
   type: "object",
   properties: {
     label: { type: "string", description: "The interest's name in the person's own words and specificity, tidied: capitalization, obvious plural slips. Never broader than what they typed." },
+    name: { type: "string", description: "A short display name for pills and lists: 1-3 words, at most 20 characters, as a person would say it ('Golf sims' for 'golf simulator software and hardware', '80s Marvel' for 'marvel comics from the 80s'). Must stay distinct from their existing interests. If the label is already short, the same." },
     qualified: { type: "boolean", description: "True only when the phrase narrows a subject with a qualifier: an era or year range, a maker or brand, a place, a format, a sub-genre, a specific series or person. 'Marvel comics from the 80s' and 'Japanese denim' are qualified; 'watches' and 'LEGO' are not." },
     subject: { type: "string", description: "When qualified: the broad subject without the qualifier (e.g. 'Marvel comics'). Else empty." },
     short: { type: "string", description: "When qualified: the narrow intent in 2-4 words for a divider label (e.g. '1980s Marvel'). Else empty." },
@@ -353,7 +354,7 @@ const DRAFT_SCHEMA = {
     },
     home: { type: "string", description: "If this is really a narrower part of one of the person's existing interests (it would fit as something they like inside it), that interest's exact label. Else empty." },
   },
-  required: ["label", "qualified", "subject", "short", "scope", "likes", "home"],
+  required: ["label", "name", "qualified", "subject", "short", "scope", "likes", "home"],
 };
 export async function draftInterest(text, existing = []) {
   if (!hasKey()) return null;
@@ -364,6 +365,7 @@ Read what they mean. Keep their specificity.`;
   const q = !!out.qualified && !!String(out.scope || "").trim();
   return {
     label: String(out.label || text).trim().slice(0, 60),
+    name: String(out.name || out.label || text).trim().slice(0, 24),
     qualified: q,
     subject: q ? String(out.subject || "").trim() : "",
     short: q ? String(out.short || "").trim().slice(0, 30) : "",
@@ -412,7 +414,8 @@ const SCOPE_SCHEMA = {
   },
   required: ["inScope", "borderline"],
 };
-export async function scopeCheck({ label, scope }, stories) {
+export async function scopeCheck({ label, longLabel, scope }, stories) {
+  label = longLabel || label;
   if (!hasKey() || !stories.length) return stories.map(() => 0);
   const prompt = `Interest: "${label}"
 What belongs: ${scope}
@@ -508,4 +511,18 @@ Which stories does the rule cover? Be precise: only stories that clearly match i
   const res = stories.map(() => 0);
   for (const n of out.match || []) if (res[n - 1] !== undefined) res[n - 1] = 1;
   return res;
+}
+
+
+// Short names for interests whose names run long, kept distinct from each other and from the rest.
+export async function shortNames(long, others = []) {
+  if (!hasKey() || !long.length) return {};
+  const prompt = `Interests with long names (id | name):
+${long.map((x) => `${x.id} | ${x.label}`).join("\n")}
+Their other interests: ${others.join(", ") || "(none)"}
+
+Give each a short display name for pills and lists: 1-3 words, at most 20 characters, as a person would say it, keeping its meaning (e.g. "Golf simulator software and hardware" -> "Golf sims"). Every name must be distinct from the others and from their other interests.
+Return JSON only: {"names": {"<id>": "<short name>"}}`;
+  const out = json(await claude({ system: "You name things concisely. Reply with JSON only.", prompt, model: FAST(), maxTokens: 300, purpose: "short-names" }));
+  return out.names || {};
 }

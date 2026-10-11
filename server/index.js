@@ -158,7 +158,7 @@ function newCounts() {
 }
 function interestView(i, counts = newCounts()) {
   return {
-    id: i.id, label: i.label, origin: i.origin, strict: !!i.strict,
+    id: i.id, label: i.label, longLabel: i.longLabel || "", origin: i.origin, strict: !!i.strict,
     scope: i.scope || "", scopeShort: i.scopeShort || "", scopeMode: i.scopeMode || "first",
     scopeStats: i.scope && i.fit ? { checked: Object.keys(i.fit.m).length, matched: Object.values(i.fit.m).filter((v) => v === 2).length } : null, createdAt: i.createdAt || 0, lastViewedAt: i.lastViewedAt || 0,
     newCount: i.sourceIds.reduce((n, s) => n + (counts.get(s) || 0), 0), subs: i.subs, subSuggestions: (i.subSuggestions || []).filter((x) => !i.subs.includes(x)), clarify: i.clarify, merged: i.merged,
@@ -544,7 +544,9 @@ const routes = {
   },
 
   "POST /api/interests/compose": async (req) => {
-    const { label, scope: sc, short, likes = [], skipped = [], into, focus, sources = [] } = await body(req);
+    const { label: phrase, name, scope: sc, short, likes = [], skipped = [], into, focus, sources = [] } = await body(req);
+    // The interest is called by its short name; the full phrase is kept with it.
+    const label = (name || "").trim() && name.trim().length < String(phrase || "").trim().length ? name.trim() : phrase;
     const d = load();
     const follow = sources.filter((x) => x.follow && x.url), rest = sources.filter((x) => !x.follow && x.url);
     let i;
@@ -558,7 +560,7 @@ const routes = {
       if (!label?.trim()) throw new Error("Name the interest first");
       i = d.interests.find((x) => x.label.toLowerCase() === label.trim().toLowerCase());
       if (!i) {
-        i = { id: slug(label) + "-" + hash(Date.now() + label).slice(0, 4), label: label.trim(), origin: "composed", topic: null, subs: [], subSuggestions: [], clarify: null, merged: [label.trim()], sourceIds: [], suggestedIds: [], createdAt: Date.now() };
+        i = { id: slug(label) + "-" + hash(Date.now() + label).slice(0, 4), label: label.trim(), longLabel: phrase !== label ? String(phrase).trim() : undefined, origin: "composed", topic: null, subs: [], subSuggestions: [], clarify: null, merged: [String(phrase || label).trim()], sourceIds: [], suggestedIds: [], createdAt: Date.now() };
         d.interests.push(i);
       }
       i.subs = [...new Set([...i.subs, ...likes])];
@@ -614,7 +616,7 @@ const routes = {
     const i = load().interests.find((x) => x.id === id);
     if (!i) throw new Error("Interest not found");
     if (!String(text || "").trim()) throw new Error("Type something to add");
-    const items = await agent.splitAdditions(String(text).trim().slice(0, 400), i.label);
+    const items = await agent.splitAdditions(String(text).trim().slice(0, 400), i.longLabel || i.label);
     const results = await Promise.all(items.map(async (x) => {
       if (x.kind === "like") {
         if (!i.subs.some((s) => s.toLowerCase() === x.text.toLowerCase())) i.subs.push(x.text);
@@ -918,6 +920,26 @@ server.on("listening", () => {
 server.listen(PORT, "0.0.0.0");
 
 // Keep the feed fresh while the app is running.
+// Long interest names get a short one once (the full phrase stays as longLabel).
+async function shortenLongNames() {
+  const d = load();
+  const long = d.interests.filter((i) => i.label.length > 22 && !i.longLabel);
+  if (!long.length || !agent.hasKey()) return;
+  try {
+    const names = await agent.shortNames(long.map((i) => ({ id: i.id, label: i.label })), d.interests.filter((i) => !long.includes(i)).map((i) => i.label));
+    const taken = new Set(d.interests.filter((i) => !long.includes(i)).map((i) => i.label.toLowerCase()));
+    for (const i of long) {
+      const n = String(names[i.id] || "").trim();
+      if (!n || n.length >= i.label.length || taken.has(n.toLowerCase())) continue;
+      taken.add(n.toLowerCase());
+      i.longLabel = i.label; i.label = n;
+    }
+    save();
+    console.log("  Shortened interest names");
+  } catch (e) { console.error("  Shortening names failed:", e.message); }
+}
+setTimeout(() => shortenLongNames(), 4000);
+
 const tick = () => { if (followedIds().length && Date.now() - load().meta.lastRefresh > 25 * 6e4) refresh().then((r) => { console.log(`  Refreshed: ${r.added} new items, ${r.failed} sources failed`); return r.added ? tuning.checkAllExclusions() : null; }).catch(() => {}); };
 setTimeout(tick, 1500);
 setTimeout(() => pregenBriefs().catch(() => {}), 8000);
