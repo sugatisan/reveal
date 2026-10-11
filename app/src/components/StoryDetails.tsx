@@ -29,6 +29,13 @@ const loadBrief = (id: string, d: ItemDetail) => {
   if (!briefs.has(id)) briefs.set(id, api<{ brief: StoryBrief | null }>("/api/item/brief", { id }).then((r) => r.brief).catch((e) => { briefs.delete(id); throw e; }));
   return briefs.get(id)!;
 };
+// Links to what the story is about, worked out the first time anyone opens it.
+type Links = { links: { url: string; label: string }[]; shops?: ItemDetail["shops"] };
+const linkLoads = new Map<string, Promise<Links>>();
+const loadLinks = (id: string) => {
+  if (!linkLoads.has(id)) linkLoads.set(id, api<Links>("/api/item/links", { id }).then((r) => ({ links: r.links || [], shops: r.shops })).catch(() => { linkLoads.delete(id); return { links: [] }; }));
+  return linkLoads.get(id)!;
+};
 // The feed already carries summaries written ahead of time; keep them so opening a story is instant.
 export function seedBriefs(entries: { type: string; id: string; brief?: StoryBrief | null }[]) {
   for (const e of entries) if (e.type === "item" && e.brief && !briefs.has(e.id)) briefs.set(e.id, Promise.resolve(e.brief));
@@ -77,6 +84,16 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
   const t = useTheme();
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState("");
+  const [links, setLinks] = useState(it.links);
+  const [shops, setShops] = useState(it.shops);
+  useEffect(() => {
+    setLinks(it.links); setShops(it.shops);
+    if (it.links === undefined && !it.web) {
+      let live = true;
+      loadLinks(it.id).then((r) => { if (!live) return; setLinks(r.links); if (r.shops) setShops(r.shops); });
+      return () => { live = false; };
+    }
+  }, [it.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const shown0 = mode === "gist" ? brief : null; // facts and questions only come with the AI brief
   // Episodes and videos: their length leads the key facts.
   const len = mediaLabel(it)?.split(" · ")[1];
@@ -118,18 +135,22 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
       </View>
 
 
-      {it.shops?.length ? (
+      {/* Where to buy, and links to what the story is about (official site, trailer, the study), in one module. */}
+      {shops?.length || links?.length ? (
         <View>
-          <Label>WHERE TO BUY</Label>
+          <Label>{shops?.length && !links?.length ? "WHERE TO BUY" : shops?.length ? "WHERE TO BUY & LINKS" : "LINKS"}</Label>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
-            {it.shops.map((s) => (
+            {(shops || []).map((s) => (
               <Chip key={s.shop} label={s.shop} icon="bag-handle-outline" onPress={() => {
                 sendEvents([{ itemId: it.id, type: "buy" }]).catch(() => {});
                 openLink(s.url);
               }} />
             ))}
+            {(links || []).map((l) => (
+              <Chip key={l.url} label={l.label} icon={/trailer|video|watch/i.test(l.label) || /youtube\.com|youtu\.be|vimeo\.com/.test(l.url) ? "play-outline" : "link-outline"} onPress={() => openLink(l.url)} />
+            ))}
           </View>
-          {it.shops.some((s) => s.ours) ? <Text style={{ color: t.faint, fontSize: 12, marginTop: space.s }}>Reveal may earn a commission from these links. It never affects what you see.</Text> : null}
+          {shops?.some((s) => s.ours) ? <Text style={{ color: t.faint, fontSize: 12, marginTop: space.s }}>Reveal may earn a commission from these links. It never affects what you see.</Text> : null}
         </View>
       ) : null}
 

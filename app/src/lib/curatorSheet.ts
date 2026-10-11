@@ -1,6 +1,7 @@
 // The curator lives in a bottom sheet over whatever you're looking at, so asking never leaves the page.
 // Anything can open it: the Ask tab, "More like this" on a story, a feed card, search.
 import { useSyncExternalStore } from "react";
+import { setAskText } from "@/lib/ask";
 
 export type Detent = "half" | "full";
 export type CuratorContext = { itemId: string; title?: string };
@@ -31,7 +32,7 @@ export function openCurator(opts: { prompt?: string; itemId?: string; title?: st
   });
 }
 export const closeCurator = () => set({ status: "closed", context: null, request: null });
-export const minimizeCurator = () => set({ status: "min", request: null });
+export const minimizeCurator = () => { setAskText(""); set({ status: "min", request: null }); };
 export const setCuratorDetent = (detent: Detent) => set({ detent });
 export const clearCuratorContext = () => set({ context: null });
 export const setCuratorCovering = (covering: boolean) => set({ covering });

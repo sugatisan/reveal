@@ -335,6 +335,37 @@ Brief a reader deciding whether to open this story.`;
   };
 }
 
+// Links to what a story is about, chosen from the article's own links (by number). Never writes a URL.
+const LINKS_SCHEMA = {
+  type: "object",
+  properties: {
+    links: {
+      type: "array", maxItems: 3,
+      description: "Links whose destination IS the subject of the story or its official media: the game's or product's own page, the maker's page for it, the paper or report, the project's repo, the place's own site, the official trailer. Not other news coverage, not general homepages, not tangents. Most useful first. Empty is normal.",
+      items: { type: "object", properties: { n: { type: "integer", description: "The link's number in the list" }, label: { type: "string", description: "1-3 words naming what it is, e.g. Official site, Trailer, The study, GitHub repo, Menu, Kickstarter" } }, required: ["n", "label"] },
+    },
+  },
+  required: ["links"],
+};
+export async function pickLinks(item, gist, candidates) {
+  if (!hasKey() || !candidates.length) return [];
+  const list = candidates.map((c, i) => `[${i + 1}] ${c.text || "(no text)"} -> ${c.url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 120)}`).join("\n");
+  const prompt = `Story: ${item.title}
+${gist ? `Gist: ${gist}\n` : ""}Links in the article:
+${list}
+
+Which of these link to the thing this story is about?`;
+  const out = await claudeForm({ system: "You pick supporting links for stories in a discovery feed.", prompt, schema: LINKS_SCHEMA, model: FAST(), maxTokens: 300, purpose: "story-links" });
+  const picked = [];
+  for (const l of Array.isArray(out.links) ? out.links : []) {
+    const c = candidates[Number(l?.n) - 1];
+    const label = String(l?.label || "").trim().slice(0, 28);
+    if (!c || !label || picked.some((p) => p.url === c.url)) continue;
+    picked.push({ url: c.url, label });
+  }
+  return picked.slice(0, 3);
+}
+
 // ---------- Interest composer ----------
 // Quick read while the person types: what they mean, whether it's narrower than its subject,
 // things they might like, and whether it belongs inside an interest they already have. Fast model.

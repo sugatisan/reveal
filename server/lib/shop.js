@@ -15,12 +15,16 @@ const SHOPS = [
   ["huckberry.com", "Huckberry"], ["bhphotovideo.com", "B&H"], ["kickstarter.com", "Kickstarter"],
   ["indiegogo.com", "Indiegogo"], ["moma.org/store", "MoMA Design Store"], ["dwr.com", "Design Within Reach"],
   ["hermanmiller.com", "Herman Miller"], ["knoll.com", "Knoll"], ["uncrate.com/shop", "Uncrate"], ["jetpens.com", "JetPens"],
+  // Games and apps
+  ["store.steampowered.com", "Steam"], ["store.playstation.com", "PlayStation Store"], ["xbox.com/", "Xbox"],
+  ["nintendo.com/", "Nintendo"], ["store.epicgames.com", "Epic Games"], ["gog.com/", "GOG"],
+  ["apps.apple.com", "App Store"], ["play.google.com/store", "Google Play"],
 ];
 // Hosts that mean "someone already monetizes this click".
 const REDIRECTS = /(skimresources|redirectingat|linksynergy|shareasale|anrdoezrs|tkqlhce|jdoqocy|dpbolvw|kqzyfj|awin1|howl\.me|geni\.us|fave\.co|narrativ|sovrn|go\.skimlinks|click\.|affiliate|impact\.com|pxf\.io|sjv\.io|avantlink|rstyle\.me|shopstyle)/i;
 const TAG_PARAMS = /[?&](tag|campid|affid|aff_id|ref|irclickid|clickid|utm_source=.*affil)/i;
 
-function shopFor(u) {
+export function shopFor(u) {
   let h = "", full = "";
   try { const x = new URL(u); h = x.hostname.replace(/^www\./, ""); full = h + x.pathname; } catch { return null; }
   const hit = SHOPS.find(([d]) => (d.includes("/") ? full.startsWith(d) : h === d.replace(/\.$/, "") || h.includes(d)));

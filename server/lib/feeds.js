@@ -1,4 +1,4 @@
-import { shopLinks } from "./shop.js";
+import { shopFor, shopLinks } from "./shop.js";
 // Fetching, parsing and discovering RSS/Atom feeds. No dependencies.
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 DiscoveryFeed/0.1";
@@ -346,6 +346,42 @@ function articleText(body) {
 }
 
 // One fetch of the article page: its images (for the gallery) and its text (for the brief).
+// Links in the article body that might point at what the story is about: the game's site, the product page,
+// the study, the repo, a trailer. Not the publisher's own pages, share buttons, or shops (those are "Where to buy").
+const SHARE = /(facebook\.com\/(sharer|dialog)|twitter\.com\/(intent|share)|x\.com\/intent|pinterest\.[a-z.]+\/pin|linkedin\.com\/(share|cws)|reddit\.com\/submit|wa\.me|whatsapp|t\.me\/share|mailto:|tel:|flipboard\.com|news\.google\.com|feedly\.com|getpocket\.com)/i;
+const site = (h) => h.replace(/^www\./, "").split(".").slice(-2).join(".");
+export function subjectCandidates(html = "", base = "") {
+  let own = "";
+  try { own = site(new URL(base).hostname); } catch {}
+  const out = [];
+  const seen = new Set();
+  const add = (url, text) => {
+    let u;
+    try { u = new URL(url, base); } catch { return; }
+    if (!/^https?:$/.test(u.protocol) || SHARE.test(u.href) || site(u.hostname) === own || shopFor(u.href)) return;
+    if (/\.(jpe?g|png|gif|webp|svg|pdf)$/i.test(u.pathname) && !/\.pdf$/i.test(u.pathname)) return;
+    u.hash = "";
+    for (const k of [...u.searchParams.keys()]) if (/^(utm_|fbclid|gclid|mc_|ref$|ref_src)/i.test(k)) u.searchParams.delete(k);
+    const key = u.href.replace(/\/$/, "");
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ url: u.href, text: String(text || "").replace(/\s+/g, " ").trim().slice(0, 80) });
+  };
+  for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*(?:"([^"]+)"|'([^']+)')[^>]*>([\s\S]*?)<\/a>/gi)) {
+    add(decode(m[1] || m[2] || ""), decode(stripTags(m[3] || "")));
+    if (out.length >= 40) break;
+  }
+  // Embedded videos (a trailer in the article) become plain watch links.
+  for (const m of html.matchAll(/<iframe\b[^>]*src\s*=\s*(?:"([^"]+)"|'([^']+)')/gi)) {
+    const src = decode(m[1] || m[2] || "");
+    const yt = src.match(/youtube(?:-nocookie)?\.com\/embed\/([\w-]{6,})/i);
+    const vm = src.match(/player\.vimeo\.com\/video\/(\d+)/i);
+    if (yt) add(`https://www.youtube.com/watch?v=${yt[1]}`, "(embedded video)");
+    else if (vm) add(`https://vimeo.com/${vm[1]}`, "(embedded video)");
+  }
+  return out.slice(0, 40);
+}
+
 export async function articlePage(url, { timeout = 7000 } = {}) {
   const { text, url: finalUrl } = await fetchText(url, { timeout, accept: "text/html" });
   const og = (text.match(/<meta[^>]+property\s*=\s*["']og:image(?::url)?["'][^>]*>/i) || [])[0];
@@ -371,5 +407,5 @@ export async function articlePage(url, { timeout = 7000 } = {}) {
     const end = region.slice(2000).search(/<(footer|aside)\b|class\s*=\s*["'][^"']*\b(sidebar|advert|related|comments?|newsletter|PostLink|post-nav)/i);
     if (end >= 0) region = region.slice(0, 2000 + end);
   }
-  return { images: [...new Set([ogUrl, ...(region ? allImages(region, finalUrl, 12) : [])])].filter(Boolean), text: body ? articleText(body) : fallback.length > 400 ? fallback : "", shops: shopLinks(body || text, finalUrl) };
+  return { images: [...new Set([ogUrl, ...(region ? allImages(region, finalUrl, 12) : [])])].filter(Boolean), text: body ? articleText(body) : fallback.length > 400 ? fallback : "", shops: shopLinks(body || text, finalUrl), links: subjectCandidates(body || region, finalUrl) };
 }

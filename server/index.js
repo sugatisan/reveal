@@ -248,7 +248,7 @@ function ensurePage(id) {
   if (pageInflight.has(id)) return pageInflight.get(id);
   const p = (async () => {
     try {
-      const pg = await articlePage(it.link); it.pageImages = pg.images.slice(0, 12); it.shopLinks = pg.shops; if (pg.text) pageText.set(id, pg.text);
+      const pg = await articlePage(it.link); it.pageImages = pg.images.slice(0, 12); it.shopLinks = pg.shops; it.linkCands = pg.links || []; if (pg.text) pageText.set(id, pg.text);
       it.pageV = PAGE_V;
       // No image in the feed (web finds, Ceramic Review): the article's first photo becomes the card image.
       if (!it.image && it.pageImages[0]) it.image = it.pageImages[0];
@@ -316,6 +316,30 @@ async function writeBrief(id) {
   return it.brief;
 }
 
+// Links to what a story is about (official site, trailer, the study…), from the article's own links.
+// Worked out once, the first time the story is opened; one fast call, only when the article has outside links.
+const linksInflight = new Map();
+function subjectLinks(id) {
+  if (!linksInflight.has(id)) linksInflight.set(id, findLinks(id).finally(() => linksInflight.delete(id)));
+  return linksInflight.get(id);
+}
+async function findLinks(id) {
+  const d = load();
+  const it = d.items[id];
+  if (!it) throw new Error("Item not found");
+  if (Array.isArray(it.subjectLinks)) return it.subjectLinks;
+  if (!agent.hasKey()) return [];
+  await ensurePage(id);
+  // Stories read before links were collected: read the page once more for them.
+  // (Shop links are refreshed too, so newer shops like Steam show up on them.)
+  if (it.linkCands === undefined && it.link && !it.web) { try { const pg = await articlePage(it.link); it.linkCands = pg.links || []; it.shopLinks = pg.shops || it.shopLinks; } catch { it.linkCands = []; } }
+  const cands = it.linkCands || [];
+  try { it.subjectLinks = cands.length ? await agent.pickLinks(it, it.brief?.gist || it.excerpt || "", cands) : []; }
+  catch { return []; } // try again next time it's opened
+  save();
+  return it.subjectLinks;
+}
+
 const tok = (s) => new Set(String(s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3));
 async function itemDetail(id) {
   const d = load();
@@ -345,7 +369,7 @@ async function itemDetail(id) {
   return {
     ...it, sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s),
     interests: ints.map((i) => ({ id: i.id, label: i.label })), related, deeper, saved: !!d.events[id]?.save, gallery: gallery.slice(0, 12),
-    brief: briefReady(it) ? it.brief : null, forYou: forYou(it, ints), feedText: undefined, shops: shop.withAffiliate(it.shopLinks || []),
+    brief: briefReady(it) ? it.brief : null, forYou: forYou(it, ints), feedText: undefined, shops: shop.withAffiliate(it.shopLinks || []), links: it.subjectLinks,
   };
 }
 
@@ -700,6 +724,7 @@ const routes = {
 
   "GET /api/item": async (req, url) => itemDetail(url.searchParams.get("id")),
   "POST /api/item/brief": async (req) => { const { id } = await body(req); return { brief: await storyBrief(id) }; },
+  "POST /api/item/links": async (req) => { const { id } = await body(req); const links = await subjectLinks(id); return { links, shops: shop.withAffiliate(load().items[id]?.shopLinks || []) }; },
   "GET /api/usage": async (req, url) => usage.summary(Number(url.searchParams.get("days")) || 7),
 
   "POST /api/events": async (req) => {

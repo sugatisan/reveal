@@ -14,6 +14,8 @@ const APP_HOSTS = [
   /(^|\.)amazon\.[a-z.]+$/, /(^|\.)a\.co$/, /(^|\.)amzn\.(to|eu)$/,
   /(^|\.)ebay\.[a-z.]+$/, /(^|\.)ebay\.us$/, /(^|\.)etsy\.com$/, /(^|\.)target\.com$/, /(^|\.)bestbuy\.com$/,
   /(^|\.)walmart\.com$/, /(^|\.)lego\.com$/,
+  // Games and apps
+  /(^|\.)steampowered\.com$/, /(^|\.)playstation\.com$/, /(^|\.)apps\.apple\.com$/,
   // Media
   /(^|\.)youtube\.com$/, /(^|\.)youtu\.be$/, /(^|\.)spotify\.com$/, /(^|\.)podcasts\.apple\.com$/, /(^|\.)music\.apple\.com$/,
   // Social
