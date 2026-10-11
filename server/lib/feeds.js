@@ -362,5 +362,14 @@ export async function articlePage(url, { timeout = 7000 } = {}) {
   }
   // No marked body: fall back to the page's longer paragraphs, if there are enough of them to be an article.
   const fallback = body ? "" : articleText(text).split("\n").filter((p) => p.length > 80).join("\n");
-  return { images: [ogUrl, ...(body ? allImages(body, finalUrl, 12) : [])].filter(Boolean), text: body ? articleText(body) : fallback.length > 400 ? fallback : "", shops: shopLinks(body || text, finalUrl) };
+  // No marked body and no share image (Ceramic Review): the article usually starts at the headline,
+  // so look for images from the first <h1> on, past the site header and promos above it.
+  const h1 = body ? -1 : text.search(/<h1\b/i);
+  let region = body || (h1 >= 0 ? text.slice(h1, h1 + 80000) : "");
+  if (!body && region) {
+    // ...and stop where the article ends: sidebars, ads, related posts, comments, the footer.
+    const end = region.slice(2000).search(/<(footer|aside)\b|class\s*=\s*["'][^"']*\b(sidebar|advert|related|comments?|newsletter|PostLink|post-nav)/i);
+    if (end >= 0) region = region.slice(0, 2000 + end);
+  }
+  return { images: [...new Set([ogUrl, ...(region ? allImages(region, finalUrl, 12) : [])])].filter(Boolean), text: body ? articleText(body) : fallback.length > 400 ? fallback : "", shops: shopLinks(body || text, finalUrl) };
 }

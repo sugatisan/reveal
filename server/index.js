@@ -220,19 +220,37 @@ function forYou(it, ints) {
   return ints[0] ? `From ${ints[0].label}` : null;
 }
 
+const PAGE_V = 2; // bump when page reading improves, so pages that yielded nothing are read again
+
+// Recent stories with no image at all get their article page read in the background, so their cards
+// get a photo. A few at a time; each story is tried once per PAGE_V.
+async function fillMissingImages(limit = 40) {
+  const d = load();
+  const followed = new Set(followedIds());
+  const since = Date.now() - 7 * 864e5;
+  const todo = Object.values(d.items).filter((i) => !i.dupOf && !i.image && !i.kind && followed.has(i.sourceId) && i.date > since && i.pageV !== PAGE_V).sort((a, b) => b.date - a.date).slice(0, limit);
+  const queue = [...todo];
+  await Promise.all(Array.from({ length: 3 }, async () => { for (let i = queue.shift(); i; i = queue.shift()) await ensurePage(i.id); }));
+  const n = todo.filter((i) => d.items[i.id]?.image).length;
+  if (n) console.log(`  Found images on the article page for ${n} stories`);
+}
+
 // One fetch of a story's article page at a time, shared by the story view and the brief.
 const pageInflight = new Map();
 function ensurePage(id) {
   const it = load().items[id];
-  if (!it || (it.pageImages !== undefined && it.shopLinks !== undefined && it.lead !== undefined)) return null;
+  // Fetched once, unless it came back empty before page reading improved (PAGE_V) — then once more.
+  if (!it || (it.pageImages !== undefined && it.shopLinks !== undefined && it.lead !== undefined && (it.pageImages.length || it.pageV === PAGE_V))) return null;
   if (pageInflight.has(id)) return pageInflight.get(id);
   const p = (async () => {
     try {
       const pg = await articlePage(it.link); it.pageImages = pg.images.slice(0, 12); it.shopLinks = pg.shops; if (pg.text) pageText.set(id, pg.text);
-      if (it.web && !it.image && it.pageImages[0]) it.image = it.pageImages[0]; // web finds have no feed image
+      it.pageV = PAGE_V;
+      // No image in the feed (web finds, Ceramic Review): the article's first photo becomes the card image.
+      if (!it.image && it.pageImages[0]) it.image = it.pageImages[0];
       // The article's opening, for comparing against the AI gist (studio: Story page › Description). Short, never the full text.
       it.lead = leadOf(pg.text);
-    } catch { it.pageImages ||= []; it.shopLinks ||= []; it.lead = ""; }
+    } catch { it.pageImages ||= []; it.shopLinks ||= []; it.lead = ""; it.pageV = PAGE_V; }
     save();
   })().finally(() => pageInflight.delete(id));
   pageInflight.set(id, p);
@@ -838,6 +856,8 @@ const tick = () => { if (followedIds().length && Date.now() - load().meta.lastRe
 setTimeout(tick, 1500);
 setTimeout(() => pregenBriefs().catch(() => {}), 8000);
 setInterval(() => pregenBriefs().catch(() => {}), 2 * 6e4);
+setTimeout(() => fillMissingImages().catch(() => {}), 12000);
+setInterval(() => fillMissingImages().catch(() => {}), 10 * 6e4);
 // New stories in scoped interests get checked against the scope shortly after they arrive.
 setTimeout(() => scope.scoreAll().catch(() => {}), 6000);
 setInterval(() => scope.scoreAll().catch(() => {}), 2 * 6e4);
