@@ -53,17 +53,22 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
 
   // The app moves the full panel width; the panel itself drifts in a little (parallax) and brightens.
   const appX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, width] });
-  const panelX = progress.interpolate({ inputRange: [0, 1], outputRange: [-width * 0.25, 0] });
-  const panelFade = progress.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] });
+  // Depth: the panel sits lower, so it rises from slightly smaller and dimmer as the app slides off it.
+  const panelX = progress.interpolate({ inputRange: [0, 1], outputRange: [-width * 0.18, 0] });
+  const panelScale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] });
+  const panelFade = progress.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] });
   const shade = progress.interpolate({ inputRange: [0, 1], outputRange: [0, 0.12] });
 
   return (
     <DrawerCtx.Provider value={ctx}>
-      <View style={{ flex: 1, backgroundColor: t.bg, overflow: "hidden" }}>
-        <Animated.View style={[StyleSheet.absoluteFill, { width, opacity: panelFade, transform: [{ translateX: panelX }] }]} pointerEvents={isOpen ? "auto" : "none"}>
+      {/* The panel's color fills everything underneath, so it shows past the app's rounded left corners. */}
+      <View style={{ flex: 1, backgroundColor: isOpen ? t.chip : t.bg, overflow: "hidden" }}>
+        <Animated.View style={[StyleSheet.absoluteFill, { width, opacity: panelFade, transform: [{ translateX: panelX }, { scale: panelScale }] }]} pointerEvents={isOpen ? "auto" : "none"}>
           <SidePanel state={state} lens={lens} seed={seed} onClose={() => settle(false)} onPick={pick} />
         </Animated.View>
-        <Animated.View style={[st.app, { backgroundColor: t.bg, transform: [{ translateX: appX }] }, isOpen ? st.edge : null]}>
+        {/* The app is the top layer: rounded on the left and casting a shadow onto the panel while it's pushed over. */}
+        <Animated.View style={[st.app, { transform: [{ translateX: appX }] }, isOpen ? [st.edge, st.round] : null]}>
+          <View style={[{ flex: 1, backgroundColor: t.bg }, isOpen ? [st.round, { overflow: "hidden" }] : null]}>
           {children}
           {/* While open, the visible slice of the app closes the panel on tap or drag. */}
           {isOpen ? (
@@ -71,6 +76,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
               <Pressable style={{ flex: 1 }} onPress={() => settle(false)} accessibilityLabel="Close panel" />
             </Animated.View>
           ) : null}
+          </View>
         </Animated.View>
       </View>
     </DrawerCtx.Provider>
@@ -79,5 +85,6 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
 
 const st = StyleSheet.create({
   app: { flex: 1 },
-  edge: { boxShadow: "-8px 0px 24px rgba(0,0,0,0.18)" } as any,
+  edge: { boxShadow: "-14px 0px 40px rgba(0,0,0,0.38)" } as any,
+  round: { borderTopLeftRadius: 28, borderBottomLeftRadius: 28 },
 });

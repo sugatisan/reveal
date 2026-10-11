@@ -1,16 +1,16 @@
 // Left panel: the interest graph. Add an interest at the top (typing also filters the list), tap one
 // to view it, the tuner to refine it. You and Settings at the bottom.
 // Opens from the button before "All" or by swiping in from the left edge of the feed.
-import { useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator } from "react-native";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Animated, PanResponder, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Text, TextInput } from "@/components/AppText";
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { api, AppState, Lens, looksLikeSite, SitePreview } from "@/lib/api";
-import { bumpFeed, setAppState } from "@/lib/store";
+import { bumpFeed, chooseLens, setAppState } from "@/lib/store";
 import { EditGlyph } from "./EditGlyph";
 import { Composer } from "./Composer";
 import { radius, serif, space, useTheme } from "@/lib/theme";
@@ -55,6 +55,16 @@ export function SidePanel({ state, lens, seed, onClose, onPick }: {
     setBusy("site"); setErr(""); setSite(null);
     try { setSite(await api<SitePreview>("/api/sources/preview", { url: text })); }
     catch (e: any) { setErr(e.message); } finally { setBusy(""); }
+  };
+  // Swipe an interest left to reveal Delete (one row open at a time).
+  const [swiped, setSwiped] = useState<string | null>(null);
+  const removeInterest = async (id: string) => {
+    setSwiped(null); setErr("");
+    try {
+      setAppState(await api<AppState>("/api/interests/remove", { id }));
+      if (lens?.kind === "interest" && lens.id === id) chooseLens(null);
+      bumpFeed();
+    } catch (e: any) { setErr(e.message); }
   };
   const initials = (state?.profile?.name || "?").split(/\s+/).map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
@@ -106,7 +116,7 @@ export function SidePanel({ state, lens, seed, onClose, onPick }: {
               onOpen={(id) => { setQ(""); onPick({ kind: "interest", id }); }} />
           ) : null}
           {isSite && !site && !busy ? (
-            <Pressable onPress={add} style={({ pressed }) => [st.row, { backgroundColor: pressed ? t.card : "transparent" }]} accessibilityRole="button">
+            <Pressable onPress={add} style={({ pressed }) => [st.row, { marginHorizontal: space.s, backgroundColor: pressed ? t.card : "transparent" }]} accessibilityRole="button">
               <Ionicons name="add-circle-outline" size={18} color={t.accent} />
               <Text style={[st.label, { color: t.ink }]} numberOfLines={1}>Add site “{text}”</Text>
             </Pressable>
@@ -117,9 +127,10 @@ export function SidePanel({ state, lens, seed, onClose, onPick }: {
             const isOpen = expanded[i.id] || (!!q.trim() && i.sources.some((s) => s.name?.toLowerCase().includes(q.trim().toLowerCase())));
             return (
               <View key={i.id}>
-                <View style={[st.row, { backgroundColor: activeI ? t.card : "transparent" }]}>
-                  <Pressable onPress={() => onPick({ kind: "interest", id: i.id })} style={st.rowMain} accessibilityRole="button">
-                    <Text style={[st.label, { color: t.ink, fontWeight: activeI ? "700" : "500" }]} numberOfLines={1}>{i.label}</Text>
+                <SwipeToDelete open={swiped === i.id} onOpen={(o) => setSwiped(o ? i.id : null)} onDelete={() => removeInterest(i.id)} label={i.label}>
+                <View style={[st.row, { backgroundColor: activeI ? t.card : t.chip }]}>
+                  <Pressable onPress={() => { if (swiped) { setSwiped(null); return; } onPick({ kind: "interest", id: i.id }); }} style={st.rowMain} accessibilityRole="button">
+                    <Text style={[st.label, { color: t.ink, fontWeight: activeI ? "700" : "500", flex: 1 }]} numberOfLines={1}>{i.label}</Text>
                     <Count n={i.newCount} />
                   </Pressable>
                   <Pressable onPress={() => { onClose(); router.push(`/interest/${i.id}`); }} hitSlop={8} style={{ padding: 4 }} accessibilityLabel={`Edit ${i.label}`}>
@@ -131,6 +142,7 @@ export function SidePanel({ state, lens, seed, onClose, onPick }: {
                     </Pressable>
                   ) : null}
                 </View>
+                </SwipeToDelete>
                 {isOpen ? i.sources.map((s) => {
                   const activeS = lens?.kind === "source" && lens.id === s.id;
                   return (
@@ -160,11 +172,38 @@ export function SidePanel({ state, lens, seed, onClose, onPick }: {
   );
 }
 
+// Swipe left to reveal a Delete button behind the row; tap it to delete. A short swipe or a tap elsewhere puts it back.
+const REVEAL = 88;
+function SwipeToDelete({ open, onOpen, onDelete, label, children }: { open: boolean; onOpen: (o: boolean) => void; onDelete: () => void; label: string; children: ReactNode }) {
+  const t = useTheme();
+  const x = useRef(new Animated.Value(0)).current;
+  const openRef = useRef(open); openRef.current = open;
+  const snap = (to: number) => Animated.spring(x, { toValue: to, useNativeDriver: false, damping: 24, stiffness: 260 }).start();
+  useEffect(() => { snap(open ? -REVEAL : 0); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pan = useRef(PanResponder.create({
+    // Capture: a sideways drag takes over from the row's tap targets (a plain tap still reaches them).
+    onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 1.5,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderMove: (_, g) => x.setValue(Math.max(-REVEAL * 1.3, Math.min(0, (openRef.current ? -REVEAL : 0) + g.dx))),
+    onPanResponderRelease: (_, g) => { const end = (openRef.current ? -REVEAL : 0) + g.dx; const o = end < -REVEAL / 2 || g.vx < -0.5; onOpen(o); snap(o ? -REVEAL : 0); },
+    onPanResponderTerminate: () => snap(openRef.current ? -REVEAL : 0),
+  })).current;
+  return (
+    <View style={{ marginHorizontal: space.s, borderRadius: radius.s, overflow: "hidden" }}>
+      <Pressable onPress={onDelete} accessibilityRole="button" accessibilityLabel={`Delete ${label}`}
+        style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: REVEAL, backgroundColor: t.danger, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Delete</Text>
+      </Pressable>
+      <Animated.View {...pan.panHandlers} style={{ transform: [{ translateX: x }] }}>{children}</Animated.View>
+    </View>
+  );
+}
+
 const st = StyleSheet.create({
   panel: { flex: 1 },
   head: { flexDirection: "row", alignItems: "center", paddingHorizontal: space.l, paddingBottom: space.s },
   search: { flexDirection: "row", alignItems: "center", gap: space.s, marginHorizontal: space.l, marginBottom: space.s, paddingHorizontal: space.m, borderRadius: radius.pill, borderWidth: 1 },
-  row: { flexDirection: "row", alignItems: "center", gap: space.m, marginHorizontal: space.s, paddingHorizontal: space.m, paddingVertical: 11, borderRadius: radius.s },
+  row: { flexDirection: "row", alignItems: "center", gap: space.m, paddingHorizontal: space.m, paddingVertical: 11, borderRadius: radius.s },
   rowMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: space.s },
   label: { fontSize: 16, flexShrink: 1 },
   count: { minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, alignItems: "center", justifyContent: "center" },
