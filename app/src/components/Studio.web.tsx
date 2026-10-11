@@ -239,7 +239,6 @@ function Section({ title, hint, open, onToggle, badge = 0, children }: { title: 
 // Built-in palettes, the ones you've saved, and Custom. With Custom selected, "Add to palettes" keeps
 // the current custom colors as a named palette you can pick again later (saved with the design).
 function PalettePicker({ value, onChange, design }: { value: string; onChange: (v: any) => void; design: Record<string, any> }) {
-  const [name, setName] = useState("");
   const saved: SavedPalette[] = design["color.saved"] || [];
   const custom = { bg: design["color.bg"], card: design["color.card"], ink: design["color.ink"], muted: design["color.muted"], accent: design["color.accent"], curatorBg: design["color.curatorBg"], curatorAccent: design["color.curatorAccent"] };
   const tiles = [
@@ -247,12 +246,6 @@ function PalettePicker({ value, onChange, design }: { value: string; onChange: (
     ...saved.map((p) => ({ id: p.id, label: p.label, note: "Yours", mine: true })),
     { id: "custom", label: "Custom", note: "Your colors below", mine: false },
   ];
-  const add = () => {
-    const label = name.trim() || `Palette ${saved.length + 1}`;
-    const id = "saved-" + Date.now().toString(36);
-    setDesign({ "color.saved": [...saved, { id, label, base: custom }], "color.palette": id });
-    setName("");
-  };
   const remove = (id: string) => setDesign({ "color.saved": saved.filter((x) => x.id !== id), ...(value === id ? { "color.palette": "custom" } : null) });
   // Start from a saved palette: copy its colors into Custom to tweak them.
   const edit = (p: SavedPalette) => setDesign({ "color.palette": "custom", ...Object.fromEntries(Object.entries(p.base).map(([k, v]) => [`color.${k}`, v])) });
@@ -282,13 +275,26 @@ function PalettePicker({ value, onChange, design }: { value: string; onChange: (
           );
         })}
       </div>
-      {value === "custom" ? (
-        <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-          <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); }} placeholder="Name this palette"
-            style={{ flex: 1, background: "#12151B", border: "1px solid #2A2E37", borderRadius: 8, color: "#E9ECF2", padding: "7px 10px", fontSize: 13 }} />
-          <button onClick={add} style={{ ...css.segBtn, ...css.segOn, borderRadius: 8, padding: "7px 12px" }}>Add to palettes</button>
-        </div>
-      ) : null}
+    </div>
+  );
+}
+
+// "Save as a palette", at the end of the Custom palette section: the current custom colors become a named tile.
+function SavePalette({ design }: { design: Record<string, any> }) {
+  const [name, setName] = useState("");
+  const saved: SavedPalette[] = design["color.saved"] || [];
+  const add = () => {
+    const base = { bg: design["color.bg"], card: design["color.card"], ink: design["color.ink"], muted: design["color.muted"], accent: design["color.accent"], curatorBg: design["color.curatorBg"], curatorAccent: design["color.curatorAccent"] };
+    const label = name.trim() || `Palette ${saved.length + 1}`;
+    const id = "saved-" + Date.now().toString(36);
+    setDesign({ "color.saved": [...saved, { id, label, base }], "color.palette": id });
+    setName("");
+  };
+  return (
+    <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+      <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); }} placeholder="Name it, e.g. Ink and clay"
+        style={{ flex: 1, minWidth: 0, background: "#12151B", border: "1px solid #2A2E37", borderRadius: 8, color: "#E9ECF2", padding: "7px 10px", fontSize: 13 }} />
+      <button onClick={add} style={{ ...css.segBtn, ...css.segOn, flex: "none", borderRadius: 8, padding: "7px 12px" }}>Add to palettes</button>
     </div>
   );
 }
@@ -321,6 +327,7 @@ function Row({ c, value, onChange, design }: { c: Control; value: any; onChange:
         </button>
       ) : null}
       {c.type === "palette" ? <PalettePicker value={value} onChange={onChange} design={design || {}} /> : null}
+      {c.type === "savePalette" ? <SavePalette design={design || {}} /> : null}
       {c.type === "color" ? (
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
           {c.swatches.map((sw) => (

@@ -7,7 +7,8 @@ export type Control =
   | { key: string; label: string; hint?: string; type: "range"; min: number; max: number; step: number; unit?: string; default: number }
   | { key: string; label: string; hint?: string; type: "toggle"; default: boolean }
   | { key: string; label: string; hint?: string; type: "color"; swatches: string[]; default: string }
-  | { key: string; label: string; hint?: string; type: "palette"; default: string };
+  | { key: string; label: string; hint?: string; type: "palette"; default: string }
+  | { key: string; label: string; hint?: string; type: "savePalette"; default: string };
 
 // Controls are grouped into panels (e.g. "Feed card"), and each panel into titled sections
 // that open and close in the studio. Keep sections small: 2–4 related controls each.
@@ -31,6 +32,7 @@ export const GROUPS: Group[] = [
       { key: "color.accent", label: "Accent", type: "color", default: "#D24A1C", swatches: ["#D24A1C", "#C8102E", "#2F6B3F", "#2563EB", "#D9466F", "#F5C542"] },
       { key: "color.curatorBg", label: "Curator cards", type: "color", default: "#1E2A43", swatches: ["#1E2A43", "#111111", "#1F3A2B", "#3A2A1E", "#F2E8D5"] },
       { key: "color.curatorAccent", label: "Curator accent", type: "color", default: "#F2B84B", swatches: ["#F2B84B", "#FFFFFF", "#C9E27A", "#FFB3C7", "#6EA8FE"] },
+      { key: "color.saveAs", label: "Save as a palette", hint: "Keeps these colors as a named palette in Palette above, to pick again later.", type: "savePalette", default: "" },
     ],
   },
   {
