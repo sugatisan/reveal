@@ -16,8 +16,6 @@ import { openOriginal, readLabel, StoryBody, useStoryDetail } from "@/components
 import { useDesign } from "@/design/store";
 import { openCurator } from "@/lib/curatorSheet";
 
-// How many stories have been opened this session; the compass shows its label for the first few.
-let storiesOpened = 0;
 
 export default function ItemScreen() {
   const t = useTheme();
@@ -43,7 +41,6 @@ export default function ItemScreen() {
   const barOpacity = scrollY.interpolate({ inputRange: [Math.max(0, imgH - barH - 60), Math.max(1, imgH - barH)], outputRange: [0, 1], extrapolate: "clamp" });
 
   const moreLike = () => it && openCurator({ prompt: "More like this", itemId: it.id, title: it.title });
-  const [labelMore] = useState(() => ++storiesOpened <= 3);
 
   // Read at the publisher, more like this, hide, save: one row, placed right under the description.
   const actions = it ? (
@@ -54,10 +51,9 @@ export default function ItemScreen() {
       </Pressable>
       <View style={{ flex: 1 }} />
       <View style={{ flexDirection: "row", gap: space.l }}>
-        {/* More like this: the opposite of the eye next to it. Labeled for the first few stories you open. */}
-        <Pressable onPress={moreLike} hitSlop={10} accessibilityLabel="More like this" style={({ pressed }) => [labelMore ? st.moreWide : st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
+        {/* More like this: the opposite of the eye next to it. */}
+        <Pressable onPress={moreLike} hitSlop={10} accessibilityLabel="More like this" style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
           <Ionicons name="compass-outline" size={21} color={t.ink} />
-          {labelMore ? <Text style={{ color: t.ink, fontSize: 14, fontWeight: "600" }}>More like this</Text> : null}
         </Pressable>
         <Pressable onPress={() => setLessOpen(true)} hitSlop={10} accessibilityLabel="Show me less of…" style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
           <Ionicons name="eye-off-outline" size={20} color={t.ink} />
@@ -109,6 +105,5 @@ const st = StyleSheet.create({
   bar: { position: "absolute", top: 0, left: 0, right: 0 },
   back: { position: "absolute", left: space.l, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
   action: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  moreWide: { height: 40, borderRadius: 20, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 6 },
   read: { height: 40, borderRadius: 20, paddingHorizontal: 16, justifyContent: "center", flexShrink: 1, maxWidth: "70%" },
 });
