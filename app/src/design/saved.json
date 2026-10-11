@@ -9,13 +9,13 @@
   "tab.bottom": 0,
   "tab.width": "fit",
   "tab.surface": "translucent",
-  "tab.border": true,
-  "tab.blur": 18,
-  "tab.opacity": 82,
+  "tab.border": false,
+  "tab.blur": 10,
+  "tab.opacity": 85,
   "tab.shadowOpacity": 40,
   "tab.shadowRadius": 6,
   "tab.shadowX": 0,
-  "tab.shadowY": 5,
+  "tab.shadowY": 2,
   "color.palette": "charcoal",
   "color.accent": "#2563EB",
   "color.bg": "#241414",
@@ -61,5 +61,7 @@
   "pill.selBlur": 4,
   "pill.selGlow": 58,
   "pill.selGlowRadius": 22,
-  "pill.edit": true
+  "pill.edit": true,
+  "tab.fillMode": "custom",
+  "tab.fillColor": "#000000"
 }

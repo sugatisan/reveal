@@ -253,7 +253,9 @@ export default function FeedScreen() {
   };
   const swipe = useRef(PanResponder.create({
     // Only a clear sideways drag, not from the left edge (that opens the interests panel).
-    onMoveShouldSetPanResponder: (_, g) => g.x0 > 30 && Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
+    // Claimed in the capture phase: otherwise the vertical list keeps the touch and the swipe never starts on the phone.
+    // (Feed cards have no sideways scrolling of their own, so nothing else needs these drags.)
+    onMoveShouldSetPanResponderCapture: (_, g) => g.x0 > 30 && Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
     onPanResponderTerminationRequest: () => false,
     onPanResponderMove: (_, g) => {
       const has = neighbor(g.dx < 0 ? 1 : -1) !== undefined;
