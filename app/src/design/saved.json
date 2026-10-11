@@ -1,8 +1,8 @@
 {
   "card.radius": 8,
   "tab.labels": false,
-  "tab.style": "island",
-  "tab.search": "button",
+  "tab.style": "separate",
+  "tab.search": "tab",
   "tab.active": "tint",
   "tab.height": 50,
   "tab.radius": 19,
@@ -51,5 +51,6 @@
   "full.topDark": 25,
   "story.sectionGap": 26,
   "story.factsGap": 12,
-  "story.factsPad": 16
+  "story.factsPad": 16,
+  "tab.askInBar": true
 }

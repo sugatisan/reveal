@@ -1,6 +1,8 @@
 // Floating tab bar ("island"), driven by the Tab bar settings in the studio.
 // Screens add bottom padding with useTabBarSpace() so their last row isn't hidden under it.
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { setAskText, submitAsk, useAskBusy, useAskText } from "@/lib/ask";
 import { rgba, useBackdrop } from "@/lib/backdrop";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -28,6 +30,18 @@ export function useTabBarSpace() {
   const insets = useSafeAreaInsets();
   if (d["tab.style"] === "docked") return d["tab.height"] + insets.bottom;
   return d["tab.height"] + d["tab.bottom"] + Math.max(insets.bottom, 8) + 12;
+}
+
+// Keyboard height, so the bar can ride above the keyboard while it holds the Ask field.
+function useKeyboardHeight() {
+  const [h, setH] = useState(0);
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const show = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow", (e) => setH(e.endCoordinates.height));
+    const hide = Keyboard.addListener(Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide", () => setH(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  return h;
 }
 
 // Minimal shape of what the tab navigator passes to a custom tab bar.
@@ -61,6 +75,14 @@ export function IslandTabBar({ state, navigation }: BarProps) {
   const searchRef = useBackdrop(blur);
 
   const current = state.routes[state.index]?.name;
+  // Unified Ask with the field in the bar: on the Ask screen, the Ask entry becomes the text field
+  // and the bar stretches to hold it, with send at the end.
+  const composing = unified && d["tab.askInBar"] !== false && current === "curator";
+  const askText = useAskText();
+  const askBusy = useAskBusy();
+  const input = useRef<TextInput>(null);
+  const kb = useKeyboardHeight();
+  useEffect(() => { if (composing) setTimeout(() => input.current?.focus(), 60); }, [composing]);
   const go = (name: string) => {
     const route = state.routes.find((r) => r.name === name);
     if (!route) return;
@@ -71,7 +93,7 @@ export function IslandTabBar({ state, navigation }: BarProps) {
   const ASK = { name: "curator", title: "Ask", icon: "chatbubble-ellipses-outline" as Glyph, active: "chatbubble-ellipses" as Glyph };
   const base = TABS.filter((x) => x.name !== "sources" || d["tab.sources"]);
   const inBar = unified
-    ? [...base.filter((x) => x.name !== "search" && x.name !== "curator"), ...(search === "tab" ? [ASK] : [])]
+    ? [...base.filter((x) => x.name !== "search" && x.name !== "curator"), ...(search === "tab" && !composing ? [ASK] : [])]
     : base.filter((x) => x.name !== "search" || search === "tab");
   const tab = (x: (typeof TABS)[number], solo = false) => {
     const on = current === x.name;
@@ -91,7 +113,27 @@ export function IslandTabBar({ state, navigation }: BarProps) {
     );
   };
 
-  const searchButton = search === "button" ? (
+  // The Ask field and its send button. Separate: its own pill and circle, like the tabs. Island and docked: inside the bar.
+  const sep = style === "separate";
+  const inner = sep ? h : h - 12;
+  const ready = !!askText.trim() && !askBusy;
+  const field = composing ? (
+    <View key="ask-field" style={[{ flex: 1, flexDirection: "row", alignItems: "center", gap: sep ? 10 : 6 }, sep ? null : { paddingRight: 6, paddingLeft: 2 }]}>
+      <View ref={sep ? searchRef : undefined} style={[{ flex: 1, height: inner, borderRadius: sep ? Math.min(radius, h / 2) : inner / 2, justifyContent: "center", paddingHorizontal: 16 },
+        sep ? surface : { backgroundColor: rgba(t.ink, 0.06) }]}>
+        <TextInput ref={input} value={askText} onChangeText={setAskText} onSubmitEditing={submitAsk} returnKeyType="send" blurOnSubmit={false}
+          placeholder="Ask, or find something you've seen…" placeholderTextColor={t.faint} accessibilityLabel="Ask the curator"
+          style={{ color: t.ink, fontSize: 16, paddingVertical: 0, height: inner }} />
+      </View>
+      <Pressable onPress={submitAsk} disabled={!ready} accessibilityLabel="Send" accessibilityRole="button"
+        style={[{ width: inner, height: inner, borderRadius: inner / 2, alignItems: "center", justifyContent: "center" },
+          ready ? { backgroundColor: t.accent } : sep ? surface : { backgroundColor: rgba(t.ink, 0.06) }]}>
+        <Ionicons name="arrow-up" size={sep ? 22 : 20} color={ready ? t.accentInk : t.faint} />
+      </Pressable>
+    </View>
+  ) : null;
+
+  const searchButton = search === "button" && !composing ? (
     <Pressable ref={searchRef} onPress={() => go(entryRoute)} accessibilityLabel={unified ? "Ask" : "Search"} accessibilityRole="button"
       style={{ width: h, height: h, borderRadius: Math.min(radius, h / 2), alignItems: "center", justifyContent: "center", ...surface }}>
       <Ionicons name={unified ? (current === "curator" ? "chatbubble-ellipses" : "chatbubble-ellipses-outline") : current === "search" ? "search" : "search-outline"} size={24} color={current === entryRoute ? t.accent : t.ink} />
@@ -100,20 +142,20 @@ export function IslandTabBar({ state, navigation }: BarProps) {
 
   if (docked) {
     return (
-      <View ref={dockRef} style={[st.dock, { paddingBottom: insets.bottom, backgroundColor: fill, borderTopColor: t.line }]}>
-        <View style={{ flexDirection: "row", height: h }}>{inBar.map((x) => tab(x))}</View>
+      <View ref={dockRef} style={[st.dock, { paddingBottom: composing && kb ? 0 : insets.bottom, bottom: composing ? kb : 0, backgroundColor: fill, borderTopColor: t.line }]}>
+        <View style={{ flexDirection: "row", height: h, alignItems: "center" }}>{inBar.map((x) => tab(x))}{field}</View>
         {searchButton ? <View style={{ position: "absolute", right: 12, top: -h - 12 }}>{searchButton}</View> : null}
       </View>
     );
   }
-  const bottom = Math.max(insets.bottom, 8) + d["tab.bottom"];
+  const bottom = composing && kb ? kb + 8 : Math.max(insets.bottom, 8) + d["tab.bottom"];
   return (
     <View pointerEvents="box-none" style={[st.float, { bottom }]}>
       {style === "separate" ? (
-        <View style={{ flexDirection: "row", gap: 10 }}>{inBar.map((x) => tab(x, true))}</View>
+        <View style={[{ flexDirection: "row", gap: 10 }, composing ? { flex: 1 } : null]}>{inBar.map((x) => tab(x, true))}{field}</View>
       ) : (
-        <View ref={islandRef} style={[{ flexDirection: "row", height: h, borderRadius: radius, paddingHorizontal: 6, alignItems: "center" }, surface, d["tab.width"] === "wide" ? { flex: 1 } : null]}>
-          {inBar.map((x) => tab(x))}
+        <View ref={islandRef} style={[{ flexDirection: "row", height: h, borderRadius: radius, paddingHorizontal: 6, alignItems: "center" }, surface, d["tab.width"] === "wide" || composing ? { flex: 1 } : null]}>
+          {inBar.map((x) => tab(x))}{field}
         </View>
       )}
       {searchButton}

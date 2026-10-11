@@ -135,7 +135,7 @@ export const GROUPS: Group[] = [
   {
     id: "tab-style", panel: "Tab bar", title: "Style", hint: "How the tabs are grouped and shown.",
     controls: [
-      choice("tab.style", "Container", "island", [["island", "One island"], ["separate", "Separate"], ["docked", "Docked"]],
+      choice("tab.style", "Container", "separate", [["island", "One island"], ["separate", "Separate"], ["docked", "Docked"]],
         "One island holds every tab; Separate gives each tab its own; Docked is the classic full-width bar."),
       { key: "tab.labels", label: "Labels under icons", type: "toggle", default: true },
       choice("tab.active", "Active tab", "pill", [["pill", "Highlight"], ["tint", "Color only"]]),
@@ -213,9 +213,10 @@ export const GROUPS: Group[] = [
     id: "tab-search", panel: "Tab bar", title: "Search and curator",
     hint: "Separate: a Curator tab plus a search entry. Unified: one Ask entry that opens the curator, with quick matches from your feed as you type.",
     controls: [
-      choice("nav.ask", "Model", "separate", [["separate", "Separate"], ["unified", "Unified (Ask)"]]),
-      choice("tab.search", "Entry placement", "button", [["off", "Off"], ["tab", "A tab"], ["button", "Separate button"]],
+      choice("nav.ask", "Model", "unified", [["separate", "Separate"], ["unified", "Unified (Ask)"]]),
+      choice("tab.search", "Entry placement", "tab", [["off", "Off"], ["tab", "A tab"], ["button", "Separate button"]],
         "Where Search (separate) or Ask (unified) lives. Unified ignores Off."),
+      { key: "tab.askInBar", label: "Ask field in the tab bar", hint: "Unified: on the Ask screen the bar stretches, the Ask icon becomes the text field, and send sits at the end. Off: the field sits above the bar.", type: "toggle", default: true },
     ],
   },
 ];

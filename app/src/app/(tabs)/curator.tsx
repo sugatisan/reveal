@@ -10,6 +10,7 @@ import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Chip, ErrorLine, Header, MiniItemRow, SourceRow } from "@/components/ui";
 import { QuickMatches } from "@/components/QuickMatches";
 import { useDesign } from "@/design/store";
+import { onAskSubmit, setAskBusy, setAskText, useAskText } from "@/lib/ask";
 
 type Thread = { turns: Turn[]; starters: string[]; hasKey: boolean };
 
@@ -17,14 +18,17 @@ export default function CuratorScreen() {
   const t = useTheme();
   const params = useLocalSearchParams<{ prompt?: string; itemId?: string; n?: string }>();
   const [thread, setThread] = useState<Thread | null>(null);
-  const [text, setText] = useState("");
+  const text = useAskText(); // shared with the tab bar, which holds the field when "Ask field in the tab bar" is on
+  const setText = setAskText;
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState("");
   const scroll = useRef<ScrollView>(null);
   const tabSpace = useTabBarSpace();
-  const unified = useDesign()["nav.ask"] === "unified";
+  const design = useDesign();
+  const unified = design["nav.ask"] === "unified";
+  const inBar = unified && design["tab.askInBar"] !== false;
   const handled = useRef<string | undefined>(undefined);
 
   useEffect(() => { api<Thread>("/api/curator").then(setThread).catch((e) => setError(e.message)); }, []);
@@ -40,6 +44,10 @@ export default function CuratorScreen() {
     } catch (e: any) { setError(e.message); setText(message); }
     finally { setPending(null); setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 80); }
   };
+
+  // The tab bar's send button and Return call this.
+  useEffect(() => { onAskSubmit((m) => ask(m)); return () => onAskSubmit(null); });
+  useEffect(() => { setAskBusy(!!pending); }, [pending]);
 
   // Arriving from a feed card or an item ("More like this"): send it once.
   useEffect(() => {
@@ -110,7 +118,7 @@ export default function CuratorScreen() {
           <ErrorLine text={error} />
         </ScrollView>
         {unified && !pending ? <QuickMatches query={text} onAsk={() => ask(text)} /> : null}
-        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.s, padding: space.m, marginBottom: tabSpace - space.s, borderTopWidth: 1, borderTopColor: t.line, backgroundColor: t.bg }}>
+        {inBar ? <View style={{ height: tabSpace }} /> : <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.s, padding: space.m, marginBottom: tabSpace - space.s, borderTopWidth: 1, borderTopColor: t.line, backgroundColor: t.bg }}>
           <TextInput
             value={text} onChangeText={setText} placeholder={unified ? "Ask, or find something you've seen…" : "More vintage Seiko, a new design blog…"} placeholderTextColor={t.faint}
             onSubmitEditing={() => ask(text)} returnKeyType="send" multiline={false}
@@ -120,7 +128,7 @@ export default function CuratorScreen() {
             style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: text.trim() ? t.accent : t.chip, alignItems: "center", justifyContent: "center" }}>
             <Ionicons name="arrow-up" size={22} color={text.trim() ? t.accentInk : t.faint} />
           </Pressable>
-        </View>
+        </View>}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
