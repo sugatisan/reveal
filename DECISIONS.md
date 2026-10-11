@@ -54,7 +54,7 @@ What's settled, what the code already assumes, and what's still open. Update thi
 | Design studio (2026-10-10) | One app, not two prototypes. `?studio` on the web wraps the app in a phone frame with a control panel; the phone in Expo Go shows only the app. Settings live on the API server and every open copy polls them (dev only), so laptop changes show on the phone. Save writes `app/src/design/saved.json`, which ships with the app. Controls are defined once in a schema; the panel builds itself. First panel: feed card. | `app/src/design/`, `app/src/components/Studio.web.tsx` |
 | Tab bar (2026-10-10) | Custom floating bar drawn over the screens: one island, separate islands, or docked; labels, active style, size, radius, position, fill, shadow, border are studio settings. Screens pad their bottoms with `useTabBarSpace()`. | `app/src/components/TabBar.tsx` |
 | Color (2026-10-10) | Eight palettes plus Custom, chosen in the studio and saved with the design. Each palette is a few base colors (background, cards, text, secondary text, accent, curator card, curator accent); lines, chips, faint text and text-on-accent are derived. "Paper" (the original) follows the phone's light/dark setting; the rest are fixed. | `app/src/design/palettes.ts` |
-| Explainability | Every card has a "why" line (sub-interest, coverage, new source, a source you open a lot) | `server/lib/rank.js` |
+| Explainability (2026-10-11) | The line above a card's title names its interest (plus the focus it matched); inside an interest, only a matched focus. Ranking reasons aren't shown in the feed. | `server/lib/rank.js` |
 
 ## Open questions
 
