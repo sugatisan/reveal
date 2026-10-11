@@ -2,7 +2,8 @@
 // tune what it shows less of, or delete it. Opens from the panel's edit icon, the selected pill's
 // edit icon, or a long-press on any interest pill.
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Text, TextInput } from "@/components/AppText";
 import { router, useLocalSearchParams } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -141,7 +142,7 @@ export default function InterestScreen() {
           ) : <Text style={{ color: t.muted }}>Nothing added yet. Add names, terms or ideas you like.</Text>}
           <Field value={sub} onChange={setSub} onSubmit={addSub} placeholder="Add something you like, e.g. Knoll, teak, Eichler" action="Add" busy={busy === "subs"} />
           <View style={[st.ideasHead, { borderTopColor: t.line }]}>
-            <Text style={{ color: t.ink, fontWeight: "600", fontSize: 16, flex: 1 }}>Ideas from the curator</Text>
+            <Text style={{ color: t.ink, fontWeight: "600", fontSize: 16, flex: 1 }}>Add to this interest</Text>
           </View>
           {ideas === null || (ideasBusy && !ideas?.length) ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
@@ -158,7 +159,7 @@ export default function InterestScreen() {
               <View key={g.kind} style={{ gap: space.s, marginTop: gi ? space.l : space.xs }}>
                 <Text style={[st.label, { color: t.muted }]}>{g.title.toUpperCase()}</Text>
                 <View style={st.chips}>
-                  {left.map((x) => <Chip key={x.term} label={x.term} icon="add" tone="curator" onPress={() => setSubs([...i.subs, x.term])} />)}
+                  {left.map((x) => <Chip key={x.term} label={x.term} tone="curator" onPress={() => setSubs([...i.subs, x.term])} />)}
                   {state.hasKey && !spent[g.kind] ? (
                     <Pressable onPress={() => moreIdeas(g.kind)} disabled={!!moreBusy} hitSlop={6} accessibilityLabel={`More ${g.title.toLowerCase()}`}
                       style={[st.more, { borderColor: t.line, opacity: moreBusy && moreBusy !== g.kind ? 0.5 : 1 }]}>
@@ -170,7 +171,7 @@ export default function InterestScreen() {
             ) : null;
           })}
           {ideas && !ideas.length && !ideasBusy ? (
-            suggestions.length ? <View style={st.chips}>{suggestions.map((s) => <Chip key={s} label={s} icon="add" onPress={() => setSubs([...i.subs, s])} />)}</View>
+            suggestions.length ? <View style={st.chips}>{suggestions.map((s) => <Chip key={s} label={s} onPress={() => setSubs([...i.subs, s])} />)}</View>
               : <Text style={{ color: t.muted, fontSize: 13 }}>{state.hasKey ? "No ideas this time." : "Ideas need the curator (an API key in .env)."}</Text>
           ) : null}
         </Section>

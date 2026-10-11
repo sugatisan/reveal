@@ -1,7 +1,8 @@
 // Search: find a story you scrolled past, or jump to a source or interest by name.
 // Discovery ("find me something new") is the curator's job; when search comes up empty it hands off there.
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { Text, TextInput } from "@/components/AppText";
 import { router, useFocusEffect } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";

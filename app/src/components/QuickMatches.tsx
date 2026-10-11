@@ -1,7 +1,8 @@
 // Unified Ask: as you type to the curator, things you already have show up instantly above the box
 // (local search, no Claude call). Return still asks the curator.
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { api, MiniItem, SourceView } from "@/lib/api";

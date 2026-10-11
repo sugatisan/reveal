@@ -2,7 +2,8 @@
 // refresh and reset. Per-interest editing lives on the interest page (interest/[id]).
 // Used by the optional Sources tab and by the left panel's "All sources and settings".
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
+import { Text, TextInput } from "@/components/AppText";
 import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { SafeAreaView } from "react-native-safe-area-context";

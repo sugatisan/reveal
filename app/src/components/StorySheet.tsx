@@ -1,6 +1,7 @@
 // Bottom sheet with a story's details, for the full-screen feed. Same content as the story page.
 import { useEffect, useRef } from "react";
-import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Layer } from "./Layer";
 import { StoryBody, useStoryDetail } from "./StoryDetails";

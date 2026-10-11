@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
+import { Text, TextInput } from "@/components/AppText";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api, AppState } from "@/lib/api";

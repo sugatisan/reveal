@@ -3,7 +3,8 @@
 // and whether it belongs inside an interest you already have. Return (or Find sources) proposes
 // sources and checks their feeds one by one; nothing is created until you confirm.
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import { Text, TextInput } from "@/components/AppText";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { api, AppState, Draft, Overlap, Proposal, ProposalCheck } from "@/lib/api";

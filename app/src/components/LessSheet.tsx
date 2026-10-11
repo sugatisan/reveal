@@ -1,7 +1,8 @@
 // Bottom sheet for "less of this": pick what you want less of (this story, a topic, a kind of post,
 // the source, or the whole interest). Every choice is reversible from the toast or the Sources tab.
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, StyleSheet, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { Layer } from "./Layer";
 import { router } from "expo-router";
 import { EditGlyph } from "./EditGlyph";

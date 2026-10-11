@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { ActivityIndicator, Animated, Pressable, StyleSheet, View, ViewStyle } from "react-native";
+import { Text } from "@/components/AppText";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { MiniItem, SourceView } from "@/lib/api";
@@ -138,8 +139,8 @@ export function MiniItemRow({ item, onPress, tone = "default", onSave, saved }: 
 }
 
 export const s = StyleSheet.create({
-  chip: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 7, borderRadius: radius.pill, maxWidth: 260 },
-  chipText: { fontSize: 14, fontWeight: "500" },
+  chip: { flexDirection: "row", alignItems: "center", justifyContent: "center", height: 34, paddingHorizontal: 13, borderRadius: radius.pill, maxWidth: 260 },
+  chipText: { fontSize: 14, lineHeight: 18, fontWeight: "500", includeFontPadding: false },
   btn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: radius.pill, borderWidth: 1 },
   btnText: { fontSize: 14, fontWeight: "600" },
   header: { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: space.l, paddingTop: space.m, paddingBottom: space.s, gap: space.m },

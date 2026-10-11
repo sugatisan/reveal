@@ -23,6 +23,13 @@ export const GROUPS: Group[] = [
     controls: [{ key: "color.palette", label: "Palette", type: "palette", default: "paper" }],
   },
   {
+    id: "type-fonts", panel: "Type", title: "Fonts", hint: "One pairing for the whole app: a display face for headlines, titles and the curator, and a text face for everything else.",
+    controls: [
+      choice("type.fonts", "Pairing", "classic", [["classic", "Classic"], ["editorial", "Editorial"], ["modern", "Modern"], ["bookish", "Bookish"], ["technical", "Technical"]],
+        "Classic: Georgia + system. Editorial: Newsreader + Inter. Modern: Space Grotesk + Inter. Bookish: DM Serif Display + DM Sans. Technical: IBM Plex Mono + IBM Plex Sans."),
+    ],
+  },
+  {
     id: "color-custom", panel: "Color", title: "Custom palette", hint: "Changing any of these switches the palette to Custom. Lines, chips and text on the accent are worked out from these.",
     controls: [
       { key: "color.bg", label: "Background", type: "color", default: "#F4F1EA", swatches: ["#FFFFFF", "#F4F1EA", "#EFE6D8", "#E8ECEF", "#151515", "#0E1320"] },

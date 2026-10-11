@@ -2,7 +2,8 @@
 // studio's Story page › Description), key facts, where to buy, actions, curator questions, related
 // stories and deeper sources. Shared by the story page and the full-screen feed's details sheet.
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, StyleSheet, View } from "react-native";
+import { Text } from "@/components/AppText";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import Ionicons from "@expo/vector-icons/Ionicons";

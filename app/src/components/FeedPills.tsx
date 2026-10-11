@@ -1,5 +1,6 @@
 // The feed's top row: menu button + "All" + recent interest pills. Styled from the Feed header settings.
-import { Pressable, Text } from "react-native";
+import { Pressable } from "react-native";
+import { Text } from "@/components/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useDesign } from "@/design/store";
 import { luminance } from "@/design/palettes";

@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useTheme } from "@/lib/theme";
 import { Studio, StudioInsets } from "@/components/Studio";
+import { FontLoader } from "@/design/fonts";
 
 // Some publishers (WordPress hotlink protection) refuse images requested from another site.
 // Native apps send no Referer; on the web, don't send one either.
@@ -26,6 +27,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
     <StudioInsets>
       <StatusBar style={t.dark ? "light" : "dark"} />
+      <FontLoader />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: t.bg } }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="welcome" options={{ gestureEnabled: false }} />

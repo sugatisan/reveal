@@ -2,7 +2,8 @@
 // Full-bleed image, the essentials at the bottom, and a Details control that opens a sheet with the rest.
 import { useRef, useState } from "react";
 import { ActivityIndicator } from "react-native";
-import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, ViewToken } from "react-native";
+import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View, ViewToken } from "react-native";
+import { Text } from "@/components/AppText";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { ago, CuratorCard, FeedEntry, FeedItem, mediaLabel, sendEvents } from "@/lib/api";

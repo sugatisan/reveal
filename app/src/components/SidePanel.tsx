@@ -3,7 +3,8 @@
 // Opens from the button before "All" or by swiping in from the left edge of the feed.
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator } from "react-native";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Text, TextInput } from "@/components/AppText";
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";

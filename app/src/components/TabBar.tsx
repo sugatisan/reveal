@@ -1,7 +1,8 @@
 // Floating tab bar ("island"), driven by the Tab bar settings in the studio.
 // Screens add bottom padding with useTabBarSpace() so their last row isn't hidden under it.
 import { useEffect, useRef, useState } from "react";
-import { Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, Platform, Pressable, StyleSheet, View } from "react-native";
+import { Text, TextInput } from "@/components/AppText";
 import { setAskText, submitAsk, useAskBusy, useAskText } from "@/lib/ask";
 import { rgba, useBackdrop } from "@/lib/backdrop";
 import Ionicons from "@expo/vector-icons/Ionicons";
