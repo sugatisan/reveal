@@ -7,8 +7,9 @@ import { chooseLens, useAppState, useLens } from "@/lib/store";
 import { useTheme } from "@/lib/theme";
 import { Lens } from "@/lib/api";
 import { SidePanel } from "./SidePanel";
+import { CLIP } from "@/lib/clip";
 
-type Ctx = { open: () => void; openWith: (text: string) => void; close: () => void; edgeHandlers: PanResponderInstance["panHandlers"] };
+type Ctx = { open: () => void; openWith: (text: string) => void; openEdit: (interestId: string) => void; close: () => void; edgeHandlers: PanResponderInstance["panHandlers"] };
 const DrawerCtx = createContext<Ctx | null>(null);
 export const useDrawer = () => useContext(DrawerCtx)!;
 
@@ -19,15 +20,16 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
   const { state } = useAppState();
   const lens = useLens();
   const { width: screenW } = useWindowDimensions();
-  const width = Math.min(340, Math.round(screenW * 0.84));
+  const width = Math.min(400, Math.round(screenW * 0.9)); // how far the app slides over: most of the screen
   const widthRef = useRef(width); widthRef.current = width;
   const progress = useRef(new Animated.Value(0)).current; // 0 closed, 1 open
   const [isOpen, setIsOpen] = useState(false);
   const [seed, setSeed] = useState<{ text: string; n: number } | null>(null); // text to start the panel's field with
+  const [editing, setEditing] = useState<string | null>(null); // the interest open at the panel's second level
 
   const settle = (open: boolean) => {
     if (open) setIsOpen(true);
-    Animated.spring(progress, { toValue: open ? 1 : 0, ...SPRING }).start(({ finished }) => { if (finished && !open) setIsOpen(false); });
+    Animated.spring(progress, { toValue: open ? 1 : 0, ...SPRING }).start(({ finished }) => { if (finished && !open) { setIsOpen(false); setEditing(null); } });
   };
   const follow = (dx: number, from: 0 | 1) => progress.setValue(Math.max(0, Math.min(1, from + dx / widthRef.current)));
 
@@ -47,7 +49,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
     onPanResponderTerminate: () => settle(true),
   })).current;
 
-  const ctx = useMemo<Ctx>(() => ({ open: () => settle(true), openWith: (text: string) => { setSeed({ text, n: Date.now() }); settle(true); }, close: () => settle(false), edgeHandlers: edge.panHandlers }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const ctx = useMemo<Ctx>(() => ({ open: () => settle(true), openWith: (text: string) => { setSeed({ text, n: Date.now() }); setEditing(null); settle(true); }, openEdit: (interestId: string) => { setEditing(interestId); settle(true); }, close: () => settle(false), edgeHandlers: edge.panHandlers }), []); // eslint-disable-line react-hooks/exhaustive-deps
   // Picking an interest or source always shows the feed (the panel can be opened from Ask too).
   const pick = (l: Lens) => { chooseLens(l); settle(false); router.navigate("/"); };
 
@@ -62,9 +64,9 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
   return (
     <DrawerCtx.Provider value={ctx}>
       {/* The panel's color fills everything underneath, so it shows past the app's rounded left corners. */}
-      <View style={{ flex: 1, backgroundColor: isOpen ? t.chip : t.bg, overflow: "hidden" }}>
+      <View style={[{ flex: 1, backgroundColor: isOpen ? t.chip : t.bg, overflow: "hidden" }, CLIP]}>
         <Animated.View style={[StyleSheet.absoluteFill, { width, opacity: panelFade, transform: [{ translateX: panelX }, { scale: panelScale }] }]} pointerEvents={isOpen ? "auto" : "none"}>
-          <SidePanel state={state} lens={lens} seed={seed} onClose={() => settle(false)} onPick={pick} />
+          <SidePanel state={state} lens={lens} seed={seed} editing={editing} onEdit={setEditing} onClose={() => settle(false)} onPick={pick} />
         </Animated.View>
         {/* The app is the top layer: rounded on the left and casting a shadow onto the panel while it's pushed over. */}
         <Animated.View style={[st.app, { transform: [{ translateX: appX }] }, isOpen ? [st.edge, st.round] : null]}>

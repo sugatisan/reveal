@@ -13,12 +13,14 @@ import { api, AppState, Lens, looksLikeSite, SitePreview } from "@/lib/api";
 import { bumpFeed, chooseLens, setAppState } from "@/lib/store";
 import { EditGlyph } from "./EditGlyph";
 import { Composer } from "./Composer";
+import { InterestEditor } from "@/app/interest/[id]";
+import { CLIP } from "@/lib/clip";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 
 const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
 
-export function SidePanel({ state, lens, seed, onClose, onPick }: {
-  state: AppState | null; lens: Lens; seed?: { text: string; n: number } | null; onClose: () => void; onPick: (l: Lens) => void;
+export function SidePanel({ state, lens, seed, editing, onEdit, onClose, onPick }: {
+  state: AppState | null; lens: Lens; seed?: { text: string; n: number } | null; editing?: string | null; onEdit?: (id: string | null) => void; onClose: () => void; onPick: (l: Lens) => void;
 }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -76,7 +78,20 @@ export function SidePanel({ state, lens, seed, onClose, onPick }: {
   }, [state, q]);
   const Count = ({ n }: { n: number }) => n > 0 ? <View style={[st.count, { backgroundColor: t.accent }]}><Text style={{ color: t.accentInk, fontSize: 11, fontWeight: "700" }}>{n > 99 ? "99+" : n}</Text></View> : null;
 
+  // Two levels: the list (L0) and one interest's editor (L1), which slides in over it from the right.
+  const level = useRef(new Animated.Value(editing ? 1 : 0)).current;
+  const [shownEdit, setShownEdit] = useState(editing || null);
+  useEffect(() => {
+    if (editing) setShownEdit(editing);
+    Animated.spring(level, { toValue: editing ? 1 : 0, useNativeDriver: false, damping: 26, stiffness: 260 }).start(({ finished }) => { if (finished && !editing) setShownEdit(null); });
+  }, [editing]); // eslint-disable-line react-hooks/exhaustive-deps
+  const l0X = level.interpolate({ inputRange: [0, 1], outputRange: [0, -60] });
+  const l0Fade = level.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+  const l1X = level.interpolate({ inputRange: [0, 1], outputRange: [360, 0] });
+
   return (
+    <View style={[{ flex: 1, backgroundColor: t.chip, overflow: "hidden" }, CLIP]}>
+    <Animated.View pointerEvents={editing ? "none" : "auto"} style={{ flex: 1, opacity: l0Fade, transform: [{ translateX: l0X }] }}>
     <View style={[st.panel, { backgroundColor: t.chip, paddingTop: insets.top + space.s }]}>
         <View style={st.head}>
           <Text style={{ fontFamily: serif, fontSize: 26, color: t.ink, flex: 1 }}>Interests</Text>
@@ -140,7 +155,7 @@ export function SidePanel({ state, lens, seed, onClose, onPick }: {
                     <Text style={[st.label, { color: t.ink, fontWeight: activeI ? "700" : "500", flex: 1 }]} numberOfLines={1}>{i.label}</Text>
                     <Count n={i.newCount} />
                   </Pressable>
-                  <Pressable onPress={() => { onClose(); router.push(`/interest/${i.id}`); }} hitSlop={8} style={{ padding: 4 }} accessibilityLabel={`Edit ${i.label}`}>
+                  <Pressable onPress={() => onEdit?.(i.id)} hitSlop={8} style={{ padding: 4 }} accessibilityLabel={`Edit ${i.label}`}>
                     <EditGlyph size={18} color={t.muted} />
                   </Pressable>
                 </View>
@@ -171,6 +186,13 @@ export function SidePanel({ state, lens, seed, onClose, onPick }: {
           </Pressable>
         </View>
     </View>
+    </Animated.View>
+    {shownEdit ? (
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: t.chip, paddingTop: insets.top + space.xs, transform: [{ translateX: l1X }] }]}>
+        <InterestEditor key={shownEdit} id={shownEdit} embedded onBack={() => onEdit?.(null)} onViewStories={(id) => onPick({ kind: "interest", id })} />
+      </Animated.View>
+    ) : null}
+    </View>
   );
 }
 
@@ -191,7 +213,7 @@ function SwipeToDelete({ open, onOpen, onDelete, label, children }: { open: bool
     onPanResponderTerminate: () => snap(openRef.current ? -REVEAL : 0),
   })).current;
   return (
-    <View style={{ marginHorizontal: space.s, borderRadius: radius.s, overflow: "hidden" }}>
+    <View style={[{ marginHorizontal: space.s, borderRadius: radius.s, overflow: "hidden" }, CLIP]}>
       <Pressable onPress={onDelete} accessibilityRole="button" accessibilityLabel={`Delete ${label}`}
         style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: REVEAL, backgroundColor: t.danger, alignItems: "center", justifyContent: "center" }}>
         <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Delete</Text>

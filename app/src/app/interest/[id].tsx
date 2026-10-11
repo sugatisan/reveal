@@ -14,9 +14,20 @@ import { Button, Chip, ErrorLine, SourceRow } from "@/components/ui";
 
 const KIND_LABEL: Record<TuningRule["kind"], string> = { topic: "Topic", format: "Kind of post", source: "Source", interest: "This whole interest" };
 
+// As its own screen (from Settings, the "less of" sheet): a full page with a back button.
 export default function InterestScreen() {
-  const t = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  return (
+    <InterestEditor id={id} onBack={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+      onViewStories={(iid) => { chooseLens({ kind: "interest", id: iid }); router.dismissTo("/"); }} />
+  );
+}
+
+// The editor itself. Embedded: the second level of the left panel (its back returns to the list).
+export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: string; onBack: () => void; onViewStories: (id: string) => void; embedded?: boolean }) {
+  const t = useTheme();
+  const Frame = embedded ? View : SafeAreaView;
+  const bg = embedded ? "transparent" : t.bg;
   const { state } = useAppState();
   const lens = useLens();
   const i = state?.interests.find((x) => x.id === id);
@@ -49,7 +60,7 @@ export default function InterestScreen() {
   };
   useEffect(() => { loadIdeas(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/"));
+  const back = onBack;
   const run = async (key: string, fn: () => Promise<any>) => {
     setBusy(key); setError("");
     try { const r = await fn(); const s: AppState | undefined = r && ("state" in r ? r.state : "interests" in r ? r : undefined); if (s) setAppState(s); bumpFeed(); return r; }
@@ -57,12 +68,12 @@ export default function InterestScreen() {
     finally { setBusy(""); }
   };
 
-  if (!state) return <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }}><ActivityIndicator color={t.muted} style={{ marginTop: 80 }} /></SafeAreaView>;
+  if (!state) return <Frame style={{ flex: 1, backgroundColor: bg }}><ActivityIndicator color={t.muted} style={{ marginTop: 80 }} /></Frame>;
   if (!i) return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg, padding: space.l }}>
+    <Frame style={{ flex: 1, backgroundColor: bg, padding: space.l }}>
       <BackButton onPress={back} />
       <Text style={{ color: t.muted, marginTop: space.l }}>This interest no longer exists.</Text>
-    </SafeAreaView>
+    </Frame>
   );
 
   const setSubs = (subs: string[]) => run("subs", () => api("/api/interests/update", { id: i.id, subs }));
@@ -75,12 +86,12 @@ export default function InterestScreen() {
   const shownSuggested = moreOpen ? i.suggested : i.suggested.slice(0, 3);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: t.bg }} edges={["top"]}>
+    <Frame style={{ flex: 1, backgroundColor: bg }} {...(embedded ? {} : { edges: ["top"] })}>
       <View style={st.top}>
-        <BackButton onPress={back} />
+        <BackButton onPress={back} label={embedded ? "Interests" : undefined} />
         <View style={{ flex: 1 }} />
         <Button label="View stories" kind="secondary" icon="albums-outline" style={{ paddingVertical: 6 }}
-          onPress={() => { chooseLens({ kind: "interest", id: i.id }); router.dismissTo("/"); }} />
+          onPress={() => onViewStories(i.id)} />
       </View>
       <ScrollView contentContainerStyle={{ paddingBottom: space.xl * 2 }} keyboardShouldPersistTaps="handled">
         <View style={{ paddingHorizontal: space.l, marginBottom: space.l }}>
@@ -233,12 +244,19 @@ export default function InterestScreen() {
           {confirm ? <Text style={{ color: t.muted, fontSize: 13, marginTop: 4 }}>Its sources stay if another interest follows them.</Text> : null}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Frame>
   );
 }
 
-function BackButton({ onPress }: { onPress: () => void }) {
+function BackButton({ onPress, label }: { onPress: () => void; label?: string }) {
   const t = useTheme();
+  if (label) return (
+    // In the panel: a text back link to the level above.
+    <Pressable onPress={onPress} hitSlop={10} accessibilityLabel={`Back to ${label}`} style={{ flexDirection: "row", alignItems: "center", gap: 2, paddingVertical: 6 }}>
+      <Ionicons name="chevron-back" size={20} color={t.ink} />
+      <Text style={{ color: t.ink, fontSize: 16, fontWeight: "600" }}>{label}</Text>
+    </Pressable>
+  );
   return (
     <Pressable onPress={onPress} hitSlop={10} accessibilityLabel="Back" style={[st.back, { backgroundColor: t.chip }]}>
       <Ionicons name="chevron-back" size={22} color={t.ink} />
