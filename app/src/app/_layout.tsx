@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useTheme } from "@/lib/theme";
 import { Studio, StudioInsets } from "@/components/Studio";
 import { FontLoader } from "@/design/fonts";
+import { CuratorSheet } from "@/components/CuratorSheet";
 
 // Some publishers (WordPress hotlink protection) refuse images requested from another site.
 // Native apps send no Referer; on the web, don't send one either.
@@ -35,6 +36,7 @@ export default function RootLayout() {
         <Stack.Screen name="interest/[id]" options={{ presentation: "card", animation: "slide_from_right", headerShown: false }} />
         <Stack.Screen name="manage" options={{ presentation: "card", animation: "slide_from_right", headerShown: false }} />
       </Stack>
+      <CuratorSheet />
     </StudioInsets>
     </SafeAreaProvider>
     </Studio>

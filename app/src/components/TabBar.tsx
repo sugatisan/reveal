@@ -9,6 +9,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDesign } from "@/design/store";
 import { useTheme } from "@/lib/theme";
+import { openCurator, useCuratorSheet } from "@/lib/curatorSheet";
 
 type Glyph = keyof typeof Ionicons.glyphMap;
 export const TABS: { name: string; title: string; icon: Glyph; active: Glyph }[] = [
@@ -33,8 +34,27 @@ export function useTabBarSpace() {
   return d["tab.height"] + d["tab.bottom"] + Math.max(insets.bottom, 8) + 12;
 }
 
+// The bar's look (fill, border, shadow, blur), for controls that should match it, like the curator sheet's bar.
+export function useBarSurface() {
+  const t = useTheme();
+  const d = useDesign();
+  const docked = d["tab.style"] === "docked";
+  const shadowOn = !docked && d["tab.shadowOpacity"] > 0;
+  return {
+    h: d["tab.height"] as number,
+    radius: (docked ? 0 : d["tab.radius"]) as number,
+    blur: d["tab.blur"] as number,
+    surface: {
+      backgroundColor: rgba(t.card, d["tab.opacity"] / 100),
+      borderColor: t.line,
+      borderWidth: d["tab.border"] && !docked ? StyleSheet.hairlineWidth : 0,
+      ...(shadowOn ? ({ boxShadow: `${d["tab.shadowX"]}px ${d["tab.shadowY"]}px ${d["tab.shadowRadius"]}px rgba(0,0,0,${d["tab.shadowOpacity"] / 100})` } as any) : null),
+    },
+  };
+}
+
 // Keyboard height, so the bar can ride above the keyboard while it holds the Ask field.
-function useKeyboardHeight() {
+export function useKeyboardHeight() {
   const [h, setH] = useState(0);
   useEffect(() => {
     if (Platform.OS === "web") return;
@@ -84,7 +104,10 @@ export function IslandTabBar({ state, navigation }: BarProps) {
   const input = useRef<TextInput>(null);
   const kb = useKeyboardHeight();
   useEffect(() => { if (composing) setTimeout(() => input.current?.focus(), 60); }, [composing]);
+  const sheet = useCuratorSheet();
   const go = (name: string) => {
+    // The curator opens as a sheet over the current page instead of a screen of its own.
+    if (name === "curator") { openCurator(); return; }
     const route = state.routes.find((r) => r.name === name);
     if (!route) return;
     const e = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
@@ -142,6 +165,7 @@ export function IslandTabBar({ state, navigation }: BarProps) {
     </Pressable>
   ) : null;
 
+  if (sheet.covering) return null;
   if (docked) {
     return (
       <View ref={dockRef} style={[st.dock, { paddingBottom: composing && kb ? 0 : insets.bottom, bottom: composing ? kb : 0, backgroundColor: fill, borderTopColor: t.line }]}>

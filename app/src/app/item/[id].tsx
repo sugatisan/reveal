@@ -14,6 +14,7 @@ import { Gallery } from "@/components/Gallery";
 import { rgba } from "@/lib/backdrop";
 import { openOriginal, readLabel, StoryBody, useStoryDetail } from "@/components/StoryDetails";
 import { useDesign } from "@/design/store";
+import { openCurator } from "@/lib/curatorSheet";
 
 // How many stories have been opened this session; the compass shows its label for the first few.
 let storiesOpened = 0;
@@ -41,7 +42,7 @@ export default function ItemScreen() {
   const imgH = images.length ? (width * 3) / 4 : insets.top + 60;
   const barOpacity = scrollY.interpolate({ inputRange: [Math.max(0, imgH - barH - 60), Math.max(1, imgH - barH)], outputRange: [0, 1], extrapolate: "clamp" });
 
-  const moreLike = () => it && router.navigate({ pathname: "/curator", params: { prompt: "More like this", itemId: it.id, n: String(Date.now()) } });
+  const moreLike = () => it && openCurator({ prompt: "More like this", itemId: it.id, title: it.title });
   const [labelMore] = useState(() => ++storiesOpened <= 3);
 
   // Read at the publisher, more like this, hide, save: one row, placed right under the description.

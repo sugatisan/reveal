@@ -12,7 +12,7 @@ import { MiniItemRow } from "./ui";
 
 type Results = { q: string; items: MiniItem[]; sources: (SourceView & { interestId?: string })[]; interests: { id: string; label: string }[] };
 
-export function QuickMatches({ query, onAsk }: { query: string; onAsk: () => void }) {
+export function QuickMatches({ query, onAsk, onLeave }: { query: string; onAsk: () => void; onLeave?: () => void }) {
   const t = useTheme();
   const [res, setRes] = useState<Results | null>(null);
   useEffect(() => {
@@ -24,7 +24,7 @@ export function QuickMatches({ query, onAsk }: { query: string; onAsk: () => voi
   if (!res || res.q !== query.trim()) return null;
   const has = res.items.length || res.sources.length || res.interests.length;
 
-  const openFeed = (lens: Parameters<typeof chooseLens>[0]) => { chooseLens(lens); router.navigate("/"); };
+  const openFeed = (lens: Parameters<typeof chooseLens>[0]) => { onLeave?.(); chooseLens(lens); router.navigate("/"); };
   return (
     <View style={{ marginHorizontal: space.m, marginBottom: space.s, maxHeight: 300, backgroundColor: t.card, borderRadius: radius.m, borderWidth: 1, borderColor: t.line, overflow: "hidden",
       ...({ boxShadow: "0px 8px 24px rgba(0,0,0,0.18)" } as any) }}>

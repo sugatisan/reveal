@@ -12,6 +12,7 @@ import { chooseLens } from "@/lib/store";
 import { radius, space, useTheme } from "@/lib/theme";
 import { Chip, ErrorLine, Header, MiniItemRow, SourceRow } from "@/components/ui";
 import { useTabBarSpace } from "@/components/TabBar";
+import { openCurator } from "@/lib/curatorSheet";
 
 type Results = { q: string; items: MiniItem[]; sources: (SourceView & { interestId?: string })[]; interests: { id: string; label: string }[] };
 
@@ -36,7 +37,7 @@ export default function SearchScreen() {
   }, [q]);
 
   const openFeed = (lens: Parameters<typeof chooseLens>[0]) => { chooseLens(lens); router.navigate("/"); };
-  const askCurator = () => router.navigate({ pathname: "/curator", params: { prompt: q.trim(), n: String(Date.now()) } });
+  const askCurator = () => openCurator({ prompt: q.trim() });
   const empty = res && !res.items.length && !res.sources.length && !res.interests.length;
 
   return (

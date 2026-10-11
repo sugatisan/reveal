@@ -17,6 +17,7 @@ import { useDrawer } from "@/components/Drawer";
 import { FullFeed } from "@/components/FullFeed";
 import { seedBriefs } from "@/components/StoryDetails";
 import { useDesign } from "@/design/store";
+import { openCurator } from "@/lib/curatorSheet";
 
 // A "pair" is one row of the 2-column grid; everything else spans the full width.
 type Row = FeedEntry | { type: "divider"; id: string; label?: string } | { type: "pair"; id: string; items: FeedItem[] };
@@ -168,7 +169,7 @@ export default function FeedScreen() {
     toast.show("Following. New stories will show up in your feed.");
     reloadState();
   };
-  const ask = (prompt: string, itemId?: string) => router.navigate({ pathname: "/curator", params: { prompt, ...(itemId ? { itemId } : {}), n: String(Date.now()) } });
+  const ask = (prompt: string, itemId?: string) => openCurator({ prompt, itemId });
 
   const flat: Row[] = [];
   let itemIdx = 0;

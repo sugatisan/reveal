@@ -12,6 +12,7 @@ import { bumpFeed, reloadState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { useDesign } from "@/design/store";
 import { Button, Chip, MiniItemRow, SourceRow } from "@/components/ui";
+import { openCurator } from "@/lib/curatorSheet";
 
 export type DescMode = "gist" | "excerpt" | "lead";
 
@@ -80,7 +81,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
   // Episodes and videos: their length leads the key facts.
   const len = mediaLabel(it)?.split(" · ")[1];
   const shown = shown0 && len ? { ...shown0, facts: [{ label: "Length", value: len }, ...shown0.facts.filter((f) => !/length|duration|runtime/i.test(f.label))].slice(0, 4) } : shown0;
-  const ask = (prompt: string) => { onLeave?.(); router.navigate({ pathname: "/curator", params: { prompt, itemId: it.id, n: String(Date.now()) } }); };
+  const ask = (prompt: string) => openCurator({ prompt, itemId: it.id, title: it.title });
   const open = () => openOriginal(it);
   const d = useDesign();
   const gap: number = d["story.sectionGap"], labelGap: number = d["story.labelGap"];

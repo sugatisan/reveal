@@ -12,6 +12,9 @@ import { CLIP } from "@/lib/clip";
 type Ctx = { open: () => void; openWith: (text: string) => void; openEdit: (interestId: string) => void; close: () => void; edgeHandlers: PanResponderInstance["panHandlers"] };
 const DrawerCtx = createContext<Ctx | null>(null);
 export const useDrawer = () => useContext(DrawerCtx)!;
+// For callers outside the provider (the curator sheet sits above the tabs).
+let current: Ctx | null = null;
+export const openDrawerWith = (text: string) => current?.openWith(text);
 
 const SPRING = { useNativeDriver: Platform.OS !== "web", damping: 26, stiffness: 240, mass: 0.9 };
 
@@ -50,6 +53,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
   })).current;
 
   const ctx = useMemo<Ctx>(() => ({ open: () => settle(true), openWith: (text: string) => { setSeed({ text, n: Date.now() }); setEditing(null); settle(true); }, openEdit: (interestId: string) => { setEditing(interestId); settle(true); }, close: () => settle(false), edgeHandlers: edge.panHandlers }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  current = ctx;
   // Picking an interest or source always shows the feed (the panel can be opened from Ask too).
   const pick = (l: Lens) => { chooseLens(l); settle(false); router.navigate("/"); };
 
