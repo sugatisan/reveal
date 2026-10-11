@@ -56,13 +56,10 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     const scopeW = interestId ? 1 : fit === 0 ? 0.55 : fit === 1 ? 0.85 : 1; // in All, off-scope only ranks lower
     const score = (recency * 1.0 + (sub ? 0.45 : 0) + coverage * 0.18 + (it.image ? 0.08 : 0)) * aff * seenPenalty * tuned * scopeW;
 
-    let why;
+    // The line above the title says which interest a story belongs to (and the focus it matched),
+    // not why the ranking put it here. Inside an interest, only a matched focus is worth saying.
     const primary = subInt || ints[0];
-    if (sub) why = `${sub} · ${subInt.label}`;
-    else if (coverage >= 1) why = `Covered by ${coverage + 1} of your sources`;
-    else if (now - (src.addedAt || 0) < 2 * 864e5 && src.origin !== "catalog-seed") why = `New source in ${primary.label}`;
-    else if (aff > 1.15) why = `You open a lot from ${src.name}`;
-    else why = primary.label;
+    const why = interestId ? (sub || "") : sub ? `${primary.label} · ${sub}` : primary.label;
 
     const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, ...pub } = it; // server-only
     scored.push({ ...pub, fit, opened: !!(ev.open || ev.expand), imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save });

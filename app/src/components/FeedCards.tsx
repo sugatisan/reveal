@@ -50,7 +50,7 @@ export function ItemCard({ item, onOpen, onSave, onLess, inGrid = false }: { ite
       </Pressable>
     </View>
   );
-  const why = d["card.showWhy"] ? <Text style={[st.why, { color: t.accent }, inGrid ? { fontSize: 10 } : null]} numberOfLines={1}>{item.why}</Text> : null;
+  const why = d["card.showWhy"] && item.why ? <Text style={[st.why, { color: t.accent }, inGrid ? { fontSize: 10 } : null]} numberOfLines={1}>{item.why}</Text> : null;
   const excerpt = showExcerpt ? <Text style={{ color: t.muted, lineHeight: 20 }} numberOfLines={d["card.excerptLines"]}>{item.excerpt}</Text> : null;
   const media = mediaLabel(item);
   const mediaBadge = media ? (

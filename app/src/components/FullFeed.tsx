@@ -99,7 +99,7 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
                 <Text style={{ color: ink, fontSize: 12, fontWeight: "700" }}>{mediaLabel(it)}</Text>
               </View>
             ) : null}
-            <Text style={{ color: img ? "#F5C542" : t.accent, fontSize: 11, fontWeight: "800", letterSpacing: 1 }} numberOfLines={1}>{it.why.toUpperCase()}</Text>
+            {it.why ? <Text style={{ color: img ? "#F5C542" : t.accent, fontSize: 11, fontWeight: "800", letterSpacing: 1 }} numberOfLines={1}>{it.why.toUpperCase()}</Text> : null}
             <Pressable onPress={() => openDetails(it)} accessibilityRole="button" accessibilityHint="Opens details">
               <Text style={{ fontFamily: serif, color: ink, fontSize: img ? 28 : 32, lineHeight: img ? 33 : 38, letterSpacing: -0.3 }} numberOfLines={4}>{it.title}</Text>
               {it.excerpt ? <Text style={{ color: sub, fontSize: 15, lineHeight: 21, marginTop: space.s }} numberOfLines={3}>{it.excerpt}</Text> : null}
