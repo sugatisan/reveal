@@ -60,9 +60,17 @@ export function useStoryDetail(id: string | null) {
   return { it, setIt, error, brief, briefError, mode };
 }
 
-export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => router.setParams({ id }), onLeave }: {
+// The story's main action: read it at the publisher (or listen, or watch).
+export const readLabel = (it: ItemDetail) => it.kind === "audio" ? "Listen" : it.kind === "video" ? (/youtube\.com|youtu\.be/.test(it.link) ? "Watch on YouTube" : "Watch") : `Read at ${it.sourceName}`;
+export async function openOriginal(it: ItemDetail) {
+  sendEvents([{ itemId: it.id, type: "open" }]).catch(() => {});
+  await openLink(it.link || it.mediaUrl || "");
+}
+
+export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => router.setParams({ id }), onLeave, readInHeader }: {
   it: ItemDetail; brief: StoryBrief | null | undefined; briefError: string; mode: DescMode;
   onRelated?: (id: string) => void; onLeave?: () => void;
+  readInHeader?: boolean; // the page puts "Read at…" up with the save and hide buttons
 }) {
   const t = useTheme();
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
@@ -72,10 +80,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
   const len = mediaLabel(it)?.split(" · ")[1];
   const shown = shown0 && len ? { ...shown0, facts: [{ label: "Length", value: len }, ...shown0.facts.filter((f) => !/length|duration|runtime/i.test(f.label))].slice(0, 4) } : shown0;
   const ask = (prompt: string) => { onLeave?.(); router.navigate({ pathname: "/curator", params: { prompt, itemId: it.id, n: String(Date.now()) } }); };
-  const open = async () => {
-    sendEvents([{ itemId: it.id, type: "open" }]).catch(() => {});
-    await openLink(it.link || it.mediaUrl || "");
-  };
+  const open = () => openOriginal(it);
   const d = useDesign();
   const gap: number = d["story.sectionGap"], labelGap: number = d["story.labelGap"];
   const Label = ({ children }: { children: string }) => (
@@ -125,8 +130,8 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
       ) : null}
 
       <View style={{ flexDirection: "row", gap: space.s, flexWrap: "wrap" }}>
-        <Button label={it.kind === "audio" ? "Listen" : it.kind === "video" ? (/youtube\.com|youtu\.be/.test(it.link) ? "Watch on YouTube" : "Watch") : `Read at ${it.sourceName}`}
-          icon={it.kind === "audio" ? "headset-outline" : it.kind === "video" ? "play" : "open-outline"} onPress={open} />
+        {readInHeader ? null : <Button label={readLabel(it)}
+          icon={it.kind === "audio" ? "headset-outline" : it.kind === "video" ? "play" : "open-outline"} onPress={open} />}
         <Button label="More like this" kind="secondary" onPress={() => ask("More like this")} />
       </View>
 

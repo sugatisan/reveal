@@ -12,7 +12,7 @@ import { Button, Chip, ErrorLine, MiniItemRow, SourceRow, useToast } from "@/com
 import { LessSheet, lessToast } from "@/components/LessSheet";
 import { Gallery } from "@/components/Gallery";
 import { rgba } from "@/lib/backdrop";
-import { StoryBody, useStoryDetail } from "@/components/StoryDetails";
+import { openOriginal, readLabel, StoryBody, useStoryDetail } from "@/components/StoryDetails";
 import { useDesign } from "@/design/store";
 
 export default function ItemScreen() {
@@ -48,8 +48,13 @@ export default function ItemScreen() {
           <Gallery key={it.id} images={images} aspect={4 / 3} topInset={insets.top} fallback={<View style={{ height: insets.top + 60 }} />} />
           {/* Actions sit on the image's bottom edge, right side, just above the title. */}
           <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: space.l, paddingTop: space.m }}>
-            <Text style={{ color: t.muted, fontSize: 13, flex: 1 }} numberOfLines={1}>
-              {[it.sourceName, ...(it.alsoNames || [])].join(" · ")}{it.web ? " · from the web" : ` · ${ago(it.date)}`}
+            {/* The main action leads the row: the publisher's name is the button, the time sits beside it. */}
+            <Pressable onPress={() => openOriginal(it)} accessibilityRole="link" accessibilityLabel={readLabel(it)}
+              style={({ pressed }) => [st.read, { backgroundColor: t.accent, opacity: pressed ? 0.85 : 1 }]}>
+              <Text style={{ color: t.accentInk, fontSize: 15, fontWeight: "700" }} numberOfLines={1}>{readLabel(it)}</Text>
+            </Pressable>
+            <Text style={{ color: t.muted, fontSize: 13, flex: 1, marginLeft: space.m }} numberOfLines={1}>
+              {it.web ? "From the web" : ago(it.date)}{it.alsoNames?.length ? ` · also ${it.alsoNames.join(", ")}` : ""}
             </Text>
             <View style={{ flexDirection: "row", gap: space.l }}>
               <Pressable onPress={() => setLessOpen(true)} hitSlop={10} accessibilityLabel="Show me less of…" style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
@@ -63,7 +68,7 @@ export default function ItemScreen() {
           <View style={{ paddingHorizontal: space.l, paddingTop: space.s, gap: space.m }}>
             <Text style={{ fontFamily: serif, fontSize: 28, lineHeight: 34, color: t.ink, letterSpacing: -0.3 }}>{it.title}</Text>
           </View>
-          <StoryBody it={it} brief={brief} briefError={briefError} mode={mode} />
+          <StoryBody it={it} brief={brief} briefError={briefError} mode={mode} readInHeader />
         </Animated.ScrollView>
       )}
       {it ? (
@@ -92,4 +97,5 @@ const st = StyleSheet.create({
   bar: { position: "absolute", top: 0, left: 0, right: 0 },
   back: { position: "absolute", left: space.l, width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center" },
   action: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  read: { height: 40, borderRadius: 20, paddingHorizontal: 16, justifyContent: "center", flexShrink: 1, maxWidth: "62%" },
 });
