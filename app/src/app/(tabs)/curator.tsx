@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useTabBarSpace } from "@/components/TabBar";
@@ -10,6 +10,7 @@ import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Chip, ErrorLine, Header, MiniItemRow, SourceRow } from "@/components/ui";
 import { QuickMatches } from "@/components/QuickMatches";
 import { useDesign } from "@/design/store";
+import { useDrawer } from "@/components/Drawer";
 import { onAskSubmit, setAskBusy, setAskText, useAskText } from "@/lib/ask";
 
 type Thread = { turns: Turn[]; starters: string[]; hasKey: boolean };
@@ -26,6 +27,7 @@ export default function CuratorScreen() {
   const [busy, setBusy] = useState("");
   const scroll = useRef<ScrollView>(null);
   const tabSpace = useTabBarSpace();
+  const drawer = useDrawer();
   const design = useDesign();
   const unified = design["nav.ask"] === "unified";
   const inBar = unified && design["tab.askInBar"] !== false;
@@ -95,8 +97,32 @@ export default function CuratorScreen() {
               </View>
               <Text style={{ color: t.curatorInk, fontFamily: serif, fontSize: 18, lineHeight: 25 }}>{turn.text}</Text>
               {turn.items?.map((it) => <MiniItemRow key={it.id} tone="curator" item={it} onPress={() => router.push({ pathname: "/item/[id]", params: { id: it.id } })} />)}
+              {turn.web?.length ? (
+                <View style={{ gap: 2, marginTop: space.s }}>
+                  <Text style={{ color: t.curatorMuted, fontSize: 13 }}>From the web · not from your sources</Text>
+                  {turn.web.map((a) => (
+                    <Pressable key={a.url} onPress={() => Linking.openURL(a.url)} accessibilityRole="link" style={({ pressed }) => ({ paddingVertical: 8, opacity: pressed ? 0.6 : 1 })}>
+                      <Text style={{ color: t.curatorMuted, fontSize: 12 }} numberOfLines={1}>{a.site}</Text>
+                      <Text style={{ color: t.curatorInk, fontFamily: serif, fontSize: 16, lineHeight: 21 }} numberOfLines={2}>{a.title}</Text>
+                      {a.why ? <Text style={{ color: t.curatorMuted, fontSize: 13 }} numberOfLines={1}>{a.why}</Text> : null}
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
               {turn.sources?.length ? <Text style={{ color: t.curatorMuted, fontSize: 13, marginTop: space.s }}>New places to look</Text> : null}
               {turn.sources?.map((s) => <SourceRow key={s.id} tone="curator" busy={busy === s.id} src={{ ...s, followed: s.followed || !!followed[s.id] }} onFollow={() => follow(s.id, s.interestId)} />)}
+              {turn.missing?.length ? (
+                <Text style={{ color: t.curatorMuted, fontSize: 12 }}>
+                  Couldn't add {turn.missing.map((m) => m.name).join(", ")}: no feed found. You can still visit {turn.missing.length === 1 ? "it" : "them"} directly.
+                </Text>
+              ) : null}
+              {turn.offerInterest ? (
+                <Pressable onPress={() => drawer.openWith(turn.offerInterest!)} accessibilityRole="button"
+                  style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 8, marginTop: space.s, paddingVertical: 10, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: t.curatorAccent, alignSelf: "flex-start", opacity: pressed ? 0.7 : 1 })}>
+                  <Ionicons name="add" size={16} color={t.curatorAccent} />
+                  <Text style={{ color: t.curatorInk, fontWeight: "600" }}>Make “{turn.offerInterest}” an interest</Text>
+                </Pressable>
+              ) : null}
               {turn.followups?.length && i === thread.turns.length - 1 ? (
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s, marginTop: space.s }}>
                   {turn.followups.map((f) => <Chip key={f} tone="curator" label={f} onPress={() => ask(f)} />)}

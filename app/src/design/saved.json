@@ -12,10 +12,10 @@
   "tab.border": true,
   "tab.blur": 18,
   "tab.opacity": 82,
-  "tab.shadowOpacity": 16,
-  "tab.shadowRadius": 18,
+  "tab.shadowOpacity": 40,
+  "tab.shadowRadius": 6,
   "tab.shadowX": 0,
-  "tab.shadowY": 6,
+  "tab.shadowY": 5,
   "color.palette": "graphite",
   "color.accent": "#D24A1C",
   "color.bg": "#F4F1EA",
@@ -52,5 +52,7 @@
   "story.sectionGap": 26,
   "story.factsGap": 12,
   "story.factsPad": 16,
-  "tab.askInBar": true
+  "card.ratio": "16:9",
+  "card.grid": true,
+  "card.fullBleed": false
 }

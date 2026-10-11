@@ -245,7 +245,8 @@ export async function discoverFeed(input, { timeout = 9000 } = {}) {
       if (ch) { const u = await tryFeed(`https://www.youtube.com/feeds/videos.xml?playlist_id=UU${ch}`); if (u?.feed) return { ...u.feed, title: (u.feed.title || "").replace(/^Uploads from /, "") }; }
       mediaNote = `Found its feed (${m}) but it didn't load or had no episodes.`;
       console.log(`  ${mediaNote}`);
-    } else if (/youtube\.com|podcasts\.apple\.com/.test(url)) mediaNote = "Couldn't find the channel or show ID on that page.";
+    } else if (/podcasts\.apple\.com/.test(url)) mediaNote = /id\d+/.test(url) ? "Apple Podcasts has no show with that ID (the link may be wrong)." : "That Apple Podcasts link has no show ID.";
+    else if (/youtube\.com/.test(url)) mediaNote = "Couldn't find the channel ID on that page.";
   } catch (e) { mediaNote = `Looking up the feed failed: ${e.message}`; console.log(`  ${mediaNote}`); }
   const first = await tryFeed(url);
   if (first?.feed) return first.feed;

@@ -1,7 +1,7 @@
 // Left panel: the interest graph. Add an interest at the top (typing also filters the list), tap one
 // to view it, the tuner to refine it. You and Settings at the bottom.
 // Opens from the button before "All" or by swiping in from the left edge of the feed.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator } from "react-native";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
@@ -16,8 +16,8 @@ import { radius, serif, space, useTheme } from "@/lib/theme";
 
 const host = (u: string) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
 
-export function SidePanel({ state, lens, onClose, onPick }: {
-  state: AppState | null; lens: Lens; onClose: () => void; onPick: (l: Lens) => void;
+export function SidePanel({ state, lens, seed, onClose, onPick }: {
+  state: AppState | null; lens: Lens; seed?: { text: string; n: number } | null; onClose: () => void; onPick: (l: Lens) => void;
 }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -27,6 +27,8 @@ export function SidePanel({ state, lens, onClose, onPick }: {
   const [busy, setBusy] = useState("");
   const [err, setErr] = useState("");
   const [site, setSite] = useState<SitePreview | null>(null);
+  // Opened from elsewhere with a starting phrase (the curator's "Make it an interest"): the composer reads it.
+  useEffect(() => { if (seed) setQ(seed.text); }, [seed?.n]); // eslint-disable-line react-hooks/exhaustive-deps
   const text = q.trim();
   const isSite = looksLikeSite(text);
   const finish = (r: { state: AppState }, pick?: string) => {

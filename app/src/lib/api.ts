@@ -46,7 +46,8 @@ export type CuratorCard =
 export type FeedEntry = FeedItem | CuratorCard;
 export type Feed = { entries: FeedEntry[]; caughtUp: number; broaderAt?: number; broaderLabel?: string; scoping?: boolean; lastRefresh: number; refreshing: boolean };
 export type MiniItem = { id: string; title: string; image?: string; excerpt?: string; link?: string; date?: number; sourceName?: string; saved?: boolean };
-export type Turn = { role: "user" | "curator"; text: string; itemId?: string; items?: MiniItem[]; sources?: SourceView[]; followups?: string[]; at: number };
+export type WebArticle = { title: string; url: string; site: string; why: string };
+export type Turn = { role: "user" | "curator"; text: string; itemId?: string; items?: MiniItem[]; sources?: SourceView[]; missing?: { name: string; site: string }[]; web?: WebArticle[]; offerInterest?: string; followups?: string[]; at: number };
 export type ShopLink = { shop: string; url: string; ours: boolean };
 export type ItemDetail = FeedItem & { gallery?: string[]; aiSummary?: string | null; brief?: StoryBrief | null; forYou?: string | null; shops?: ShopLink[]; lead?: string; interests: { id: string; label: string }[]; related: MiniItem[]; deeper: SourceView[] };
 

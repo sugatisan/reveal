@@ -140,7 +140,11 @@ Return:
 {"reply": "1-3 sentences answering them, pointing at what you picked and why (one sentence when finding)",
  "items": ["up to 6 candidate ids, best first; [] if none fit"],
  "sources": [up to 4 NEW sources not in their follows, only if they asked for new/different things or the candidates don't cover it; each {"name","site","feed","why","interest": "which of their interest labels it belongs to, or a new short label"}],
- "followups": ["2-3 short things they might ask next, in their voice, under 6 words each"]}
+ "followups": ["2-3 short things they might ask next, in their voice, under 6 words each"],
+ "web": "a web search query, ONLY if they want articles, guides or explainers (how to start something, learn something, find out about something) and the candidates don't cover it; else null",
+ "interest": "a short interest name (2-4 words) ONLY if they're exploring a subject none of their interests cover and it sounds ongoing (e.g. learning a craft); else null"}
+
+If you set "web", don't claim there's nothing to read: say you looked further afield.
 
 ${SOURCE_RULES}`;
   const out = json(await claude({ system, prompt, maxTokens: 1800, purpose: "curator" }));
@@ -149,7 +153,40 @@ ${SOURCE_RULES}`;
     items: Array.isArray(out.items) ? out.items.map(String) : [],
     sources: Array.isArray(out.sources) ? out.sources.slice(0, 4) : [],
     followups: Array.isArray(out.followups) ? out.followups.slice(0, 3).map(String) : [],
+    web: typeof out.web === "string" && out.web.trim() ? out.web.trim().slice(0, 120) : null,
+    interest: typeof out.interest === "string" && out.interest.trim() ? out.interest.trim().slice(0, 40) : null,
   };
+}
+
+// "From the web": a few articles found with Claude's web search tool, for when the person's own
+// sources don't cover what they asked. One-offs to read, never sources. Only URLs that actually
+// came back from the search are kept.
+export async function webArticles(query, message) {
+  if (!hasKey() || !query) return [];
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model: FAST(), max_tokens: 1200,
+      system: "You find good articles on the open web for a reader. Prefer specific, well-made guides and essays from independent publications and makers over listicles, shops and forums. Reply with JSON only.",
+      messages: [{ role: "user", content: `The reader asked: """${message}"""\nSearch for: ${query}\n\nPick the 3-5 best articles. Return {"articles":[{"title":"","url":"","why":"at most 10 words"}]}` }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }],
+    }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error?.message || `Claude API error ${res.status}`);
+  const u = body.usage || {};
+  record({ purpose: "curator-web", model: FAST(), input: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), output: u.output_tokens || 0, cached: u.cache_read_input_tokens || 0, searches: u.server_tool_use?.web_search_requests || 0 });
+  const found = new Map();
+  for (const c of body.content || []) if (c.type === "web_search_tool_result" && Array.isArray(c.content)) for (const r of c.content) if (r.url) found.set(r.url, r);
+  const text = (body.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+  let picks = [];
+  try { picks = json(text).articles || []; } catch {}
+  const host = (x) => { try { return new URL(x).hostname.replace(/^www\./, ""); } catch { return ""; } };
+  const out = picks.filter((a) => a?.url && found.has(a.url)).map((a) => ({ title: String(a.title || found.get(a.url).title || "").trim(), url: a.url, site: host(a.url), why: String(a.why || "").trim() }));
+  // If the picks don't line up with what the search returned, fall back to the search's own top results.
+  if (!out.length) for (const r of [...found.values()].slice(0, 4)) out.push({ title: r.title, url: r.url, site: host(r.url), why: "" });
+  return out.filter((a) => a.title).slice(0, 5);
 }
 
 // Topics someone might want less of, for the "less of this" sheet. Cached on the story by the caller.

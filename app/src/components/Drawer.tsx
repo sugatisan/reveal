@@ -2,12 +2,13 @@
 // to the right, revealing the panel. Swipe from the left edge of the feed, or tap the menu button.
 import { createContext, ReactNode, useContext, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, PanResponderInstance, Platform, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { router } from "expo-router";
 import { chooseLens, useAppState, useLens } from "@/lib/store";
 import { useTheme } from "@/lib/theme";
 import { Lens } from "@/lib/api";
 import { SidePanel } from "./SidePanel";
 
-type Ctx = { open: () => void; close: () => void; edgeHandlers: PanResponderInstance["panHandlers"] };
+type Ctx = { open: () => void; openWith: (text: string) => void; close: () => void; edgeHandlers: PanResponderInstance["panHandlers"] };
 const DrawerCtx = createContext<Ctx | null>(null);
 export const useDrawer = () => useContext(DrawerCtx)!;
 
@@ -22,6 +23,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
   const widthRef = useRef(width); widthRef.current = width;
   const progress = useRef(new Animated.Value(0)).current; // 0 closed, 1 open
   const [isOpen, setIsOpen] = useState(false);
+  const [seed, setSeed] = useState<{ text: string; n: number } | null>(null); // text to start the panel's field with
 
   const settle = (open: boolean) => {
     if (open) setIsOpen(true);
@@ -45,8 +47,9 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
     onPanResponderTerminate: () => settle(true),
   })).current;
 
-  const ctx = useMemo<Ctx>(() => ({ open: () => settle(true), close: () => settle(false), edgeHandlers: edge.panHandlers }), []); // eslint-disable-line react-hooks/exhaustive-deps
-  const pick = (l: Lens) => { chooseLens(l); settle(false); };
+  const ctx = useMemo<Ctx>(() => ({ open: () => settle(true), openWith: (text: string) => { setSeed({ text, n: Date.now() }); settle(true); }, close: () => settle(false), edgeHandlers: edge.panHandlers }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Picking an interest or source always shows the feed (the panel can be opened from Ask too).
+  const pick = (l: Lens) => { chooseLens(l); settle(false); router.navigate("/"); };
 
   // The app moves the full panel width; the panel itself drifts in a little (parallax) and brightens.
   const appX = progress.interpolate({ inputRange: [0, 1], outputRange: [0, width] });
@@ -58,7 +61,7 @@ export function DrawerProvider({ children }: { children: ReactNode }) {
     <DrawerCtx.Provider value={ctx}>
       <View style={{ flex: 1, backgroundColor: t.bg, overflow: "hidden" }}>
         <Animated.View style={[StyleSheet.absoluteFill, { width, opacity: panelFade, transform: [{ translateX: panelX }] }]} pointerEvents={isOpen ? "auto" : "none"}>
-          <SidePanel state={state} lens={lens} onClose={() => settle(false)} onPick={pick} />
+          <SidePanel state={state} lens={lens} seed={seed} onClose={() => settle(false)} onPick={pick} />
         </Animated.View>
         <Animated.View style={[st.app, { backgroundColor: t.bg, transform: [{ translateX: appX }] }, isOpen ? st.edge : null]}>
           {children}

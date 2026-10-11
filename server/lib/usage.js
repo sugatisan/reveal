@@ -13,12 +13,13 @@ const read = () => (data ||= (() => { try { return JSON.parse(fs.readFileSync(FI
 let timer = null;
 const write = () => { clearTimeout(timer); timer = setTimeout(() => { try { fs.writeFileSync(FILE, JSON.stringify(data, null, 1)); } catch {} }, 500); };
 
-export function record({ purpose = "other", model, input = 0, output = 0, cached = 0 }) {
+export function record({ purpose = "other", model, input = 0, output = 0, cached = 0, searches = 0 }) {
   const d = read();
   const day = new Date().toISOString().slice(0, 10);
   const k = `${purpose}|${model}`;
   const e = ((d.days[day] ||= {})[k] ||= { calls: 0, input: 0, output: 0, cached: 0 });
   e.calls++; e.input += input; e.output += output; e.cached += cached;
+  if (searches) e.searches = (e.searches || 0) + searches; // web searches bill separately (DF_SEARCH_PRICE per search, default $0.01)
   write();
 }
 
@@ -40,7 +41,7 @@ export function summary(days = 7) {
       r.calls += e.calls; r.input += e.input; r.output += e.output;
       if (day === today) r.today += e.calls;
       const pr = p[model];
-      if (pr) r.cost += (e.input * pr[0] + e.output * pr[1]) / 1e6; else if (e.calls) priced = priced && false;
+      if (pr) r.cost += (e.input * pr[0] + e.output * pr[1]) / 1e6 + (e.searches || 0) * Number(process.env.DF_SEARCH_PRICE || 0.01); else if (e.calls) priced = priced && false;
     }
   }
   const rows = Object.values(by).sort((a, b) => b.input + b.output - (a.input + a.output));

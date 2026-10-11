@@ -731,8 +731,12 @@ const routes = {
       ans = await agent.curate({ message, interests, candidates: listed, history: t.turns, context: ctx && { ...ctx, sourceName: d.sources[ctx.sourceId]?.name } });
     } else ans = curator.fallbackAnswer(message, cands);
 
+    // Not covered by your sources and you want something to read: look on the web, alongside the source checks.
+    const webP = ans.web ? agent.webArticles(ans.web, message).catch((e) => { console.error("  Web search failed:", e.message); return []; }) : Promise.resolve([]);
+
     // New sources: verify the feed, then add them as suggestions to the matching interest (or a new one).
-    const sources = [];
+    // Ones without a working feed are reported back, since the reply may name them.
+    const sources = [], missing = [];
     for (const p of ans.sources) {
       let i = d.interests.find((x) => x.label.toLowerCase() === String(p.interest || "").toLowerCase()) || d.interests.find((x) => String(p.interest || "").toLowerCase().includes(x.label.toLowerCase()));
       if (!i) {
@@ -743,7 +747,9 @@ const routes = {
       const id = sourceIdFor(p.site || p.feed);
       const v = sourceView(id, i.sourceIds.includes(id));
       if (v && v.status === "ok") sources.push({ ...v, interestId: i.id, interestLabel: i.label });
+      else missing.push({ name: p.name, site: p.site });
     }
+    const web = await webP;
     // Interests created only to hold sources that all failed verification are dropped.
     d.interests = d.interests.filter((i) => i.origin !== "curator" || i.sourceIds.length || i.suggestedIds.length);
 
@@ -753,7 +759,9 @@ const routes = {
       return { id, title: it.title, image: it.image, excerpt: it.excerpt, link: it.link, date: it.date, sourceName: d.sources[it.sourceId]?.name, saved: !!d.events[id]?.save };
     });
     const turnUser = { role: "user", text: message.trim(), itemId: itemId || undefined, at: Date.now() };
-    const turnCurator = { role: "curator", text: ans.reply, items, sources, followups: ans.followups, at: Date.now() };
+    // Offer a new interest only when it isn't one already.
+    const offer = ans.interest && !d.interests.some((i) => i.label.toLowerCase() === ans.interest.toLowerCase()) ? ans.interest : undefined;
+    const turnCurator = { role: "curator", text: ans.reply, items, sources, missing: missing.length ? missing : undefined, web: web.length ? web : undefined, offerInterest: offer, followups: ans.followups, at: Date.now() };
     t.turns.push(turnUser, turnCurator);
     t.turns = t.turns.slice(-40);
     save();
