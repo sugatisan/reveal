@@ -15,7 +15,7 @@ try {
 
 const { load, save, flush, reset, hash, slug, upsertSource, sourceIdFor, followedIds, stat } = await import("./lib/store.js");
 const { discoverFeed, cadence, cadenceLabel, normalizeUrl, articlePage, sourceKind } = await import("./lib/feeds.js");
-const { refresh, isRefreshing, fetchSource, storeItems, mergeDuplicates, enrichImages } = await import("./lib/ingest.js");
+const { refresh, isRefreshing, fetchSource, storeItems, mergeDuplicates, enrichImages, cleanSourceName } = await import("./lib/ingest.js");
 const { buildFeed, suggestionsFor, subMatch } = await import("./lib/rank.js");
 const usage = await import("./lib/usage.js");
 const shop = await import("./lib/shop.js");
@@ -122,7 +122,7 @@ async function followSite(url, { origin = "user", why, name } = {}) {
   const f = await findFeed(url);
   const id = sourceIdFor(f.site || url);
   const had = load().sources[id];
-  upsertSource({ id, name: had?.name && !pageTitle(had.name) ? had.name : name && (!f.title || pageTitle(f.title)) ? name : f.title || url, site: normalizeUrl(f.site || url), feedUrl: f.feedUrl, status: "ok", kind: sourceKind(f.items), perWeek: cadence(f.items), lastFetched: Date.now(), about: f.description?.slice(0, 200), origin: had?.origin || origin, addedAt: had?.addedAt || Date.now(), ...(why ? { why } : {}) });
+  upsertSource({ id, name: had?.name && !pageTitle(had.name) ? had.name : name && (!f.title || pageTitle(f.title)) ? name : cleanSourceName(f.title || "") || url, site: normalizeUrl(f.site || url), feedUrl: f.feedUrl, status: "ok", kind: sourceKind(f.items), perWeek: cadence(f.items), lastFetched: Date.now(), about: f.description?.slice(0, 200), origin: had?.origin || origin, addedAt: had?.addedAt || Date.now(), ...(why ? { why } : {}) });
   storeItems(id, f.items);
   mergeDuplicates();
   return id;
@@ -331,6 +331,7 @@ async function itemDetail(id) {
   // Largest version first: the share image or upgraded URL, then the rest.
   for (const u of [images.best(it), it.image, ...(it.images || []), ...(it.pageImages || [])]) if (u && !gallery.some((g) => gk(g) === gk(u))) gallery.push(u);
   const ints = d.interests.filter((i) => i.sourceIds.includes(it.sourceId) || (it.also || []).some((s) => i.sourceIds.includes(s)));
+  if (!ints.length && it.web) { const h = curator.homeOf(it, d); if (h) ints.push(h); } // a web find: its closest interest
   const intSources = new Set(ints.flatMap((i) => i.sourceIds));
   const t = tok(it.title + " " + it.excerpt);
   const related = Object.values(d.items)
@@ -939,6 +940,8 @@ async function shortenLongNames() {
   } catch (e) { console.error("  Shortening names failed:", e.message); }
 }
 setTimeout(() => shortenLongNames(), 4000);
+// Tidy source names once at start (new ones are tidied as they're fetched).
+{ const d = load(); let n = 0; for (const s of Object.values(d.sources)) { const c = cleanSourceName(s.name || ""); if (s.name && c !== s.name) { s.name = c; n++; } } if (n) { save(); console.log(`  Tidied ${n} source names`); } }
 
 const tick = () => { if (followedIds().length && Date.now() - load().meta.lastRefresh > 25 * 6e4) refresh().then((r) => { console.log(`  Refreshed: ${r.added} new items, ${r.failed} sources failed`); return r.added ? tuning.checkAllExclusions() : null; }).catch(() => {}); };
 setTimeout(tick, 1500);

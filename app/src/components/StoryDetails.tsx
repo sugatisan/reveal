@@ -7,7 +7,7 @@ import { Animated, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/AppText";
 import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { api, ItemDetail, mediaLabel, sendEvents, StoryBrief } from "@/lib/api";
+import { ago, api, ItemDetail, mediaLabel, sendEvents, StoryBrief } from "@/lib/api";
 import { bumpFeed, reloadState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { useDesign } from "@/design/store";
@@ -67,11 +67,12 @@ export async function openOriginal(it: ItemDetail) {
   await openLink(it.link || it.mediaUrl || "");
 }
 
-export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => router.setParams({ id }), onLeave, readInHeader }: {
+export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => router.setParams({ id }), onLeave, actions }: {
   it: ItemDetail; brief: StoryBrief | null | undefined; briefError: string; mode: DescMode;
   onRelated?: (id: string) => void; onLeave?: () => void;
-  readInHeader?: boolean; // the page puts "Read at…" up with the save and hide buttons
+  actions?: React.ReactNode; // the page's Read / hide / save row, placed right under the description
 }) {
+  const readInHeader = !!actions;
   const t = useTheme();
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState("");
@@ -91,16 +92,18 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
     <View style={{ paddingHorizontal: space.l, paddingTop: space.l, paddingBottom: space.xl, gap }}>
       {/* Why it's here, then the description. Gist when we have it; the publisher's excerpt while it's on the way. */}
       <View style={{ gap: 10 }}>
-        {it.forYou ? (
-          <Text style={{ color: t.muted, fontSize: 14 }}>{it.forYou}</Text>
-        ) : null}
+        {/* Where it's from, in one line: interest, source, when. */}
+        <Text style={{ color: t.muted, fontSize: 14 }} numberOfLines={2}>
+          From {it.interests?.[0]?.label || (it.web ? "the web" : "your sources")} on {it.sourceName}{it.web ? "" : ` · ${ago(it.date)}`}
+        </Text>
         {mode !== "gist" ? (
           <>
             <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{(mode === "lead" ? it.lead : it.excerpt) || (mode === "lead" ? "(Couldn't read the article's opening on this page.)" : "(This feed has no excerpt.)")}</Text>
             <Text style={{ color: t.faint, fontSize: 12 }}>{mode === "lead" ? `Opening of the article at ${it.sourceName}. No AI.` : `From ${it.sourceName}'s feed. No AI.`}</Text>
+            {actions ? <View style={{ marginTop: 6 }}>{actions}</View> : null}
           </>
         ) : (
-          <GistBlock it={it} brief={brief} briefError={briefError} facts={shown?.facts?.length ? (
+          <GistBlock it={it} brief={brief} briefError={briefError} actions={actions} facts={shown?.facts?.length ? (
             <View style={[st.facts, { borderColor: t.line, paddingVertical: d["story.factsPad"], rowGap: d["story.factsGap"], marginTop: 20 }]}>
               {shown.facts.map((f) => (
                 <View key={f.label} style={st.fact}>
@@ -172,22 +175,27 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
 
 // The description: the curator's gist (usually written before you open the story). On the rare miss,
 // a quiet placeholder until it arrives. The publisher's text is one tap away under "Show original".
-function GistBlock({ it, brief, briefError, facts }: { it: ItemDetail; brief: StoryBrief | null | undefined; briefError: string; facts: React.ReactNode }) {
+function GistBlock({ it, brief, briefError, facts, actions }: { it: ItemDetail; brief: StoryBrief | null | undefined; briefError: string; facts: React.ReactNode; actions?: React.ReactNode }) {
   const t = useTheme();
   const [showOriginal, setShowOriginal] = useState(false);
   const fade = useRef(new Animated.Value(brief === undefined ? 0 : 1)).current;
   useEffect(() => { if (brief?.gist) Animated.timing(fade, { toValue: 1, duration: 150, useNativeDriver: true }).start(); }, [brief, fade]);
   const original = it.lead || it.excerpt || "";
 
+  const row = actions ? <View style={{ marginTop: space.l }}>{actions}</View> : null;
   if (brief === undefined) return (
-    <View style={{ gap: 10, paddingVertical: 4 }} accessibilityLabel="Loading the summary">
-      {[1, 0.94, 0.62].map((w, k) => <View key={k} style={{ height: 14, width: `${w * 100}%`, borderRadius: 7, backgroundColor: t.chip }} />)}
+    <View>
+      <View style={{ gap: 10, paddingVertical: 4 }} accessibilityLabel="Loading the summary">
+        {[1, 0.94, 0.62].map((w, k) => <View key={k} style={{ height: 14, width: `${w * 100}%`, borderRadius: 7, backgroundColor: t.chip }} />)}
+      </View>
+      {row}
     </View>
   );
   if (!brief?.gist) return (
     <View>
       <Text style={{ color: t.ink, fontSize: 17, lineHeight: 26 }}>{original}</Text>
       {__DEV__ && briefError ? <Text style={{ color: t.danger, fontSize: 12, marginTop: 6 }}>Brief failed (dev only): {briefError}</Text> : null}
+      {row}
     </View>
   );
   return (
@@ -205,6 +213,7 @@ function GistBlock({ it, brief, briefError, facts }: { it: ItemDetail; brief: St
           <Text style={{ color: t.faint, fontSize: 12, marginTop: 4 }}>From {it.sourceName}</Text>
         </View>
       ) : null}
+      {row}
       {facts}
     </Animated.View>
   );

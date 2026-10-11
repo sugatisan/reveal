@@ -36,6 +36,17 @@ export async function fetchSource(src) {
 
 export const FULL_TEXT_MIN = 1200; // characters: longer than any teaser
 
+// Feed titles often carry boilerplate: "Latest from Golf Monthly", "Uploads from LEGO", "Dezeen - RSS Feed".
+export function cleanSourceName(name = "") {
+  const n = name
+    .replace(/^(uploads from|the latest from|latest from|latest (news|posts|articles|stories) from|all (posts|articles|stories) from|news from|posts from)\s+/i, "")
+    .replace(/\s*[-–—|:]\s*(rss|atom)?\s*(feed|rss)$/i, "")
+    .replace(/\s*[-–—|:]\s*(latest|all) (news|posts|articles|stories)$/i, "")
+    .replace(/\s+rss$/i, "")
+    .trim();
+  return n || name;
+}
+
 export function storeItems(sourceId, items) {
   const d = load();
   let added = 0;
@@ -140,7 +151,7 @@ async function doRefresh({ onlyIds } = {}) {
       if (!src.about && f.description) src.about = f.description.slice(0, 200);
       src.perWeek = cadence(f.items);
       src.kind = sourceKind(f.items);
-      if (/^Uploads from /.test(src.name || "")) src.name = src.name.replace(/^Uploads from /, "");
+      if (src.name) src.name = cleanSourceName(src.name);
       // How much of this source's feed is full articles (vs teasers).
       src.fullTextShare = f.items.length ? f.items.filter((x) => stripTags(x.html || "").length >= FULL_TEXT_MIN).length / f.items.length : 0;
       src.status = "ok";
