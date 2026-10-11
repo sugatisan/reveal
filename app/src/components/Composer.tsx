@@ -157,12 +157,14 @@ export function Composer({ text, state, go, onDone, onOpen }: {
 
           {rows ? (
             <View style={{ gap: 2 }}>
-              <Text style={[st.cap, { color: t.muted }]}>SOURCES{checking ? ` · CHECKING ${rows.length - checking} OF ${rows.length}` : ""}</Text>
+              <Text style={[st.cap, { color: t.muted }]}>SOURCES{checking ? " · CHECKING FEEDS…" : ""}</Text>
+              {!checking && !rows.some((x) => x.check?.ok) ? <Text style={{ color: t.muted, fontSize: 13 }}>None of the sources found have a feed Reveal can follow. Try different words, or add a site you know.</Text> : null}
               {rows.map((r, k) => {
-                const failed = r.check && !r.check.ok;
+                // Only sources Reveal can follow are shown; ones without a working feed drop out once checked.
+                if (r.check && !r.check.ok) return null;
                 return (
                   <Pressable key={r.site} disabled={!r.check?.ok} onPress={() => setRows((rs) => rs && rs.map((x, j) => (j === k ? { ...x, on: !x.on } : x)))}
-                    accessibilityRole="checkbox" accessibilityState={{ checked: r.on, disabled: !r.check?.ok }} style={[st.src, { opacity: failed ? 0.45 : 1 }]}>
+                    accessibilityRole="checkbox" accessibilityState={{ checked: r.on, disabled: !r.check?.ok }} style={st.src}>
                     {!r.check ? <ActivityIndicator size="small" color={t.muted} style={{ width: 20 }} />
                       : <Ionicons name={r.on ? "checkbox" : "square-outline"} size={20} color={r.on ? t.ink : t.faint} />}
                     <View style={{ flex: 1 }}>
@@ -171,7 +173,7 @@ export function Composer({ text, state, go, onDone, onOpen }: {
                         <Text style={{ color: t.ink, fontWeight: "600", flexShrink: 1 }} numberOfLines={1}>{r.check?.name || r.name}</Text>
                       </View>
                       <Text style={{ color: t.muted, fontSize: 12 }} numberOfLines={2}>
-                        {failed ? "No feed found" : `${r.fit === "dedicated" ? "All about it" : "Broader"}${r.check?.cadence ? ` · ${r.check.cadence}` : ""}${r.why ? ` · ${r.why}` : ""}`}
+                        {`${r.fit === "dedicated" ? "All about it" : "Broader"}${r.check?.cadence ? ` · ${r.check.cadence}` : ""}${r.why ? ` · ${r.why}` : ""}`}
                       </Text>
                     </View>
                   </Pressable>
