@@ -149,16 +149,21 @@ export function Composer({ text, state, go, onDone, onOpen }: {
 
           {rows ? (
             <View style={{ gap: space.xs }}>
-              <Text style={[st.cap, { color: t.muted }]}>SOURCES{checking ? " · CHECKING FEEDS…" : ""}</Text>
+              <Text style={[st.cap, { color: t.muted }]}>SOURCES</Text>
+              {/* Rows appear only once their feed checks out, so nothing is shown and then taken away. */}
+              {checking ? (
+                <View style={st.line}>
+                  <ActivityIndicator size="small" color={t.muted} />
+                  <Text style={{ color: t.muted, fontSize: 13 }}>Checking feeds · {rows.filter((x) => x.check?.ok).length} of {rows.length} work so far</Text>
+                </View>
+              ) : null}
               {!checking && !rows.some((x) => x.check?.ok) ? <Text style={{ color: t.muted, fontSize: 13 }}>None of the sources found have a feed Reveal can follow. Try different words, or add a site you know.</Text> : null}
               {rows.map((r, k) => {
-                // Only sources Reveal can follow are shown; ones without a working feed drop out once checked.
-                if (r.check && !r.check.ok) return null;
+                if (!r.check?.ok) return null;
                 return (
                   <Pressable key={r.site} disabled={!r.check?.ok} onPress={() => setRows((rs) => rs && rs.map((x, j) => (j === k ? { ...x, on: !x.on } : x)))}
                     accessibilityRole="checkbox" accessibilityState={{ checked: r.on, disabled: !r.check?.ok }} style={st.src}>
-                    {!r.check ? <ActivityIndicator size="small" color={t.muted} style={{ width: 20 }} />
-                      : <Ionicons name={r.on ? "checkbox" : "square-outline"} size={20} color={r.on ? t.ink : t.faint} />}
+                    <Ionicons name={r.on ? "checkbox" : "square-outline"} size={20} color={r.on ? t.ink : t.faint} />
                     <View style={{ flex: 1 }}>
                       <View style={st.line}>
                         <Image source={{ uri: `https://www.google.com/s2/favicons?sz=64&domain=${host(r.site)}` }} style={{ width: 14, height: 14, borderRadius: 3 }} />
@@ -171,6 +176,11 @@ export function Composer({ text, state, go, onDone, onOpen }: {
                   </Pressable>
                 );
               })}
+              {!checking && rows.some((x) => x.check && !x.check.ok) ? (
+                <Text style={{ color: t.muted, fontSize: 12, marginTop: space.xs }}>
+                  No feed to follow: {rows.filter((x) => x.check && !x.check.ok).map((x) => x.name).join(", ")}. Company sites, forums and some channels don't publish one.
+                </Text>
+              ) : null}
             </View>
           ) : null}
 
