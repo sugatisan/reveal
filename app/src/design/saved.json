@@ -55,5 +55,8 @@
   "card.ratio": "16:9",
   "card.grid": false,
   "card.fullBleed": false,
-  "color.card": "#111318"
+  "color.card": "#111318",
+  "type.fonts": "classic",
+  "pill.selOpacity": 85,
+  "pill.selBlur": 4
 }

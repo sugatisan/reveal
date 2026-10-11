@@ -12,6 +12,7 @@ import { api, AppState, Overlap, Usage } from "@/lib/api";
 import { bumpFeed, setAppState, useAppState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Button, ErrorLine, Header } from "@/components/ui";
+import { AppearanceCard } from "@/components/Appearance";
 
 export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAdd?: boolean }) {
   const t = useTheme();
@@ -109,6 +110,7 @@ export function ManageScreen({ stacked, focusAdd }: { stacked?: boolean; focusAd
         {!state ? <ActivityIndicator color={t.muted} /> : null}
 
         {stacked && state?.profile ? <ProfileCard name={state.profile.name} onSave={(name) => run("profile", () => api("/api/profile", { name }))} /> : null}
+        {stacked ? <AppearanceCard /> : null}
 
         {state?.interests.length ? (
           <Card title="Interests">
