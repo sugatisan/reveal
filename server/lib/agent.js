@@ -23,7 +23,26 @@ export async function claude({ system, prompt, model = MODEL(), maxTokens = 2500
   if (!res.ok) throw new Error(body?.error?.message || `Claude API error ${res.status}`);
   const u = body.usage || {};
   record({ purpose, model, input: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), output: u.output_tokens || 0, cached: u.cache_read_input_tokens || 0 });
+  lastStop[purpose] = body.stop_reason;
   return (body.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+}
+const lastStop = {}; // why the last call for each purpose ended (end_turn, max_tokens, ...), for debugging
+
+// Every complete {...} object inside a JSON array that got cut off partway, e.g. {"sources":[{..},{..},{"na
+function salvageObjects(text, key) {
+  const start = text.indexOf(`"${key}"`);
+  if (start < 0) return [];
+  const out = [];
+  let depth = 0, from = -1, inStr = false, esc = false;
+  for (let i = text.indexOf("[", start) + 1; i > 0 && i < text.length; i++) {
+    const c = text[i];
+    if (inStr) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true;
+    else if (c === "{") { if (depth++ === 0) from = i; }
+    else if (c === "}") { if (--depth === 0 && from >= 0) { try { out.push(JSON.parse(text.slice(from, i + 1))); } catch {} from = -1; } }
+    else if (c === "]" && depth === 0) break;
+  }
+  return out;
 }
 
 function json(text) {
@@ -370,9 +389,17 @@ For each source also give "fit": "dedicated" when most of what it publishes is i
 
 Return: {"sources":[{"name":"","site":"","feed":null,"why":"","fit":"dedicated"}]}`;
   // The main model doesn't take a forced tool call, so this one asks for JSON text.
-  const raw = await claude({ system: "You are the curator inside a personal discovery feed. You know the web well and only name sources that really exist. Reply with JSON only.", prompt, maxTokens: 3000, purpose: "compose-sources" });
-  let out;
-  try { out = json(raw); } catch (e) { try { fs.mkdirSync("data/debug", { recursive: true }); fs.writeFileSync("data/debug/compose-sources.txt", raw); } catch {} throw e; }
+  const ask = () => claude({ system: "You are the curator inside a personal discovery feed. You know the web well and only name sources that really exist. Reply with JSON only.", prompt, maxTokens: 3000, purpose: "compose-sources" });
+  // The reply sometimes stops partway. Keep every complete source; if fewer than 4 came through, ask once more.
+  let raw = await ask(), out;
+  const read = (r) => { try { return json(r); } catch { return { sources: salvageObjects(r, "sources") }; } };
+  out = read(raw);
+  if ((out.sources || []).length < 4) {
+    try { fs.mkdirSync("data/debug", { recursive: true }); fs.writeFileSync("data/debug/compose-sources.txt", `stop: ${lastStop["compose-sources"]}\n${raw}`); } catch {}
+    const again = read(raw = await ask());
+    if ((again.sources || []).length > (out.sources || []).length) out = again;
+  }
+  if (!(out.sources || []).length) throw new Error("The curator's answer came back incomplete. Try again.");
   return (out.sources || []).filter((s) => s.site).map((s) => ({ name: String(s.name), site: String(s.site), feed: s.feed || null, why: String(s.why || ""), fit: s.fit === "dedicated" ? "dedicated" : "broad" }));
 }
 
