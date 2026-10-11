@@ -56,10 +56,22 @@ export default function FeedScreen() {
   const full = design["card.layout"] === "full";
   const [pageH, setPageH] = useState(0);
 
+  const listRef = useRef<FlatList<Row>>(null);
+  // Each load is tagged: an older, slower request (from the interest you just left) never replaces a newer one.
+  // A different interest or source opens at the top; reloading the same one keeps your place.
+  const latest = useRef(0);
+  const shownKey = useRef<string | null>(null);
   const load = useCallback(async () => {
     const q = !lens ? "" : lens.kind === "interest" ? `?interest=${encodeURIComponent(lens.id)}` : `?source=${encodeURIComponent(lens.id)}`;
-    try { const f = await api<Feed>(`/api/feed${q}`); seedBriefs(f.entries); setFeed(f); setError(""); }
-    catch (e: any) { setError(e.message); }
+    const key = lens ? `${lens.kind}:${lens.id}` : "all";
+    const n = ++latest.current;
+    try {
+      const f = await api<Feed>(`/api/feed${q}`);
+      if (n !== latest.current) return;
+      seedBriefs(f.entries); setFeed(f); setError("");
+      if (shownKey.current !== key) { shownKey.current = key; listRef.current?.scrollToOffset({ offset: 0, animated: false }); }
+    }
+    catch (e: any) { if (n === latest.current) setError(e.message); }
   }, [lens]);
   useEffect(() => { load(); }, [load, version]);
   // An interest whose stories are still being checked against its scope: look again shortly, once.
@@ -83,7 +95,6 @@ export default function FeedScreen() {
     const id = setInterval(check, 60000);
     return () => clearInterval(id);
   }, [feed?.now, lens]);
-  const listRef = useRef<FlatList<Row>>(null);
   const showFresh = () => { setFresh(0); listRef.current?.scrollToOffset({ offset: 0, animated: true }); load(); reloadState(); };
 
   // Implicit signal: an item counts as "shown" once 60% of it is on screen.
