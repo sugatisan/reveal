@@ -141,7 +141,7 @@ export default function InterestScreen() {
           ) : <Text style={{ color: t.muted }}>Nothing added yet. Add names, terms or ideas you like.</Text>}
           <Field value={sub} onChange={setSub} onSubmit={addSub} placeholder="Add something you like, e.g. Knoll, teak, Eichler" action="Add" busy={busy === "subs"} />
           <View style={[st.ideasHead, { borderTopColor: t.line }]}>
-            <Text style={{ color: t.ink, fontWeight: "600", flex: 1 }}>Ideas from the curator</Text>
+            <Text style={{ color: t.ink, fontWeight: "600", fontSize: 16, flex: 1 }}>Ideas from the curator</Text>
           </View>
           {ideas === null || (ideasBusy && !ideas?.length) ? (
             <View style={{ flexDirection: "row", alignItems: "center", gap: space.s }}>
@@ -155,7 +155,7 @@ export default function InterestScreen() {
             const left = g.items.filter((x) => !earlier.has(x.term.toLowerCase()) && !i.subs.some((s) => s.toLowerCase() === x.term.toLowerCase()));
             // Keep a group with nothing left if it can still offer More.
             return left.length || (state.hasKey && !spent[g.kind]) ? (
-              <View key={g.kind} style={{ gap: 6 }}>
+              <View key={g.kind} style={{ gap: space.s, marginTop: gi ? space.l : space.xs }}>
                 <Text style={[st.label, { color: t.muted }]}>{g.title.toUpperCase()}</Text>
                 <View style={st.chips}>
                   {left.map((x) => <Chip key={x.term} label={x.term} icon="add" tone="curator" onPress={() => setSubs([...i.subs, x.term])} />)}
@@ -275,7 +275,7 @@ const st = StyleSheet.create({
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   label: { fontSize: 12, fontWeight: "700", letterSpacing: 0.6 },
   more: { borderWidth: 1, borderStyle: "dashed", borderRadius: 999, paddingHorizontal: 12, minHeight: 30, minWidth: 56, alignItems: "center", justifyContent: "center" },
-  ideasHead: { flexDirection: "row", alignItems: "center", gap: 6, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: space.m, marginTop: space.s },
+  ideasHead: { flexDirection: "row", alignItems: "center", gap: 6, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: space.l, marginTop: space.m },
   switch: { width: 46, height: 28, borderRadius: 14, padding: 3, justifyContent: "center" },
   knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff" },
   rule: { flexDirection: "row", alignItems: "center", gap: space.m, paddingVertical: 4 },
