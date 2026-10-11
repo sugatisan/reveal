@@ -50,15 +50,15 @@ export default function ItemScreen() {
         <Text style={{ color: t.accentInk, fontSize: 15, fontWeight: "700" }} numberOfLines={1}>{readLabel(it)}</Text>
       </Pressable>
       <View style={{ flex: 1 }} />
-      <View style={{ flexDirection: "row", gap: space.l }}>
+      <View style={{ flexDirection: "row", gap: space.s }}>
         {/* More like this: the opposite of the eye next to it. */}
-        <Pressable onPress={moreLike} hitSlop={10} accessibilityLabel="More like this" style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
+        <Pressable onPress={moreLike} hitSlop={4} accessibilityLabel="More like this" style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
           <Ionicons name="compass-outline" size={21} color={t.ink} />
         </Pressable>
-        <Pressable onPress={() => setLessOpen(true)} hitSlop={10} accessibilityLabel="Show me less of…" style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
+        <Pressable onPress={() => setLessOpen(true)} hitSlop={4} accessibilityLabel="Show me less of…" style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
           <Ionicons name="eye-off-outline" size={20} color={t.ink} />
         </Pressable>
-        <Pressable onPress={save} hitSlop={10} accessibilityLabel={it.saved ? "Unsave" : "Save"} style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
+        <Pressable onPress={save} hitSlop={4} accessibilityLabel={it.saved ? "Unsave" : "Save"} style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
           <Ionicons name={it.saved ? "bookmark" : "bookmark-outline"} size={20} color={it.saved ? t.accent : t.ink} />
         </Pressable>
       </View>
