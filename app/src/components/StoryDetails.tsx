@@ -109,7 +109,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
               {shown.facts.map((f) => (
                 <View key={f.label} style={st.fact}>
                   <Text style={{ color: t.muted, fontSize: 12, fontWeight: "600" }}>{f.label}</Text>
-                  <Text style={{ color: t.ink, fontSize: 15, lineHeight: 21, fontWeight: "600" }}>{f.value}</Text>
+                  <Text style={{ color: t.ink, fontSize: 15, lineHeight: 21 }}>{f.value}</Text>
                 </View>
               ))}
             </View>
