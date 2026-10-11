@@ -23,7 +23,7 @@ export const GROUPS: Group[] = [
     controls: [{ key: "color.palette", label: "Palette", type: "palette", default: "paper" }],
   },
   {
-    id: "color-custom", panel: "Color", title: "Custom palette", hint: "Used when Palette is set to Custom. Lines, chips and text on the accent are worked out from these.",
+    id: "color-custom", panel: "Color", title: "Custom palette", hint: "Changing any of these switches the palette to Custom. Lines, chips and text on the accent are worked out from these.",
     controls: [
       { key: "color.bg", label: "Background", type: "color", default: "#F4F1EA", swatches: ["#FFFFFF", "#F4F1EA", "#EFE6D8", "#E8ECEF", "#151515", "#0E1320"] },
       { key: "color.card", label: "Cards", type: "color", default: "#FFFFFF", swatches: ["#FFFFFF", "#FBF6EE", "#F3F3F3", "#212121", "#172033"] },

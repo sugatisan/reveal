@@ -150,7 +150,10 @@ function Panel({ prefs, setPrefs }: { prefs: StudioPrefs; setPrefs: (p: Partial<
   };
   const all: Sec[] = [...GROUPS, studioSec];
   const valueOf = (s: Sec, c: Control) => (s.studio ? (prefs as any)[c.key] : d[c.key]);
-  const setValue = (s: Sec, c: Control, v: any) => (s.studio ? setPrefs({ [c.key]: v } as any) : setDesign({ [c.key]: v }));
+  // Changing a Custom palette color switches to Custom, so the change shows (it did nothing while another palette was picked).
+  const CUSTOM_KEYS = ["color.bg", "color.card", "color.ink", "color.muted", "color.accent", "color.curatorBg", "color.curatorAccent"];
+  const setValue = (s: Sec, c: Control, v: any) => (s.studio ? setPrefs({ [c.key]: v } as any)
+    : setDesign({ [c.key]: v, ...(CUSTOM_KEYS.includes(c.key) && d["color.palette"] !== "custom" ? { "color.palette": "custom" } : null) }));
 
   // Search: a section matches by its own title/panel (show all its controls) or by individual controls.
   const needle = q.trim().toLowerCase();
