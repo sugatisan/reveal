@@ -64,7 +64,8 @@ export async function addExclusion({ itemId, text }) {
   save();
   // Check what's in the feed now before answering (a few seconds at most); the rest finishes behind.
   await Promise.race([checkExclusion(rule.id), new Promise((r) => setTimeout(r, 8000))]);
-  return { ...publicRule(rule), hidden: Object.values(rule.m).filter((v) => v === 1).length };
+  const hiddenIds = Object.keys(rule.m).filter((k) => rule.m[k] === 1);
+  return { ...publicRule(rule), hidden: hiddenIds.length, hiddenIds, checking: running.has(rule.id) };
 }
 
 const running = new Map();

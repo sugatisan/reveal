@@ -145,6 +145,13 @@ export default function FeedScreen() {
     setLessFor(null);
     const snapshot = feed;
     patch(r.itemId, () => null);
+    // An exclusion in your words: everything it already caught leaves the screen now, and the feed
+    // reloads once more after the rest of your stories have been checked.
+    if (r.type === "rule" && r.kind === "exclude") {
+      const gone = new Set((r.rule as any)?.hiddenIds || []);
+      if (gone.size) setFeed((f) => f && { ...f, entries: f.entries.filter((e) => !(e.type === "item" && gone.has(e.id))) });
+      setTimeout(load, 12000);
+    }
     toast.show(lessToast(r), async () => {
       if (r.type === "unfollow") await api("/api/sources/follow", { interestId: r.interestId, sourceId: r.sourceId, follow: true });
       await api("/api/less/remove", { ruleId: r.type === "rule" ? r.rule?.id : undefined, itemId: r.itemId });

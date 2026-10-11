@@ -680,7 +680,7 @@ const routes = {
 
   "GET /api/peek": async (req, url) => peek(url.searchParams.get("sourceId")),
 
-  "POST /api/refresh": async () => { const r = await refresh(); await Promise.race([scope.scoreAll().catch(() => 0), new Promise((ok) => setTimeout(ok, 5000))]); return { ...r, state: state() }; },
+  "POST /api/refresh": async () => { const r = await refresh(); await Promise.race([Promise.all([scope.scoreAll().catch(() => 0), tuning.checkAllExclusions().catch(() => 0)]), new Promise((ok) => setTimeout(ok, 5000))]); return { ...r, state: state() }; },
 
   "GET /api/feed": async (req, url) => {
     const interestId = url.searchParams.get("interest") || undefined;
@@ -918,7 +918,7 @@ server.on("listening", () => {
 server.listen(PORT, "0.0.0.0");
 
 // Keep the feed fresh while the app is running.
-const tick = () => { if (followedIds().length && Date.now() - load().meta.lastRefresh > 25 * 6e4) refresh().then((r) => console.log(`  Refreshed: ${r.added} new items, ${r.failed} sources failed`)).catch(() => {}); };
+const tick = () => { if (followedIds().length && Date.now() - load().meta.lastRefresh > 25 * 6e4) refresh().then((r) => { console.log(`  Refreshed: ${r.added} new items, ${r.failed} sources failed`); return r.added ? tuning.checkAllExclusions() : null; }).catch(() => {}); };
 setTimeout(tick, 1500);
 setTimeout(() => pregenBriefs().catch(() => {}), 8000);
 setInterval(() => pregenBriefs().catch(() => {}), 2 * 6e4);
