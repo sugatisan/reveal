@@ -216,7 +216,7 @@ export const GROUPS: Group[] = [
       choice("nav.ask", "Model", "unified", [["separate", "Separate"], ["unified", "Unified (Ask)"]]),
       choice("tab.search", "Entry placement", "tab", [["off", "Off"], ["tab", "A tab"], ["button", "Separate button"]],
         "Where Search (separate) or Ask (unified) lives. Unified ignores Off."),
-      { key: "tab.askInBar", label: "Ask field in the tab bar", hint: "Unified: on the Ask screen the bar stretches, the Ask icon becomes the text field, and send sits at the end. Off: the field sits above the bar.", type: "toggle", default: true },
+      { key: "tab.askInBar", label: "Ask field in the tab bar", hint: "Unified: on the Ask screen the bar stretches, the Ask icon becomes the text field, send sits at the end, and Saved steps aside. Off: the field sits above the bar.", type: "toggle", default: true },
     ],
   },
 ];
