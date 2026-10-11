@@ -128,7 +128,14 @@ export function SidePanel({ state, lens, seed, onClose, onPick }: {
             return (
               <View key={i.id}>
                 <SwipeToDelete open={swiped === i.id} onOpen={(o) => setSwiped(o ? i.id : null)} onDelete={() => removeInterest(i.id)} label={i.label}>
-                <View style={[st.row, { backgroundColor: activeI ? t.card : t.chip }]}>
+                <View style={[st.row, { backgroundColor: activeI ? t.card : t.chip, paddingLeft: space.s }]}>
+                  {/* Disclosure arrow before the name: shows the interest's sources. Interests without sources keep the space so names line up. */}
+                  {i.sources.length ? (
+                    <Pressable onPress={() => setExpanded((e) => ({ ...e, [i.id]: !isOpen }))} hitSlop={10} style={{ width: 20, alignItems: "center", marginRight: -space.s }}
+                      accessibilityLabel={isOpen ? `Hide ${i.label} sources` : `Show ${i.label} sources`}>
+                      <Ionicons name={isOpen ? "chevron-down" : "chevron-forward"} size={16} color={t.muted} />
+                    </Pressable>
+                  ) : <View style={{ width: 20, marginRight: -space.s }} />}
                   <Pressable onPress={() => { if (swiped) { setSwiped(null); return; } onPick({ kind: "interest", id: i.id }); }} style={st.rowMain} accessibilityRole="button">
                     <Text style={[st.label, { color: t.ink, fontWeight: activeI ? "700" : "500", flex: 1 }]} numberOfLines={1}>{i.label}</Text>
                     <Count n={i.newCount} />
@@ -136,11 +143,6 @@ export function SidePanel({ state, lens, seed, onClose, onPick }: {
                   <Pressable onPress={() => { onClose(); router.push(`/interest/${i.id}`); }} hitSlop={8} style={{ padding: 4 }} accessibilityLabel={`Edit ${i.label}`}>
                     <EditGlyph size={18} color={t.muted} />
                   </Pressable>
-                  {i.sources.length ? (
-                    <Pressable onPress={() => setExpanded((e) => ({ ...e, [i.id]: !isOpen }))} hitSlop={10} style={{ padding: 4 }} accessibilityLabel={isOpen ? `Hide ${i.label} sources` : `Show ${i.label} sources`}>
-                      <Ionicons name={isOpen ? "chevron-up" : "chevron-down"} size={18} color={t.muted} />
-                    </Pressable>
-                  ) : null}
                 </View>
                 </SwipeToDelete>
                 {isOpen ? i.sources.map((s) => {
@@ -207,7 +209,7 @@ const st = StyleSheet.create({
   rowMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: space.s },
   label: { fontSize: 16, flexShrink: 1 },
   count: { minWidth: 20, height: 20, paddingHorizontal: 6, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  srcRow: { flexDirection: "row", alignItems: "center", gap: space.m, marginHorizontal: space.s, paddingLeft: space.xl, paddingRight: space.m, paddingVertical: 9, borderRadius: radius.s },
+  srcRow: { flexDirection: "row", alignItems: "center", gap: space.m, marginHorizontal: space.s, paddingLeft: 32, paddingRight: space.m, paddingVertical: 9, borderRadius: radius.s },
   footer: { flexDirection: "row", alignItems: "center", gap: space.m, paddingHorizontal: space.l, paddingTop: space.m, borderTopWidth: 1 },
   avatar: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", overflow: "hidden" },
   avatarImg: { width: 34, height: 34 },
