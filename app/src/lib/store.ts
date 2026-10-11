@@ -41,3 +41,13 @@ export function chooseLens(next: Lens) {
     _api<AppState>("/api/lens", { interestId: next.id }).then(setAppState).catch(() => {});
   }
 }
+
+// Add something you like to an interest (from a curator card); returns false if it was already there.
+export async function addLike(interestId: string, term: string) {
+  const { api } = await import("./api");
+  const i = current?.interests.find((x) => x.id === interestId);
+  if (!i || i.subs.some((s) => s.toLowerCase() === term.toLowerCase())) return false;
+  setAppState(await api("/api/interests/update", { id: interestId, subs: [...i.subs, term] }));
+  bumpFeed();
+  return true;
+}

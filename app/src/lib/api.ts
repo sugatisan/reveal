@@ -41,7 +41,7 @@ export type AppState = { apiVersion?: number; hasKey: boolean; profile?: { name:
 export type FeedItem = { type: "item"; id: string; sourceId: string; title: string; link: string; date: number; excerpt?: string; image?: string; imageLarge?: string; brief?: StoryBrief | null; kind?: "audio" | "video"; duration?: number; mediaUrl?: string; opened?: boolean; imageCount?: number; why: string; sourceName: string; alsoNames: string[]; saved: boolean; interestIds: string[] };
 export type CuratorCard =
   | { type: "curator"; kind: "sources"; id: string; interestId: string; title: string; sources: { id: string; name: string; site: string; about: string; interestId: string }[] }
-  | { type: "curator"; kind: "deeper"; id: string; itemId: string; title: string; prompt: string; kicker?: string; headline?: string; question?: string; image?: string | null; sourceName?: string }
+  | { type: "curator"; kind: "deeper"; id: string; itemId: string; title: string; prompt: string; kicker?: string; headline?: string; question?: string; image?: string | null; sourceName?: string; interestId?: string; interestLabel?: string; likes?: string[] }
   | { type: "curator"; kind: "ask"; id: string; title: string; prompts: string[] };
 export type FeedEntry = FeedItem | CuratorCard;
 export type Feed = { now?: number; entries: FeedEntry[]; caughtUp: number; broaderAt?: number; broaderLabel?: string; scoping?: boolean; lastRefresh: number; refreshing: boolean };

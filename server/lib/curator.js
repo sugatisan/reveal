@@ -3,10 +3,12 @@
 // 2. A conversation you can open anytime (Claude when a key is set, keyword search otherwise).
 import { load, save, stat } from "./store.js";
 import { suggestionsFor } from "./rank.js";
-import { catalog } from "./agent.js";
+import { catalog, likeIdeas, hasKey } from "./agent.js";
 
 const STOP = new Set("the a an and or of for to in on at with from by is are this that these those its your you new how why what who when where into over about more most best just than then them they their our out show find give want some something anything like me my more".split(" "));
 export const words = (s) => [...new Set(String(s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w)).map((w) => w.replace(/ies$/, "y").replace(/s$/, "")))];
+
+const likePending = new Set();
 
 // ---------- thread ----------
 export function thread() {
@@ -90,14 +92,33 @@ export function feedCards(items, { interestId } = {}) {
     const id = `deeper:${it.id}`;
     if (dismissed(id)) continue;
     const short = it.title.length > 70 ? it.title.slice(0, 67).trimEnd() + "…" : it.title;
+    // A save shapes its interest: offer likes drawn from the story (written once in the background, cached on it).
+    const saved = savedIds.includes(it.id);
+    // Its interest: the one following its source, or for a web find, the interest its title has most in common with.
+    let home = saved ? d.interests.find((i) => i.sourceIds.includes(it.sourceId)) : null;
+    if (saved && !home && it.web) {
+      const tw = new Set(words(it.title + " " + (it.excerpt || "")));
+      let best = 0;
+      for (const i of d.interests) { const n = words([i.label, ...(i.subs || [])].join(" ")).filter((w) => tw.has(w)).length; if (n > best) { best = n; home = i; } }
+      if (best < 1) home = null;
+    }
+    let likes = [];
+    if (home) {
+      if (!it.likeIdeas && hasKey() && !likePending.has(it.id) && !(it.likeErrAt && Date.now() - it.likeErrAt < 36e5)) {
+        likePending.add(it.id);
+        likeIdeas(it, d.sources[it.sourceId]?.name || "", home.label, home.subs || []).then((l) => { it.likeIdeas = l; save(); }).catch((e) => { console.error("  Like ideas failed:", e.message); it.likeErr = String(e.message || e).slice(0, 200); it.likeErrAt = Date.now(); save(); }).finally(() => likePending.delete(it.id));
+      }
+      likes = (it.likeIdeas || []).filter((x) => !(home.subs || []).some((s) => s.toLowerCase() === x.toLowerCase()));
+    }
     cards.push({
       type: "curator", kind: "deeper", id, itemId: it.id,
-      title: savedIds.includes(it.id) ? `You saved “${short}”. Want more like it?` : `${(it.also || []).length + 1} of your sources covered “${short}”.`,
+      title: saved && likes.length ? `You saved “${short}”.` : saved ? `You saved “${short}”. Want more like it?` : `${(it.also || []).length + 1} of your sources covered “${short}”.`,
       prompt: `More like “${short}”`,
       // Parts for layouts that have room (full screen): kicker, the story's full title, the question, and its image.
       kicker: savedIds.includes(it.id) ? "Because you saved" : `Covered by ${(it.also || []).length + 1} of your sources`,
       headline: it.title, question: savedIds.includes(it.id) ? "Want more like it?" : "Want the bigger picture?",
       image: it.image || (it.images || [])[0] || null, sourceName: d.sources[it.sourceId]?.name || "",
+      ...(home ? { interestId: home.id, interestLabel: home.label, likes } : null),
     });
     if (cards.filter((c) => c.kind === "deeper").length >= 2) break;
   }

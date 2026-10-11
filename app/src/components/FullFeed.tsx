@@ -1,6 +1,7 @@
 // Full-screen feed (Feed cards › Layout › Full screen): one story per screen, swiped vertically.
 // Full-bleed image, the essentials at the bottom, and a Details control that opens a sheet with the rest.
 import { useRef, useState } from "react";
+import { addLike } from "@/lib/store";
 import { ActivityIndicator } from "react-native";
 import { FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View, ViewToken } from "react-native";
 import { Text } from "@/components/AppText";
@@ -150,6 +151,7 @@ function CuratorPage({ card, height, topSpace, bottomSpace, follow, ask, dismiss
   const t = useTheme();
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState("");
+  const [liked, setLiked] = useState<Record<string, boolean>>({});
   const img = card.kind === "deeper" && card.image ? card.image : null;
   const ink = img ? "#FFFFFF" : t.curatorInk;
   const sub = img ? "rgba(255,255,255,0.8)" : t.curatorMuted;
@@ -184,11 +186,26 @@ function CuratorPage({ card, height, topSpace, bottomSpace, follow, ask, dismiss
             <Text style={{ color: sub, fontSize: 13, fontWeight: "700", letterSpacing: 0.8 }}>{(card.kicker || "").toUpperCase()}</Text>
             <Text style={{ fontFamily: serif, color: ink, fontSize: 30, lineHeight: 35, letterSpacing: -0.3 }} numberOfLines={5}>{card.headline || card.title}</Text>
             {card.sourceName ? <Text style={{ color: sub, fontSize: 13 }}>{card.sourceName}</Text> : null}
-            <Text style={{ fontFamily: serif, color: ink, fontSize: 22, marginTop: space.s }}>{card.question || "Want more like it?"}</Text>
-            <View style={{ gap: space.s, marginTop: space.s }}>
-              {primary("More like this", () => ask(card.prompt, card.itemId))}
-              {notNow}
-            </View>
+            {card.interestId && card.likes?.length ? (
+              <>
+                <Text style={{ fontFamily: serif, color: ink, fontSize: 22, marginTop: space.s }}>Add to {card.interestLabel}?</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
+                  {card.likes.map((l) => ghost(liked[l] ? `✓ ${l}` : l, () => { if (liked[l]) return; setLiked((x) => ({ ...x, [l]: true })); addLike(card.interestId!, l).catch(() => setLiked((x) => ({ ...x, [l]: false }))); }, l))}
+                </View>
+                <View style={{ gap: space.s, marginTop: space.s }}>
+                  {primary("Show me some now", () => ask(card.prompt, card.itemId))}
+                  {notNow}
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={{ fontFamily: serif, color: ink, fontSize: 22, marginTop: space.s }}>{card.question || "Want more like it?"}</Text>
+                <View style={{ gap: space.s, marginTop: space.s }}>
+                  {primary("More like this", () => ask(card.prompt, card.itemId))}
+                  {notNow}
+                </View>
+              </>
+            )}
           </>
         ) : null}
 

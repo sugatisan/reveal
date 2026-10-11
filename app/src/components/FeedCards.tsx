@@ -8,6 +8,7 @@ import { ago, mediaLabel, CuratorCard, FeedItem } from "@/lib/api";
 import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Chip, SourceRow } from "./ui";
 import { useDesign } from "@/design/store";
+import { addLike } from "@/lib/store";
 
 const RATIO: Record<string, number> = { "16:9": 16 / 9, "3:2": 3 / 2, "4:3": 4 / 3, "1:1": 1 };
 
@@ -102,6 +103,7 @@ export function CuratorCardView({ card, onFollow, onAsk, onDismiss }: { card: Cu
   const t = useTheme();
   const [followed, setFollowed] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState("");
+  const [liked, setLiked] = useState<Record<string, boolean>>({});
   return (
     <View style={[st.curator, { backgroundColor: t.curatorBg }]}>
       <View style={st.curatorTop}>
@@ -120,7 +122,19 @@ export function CuratorCardView({ card, onFollow, onAsk, onDismiss }: { card: Cu
           ))}
         </View>
       ) : null}
-      {card.kind === "deeper" ? (
+      {card.kind === "deeper" && card.interestId && card.likes?.length ? (
+        // A save shapes its interest: tap a like to add it there; stories about it get more weight.
+        <>
+          <Text style={{ color: t.curatorMuted, fontSize: 13, marginTop: space.s }}>Add to {card.interestLabel} so more like it shows up:</Text>
+          <View style={st.chips}>
+            {card.likes.map((l) => <Chip key={l} tone="curator" active={!!liked[l]} icon={liked[l] ? "checkmark" : undefined} label={l}
+              onPress={() => { if (liked[l]) return; setLiked((x) => ({ ...x, [l]: true })); addLike(card.interestId!, l).catch(() => setLiked((x) => ({ ...x, [l]: false }))); }} />)}
+          </View>
+          <Pressable onPress={() => onAsk(card.prompt, card.itemId)} hitSlop={8} style={{ marginTop: space.s, alignSelf: "flex-start" }} accessibilityRole="button">
+            <Text style={{ color: t.curatorAccent, fontWeight: "600", fontSize: 14 }}>Show me some now →</Text>
+          </Pressable>
+        </>
+      ) : card.kind === "deeper" ? (
         <View style={st.chips}><Chip tone="curator" icon="arrow-forward" label={card.prompt} onPress={() => onAsk(card.prompt, card.itemId)} /></View>
       ) : null}
       {card.kind === "ask" ? (

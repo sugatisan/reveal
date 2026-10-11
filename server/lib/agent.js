@@ -460,3 +460,17 @@ Split it into separate items. Decide for each whether it's a site to follow or s
   const out = await claudeForm({ system: "You sort what a person types into a discovery feed's interest settings.", prompt, schema: SPLIT_SCHEMA, model: FAST(), maxTokens: 500, purpose: "interest-add" });
   return (out.items || []).map((x) => ({ kind: x.kind === "site" && x.url ? "site" : "like", text: String(x.text || "").trim().slice(0, 60), url: String(x.url || "").trim(), feed: String(x.feed || "").trim() })).filter((x) => x.text).slice(0, 12);
 }
+
+// From a story you saved: 2-3 things to like in its interest, so the feed leans toward its spirit.
+export async function likeIdeas(item, sourceName, interestLabel, have = []) {
+  if (!hasKey()) return [];
+  const prompt = `They saved this story from ${sourceName}, in their "${interestLabel}" interest:
+"${item.title}"${item.excerpt ? `\n${item.excerpt.slice(0, 300)}` : ""}
+They already like: ${have.join(", ") || "(nothing yet)"}.
+
+Name 3 things to add to "${interestLabel}" so they see more stories like this one: the specific subject (a model, maker, person, series), and one or two slightly broader angles that capture its spirit. 1-3 words each, as they'd appear in a headline. Nothing they already like.
+Return JSON only: {"likes": ["", "", ""]}`;
+  const out = json(await claude({ system: "You are the curator inside a personal discovery feed. Reply with JSON only.", prompt, model: FAST(), maxTokens: 120, purpose: "like-ideas" }));
+  const seen = new Set(have.map((x) => x.toLowerCase()));
+  return (out.likes || []).map((x) => String(x).trim()).filter((x) => x && x.length <= 32 && !seen.has(x.toLowerCase())).slice(0, 3);
+}
