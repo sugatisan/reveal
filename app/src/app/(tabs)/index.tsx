@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, AppState as AppActivity, FlatList, LayoutAnimation, Pressable, RefreshControl, ScrollView, View, ViewToken } from "react-native";
+import { ActivityIndicator, Animated, AppState as AppActivity, Easing, FlatList, LayoutAnimation, PanResponder, Pressable, RefreshControl, ScrollView, View, ViewToken } from "react-native";
 import { Text } from "@/components/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router, useNavigation } from "expo-router";
@@ -124,7 +124,15 @@ export default function FeedScreen() {
     chooseLens(l);
     pillScroll.current?.scrollTo({ x: 0, animated: true });
   };
-  useEffect(() => { pillScroll.current?.scrollTo({ x: 0, animated: true }); }, [lens]);
+  // After a swipe, scroll the pill row just enough to show the selected pill; otherwise back to the start.
+  const pillX = useRef<Record<string, number>>({});
+  const swiped = useRef(false);
+  const lensKey = (l: Lens) => (l ? `${l.kind}:${l.id}` : "all");
+  useEffect(() => {
+    const x = swiped.current ? Math.max(0, (pillX.current[lensKey(lens)] ?? 0) - 64) : 0;
+    swiped.current = false;
+    pillScroll.current?.scrollTo({ x, animated: true });
+  }, [lens]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tapping Feed while already on it: from a filtered view, go back to All; on All, jump to the top.
   const navigation = useNavigation();
@@ -219,19 +227,62 @@ export default function FeedScreen() {
     <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: -glowRoom }}
       contentContainerStyle={{ gap: pillStyle.gap, paddingHorizontal: space.l, paddingTop: (pinned ? topBase : topRest) + glowRoom, paddingBottom: design["header.below"] + glowRoom, alignItems: "center" }}>
       <MenuButton onPress={drawer.open} />
-      <Pill label="All" active={!lens} onPress={() => pick(null)} />
-      {lens?.kind === "source" ? <Pill label={lens.name} active icon="close" onPress={() => pick(null)} /> : null}
+      <View onLayout={(e) => { pillX.current.all = e.nativeEvent.layout.x; }}><Pill label="All" active={!lens} onPress={() => pick(null)} /></View>
+      {lens?.kind === "source" ? <View onLayout={(e) => { pillX.current[lensKey(lens)] = e.nativeEvent.layout.x; }}><Pill label={lens.name} active icon="close" onPress={() => pick(null)} /></View> : null}
       {recent.map((i) => {
         const on = lens?.kind === "interest" && lens.id === i.id;
         const edit = () => drawer.openEdit(i.id);
-        return <Pill key={i.id} label={i.label} active={on} onPress={() => pick(on ? null : { kind: "interest", id: i.id })} onLongPress={edit} onEdit={on && design["pill.edit"] ? edit : undefined} />;
+        return <View key={i.id} onLayout={(e) => { pillX.current["interest:" + i.id] = e.nativeEvent.layout.x; }}><Pill label={i.label} active={on} onPress={() => pick(on ? null : { kind: "interest", id: i.id })} onLongPress={edit} onEdit={on && design["pill.edit"] ? edit : undefined} /></View>;
       })}
     </ScrollView>
   );
 
+  // Swipe across the feed to move between pills, in the order they're shown (All, then your interests).
+  // Swiping doesn't reorder the pills; tapping one still moves it to the front.
+  const order: Lens[] = [null, ...(lens?.kind === "source" ? [lens] : []), ...recent.map((i) => ({ kind: "interest" as const, id: i.id }))];
+  const orderRef = useRef(order);
+  orderRef.current = order;
+  const lensNow = useRef(lens);
+  lensNow.current = lens;
+  const swipeX = useRef(new Animated.Value(0)).current;
+  const pageW = useRef(400);
+  const neighbor = (dir: 1 | -1) => {
+    const o = orderRef.current;
+    const i = o.findIndex((l) => lensKey(l) === lensKey(lensNow.current));
+    return i < 0 ? undefined : o[i + dir];
+  };
+  const swipe = useRef(PanResponder.create({
+    // Only a clear sideways drag, not from the left edge (that opens the interests panel).
+    onMoveShouldSetPanResponder: (_, g) => g.x0 > 30 && Math.abs(g.dx) > 18 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderMove: (_, g) => {
+      const has = neighbor(g.dx < 0 ? 1 : -1) !== undefined;
+      swipeX.setValue(has ? g.dx : g.dx * 0.25); // resist at the ends
+    },
+    onPanResponderRelease: (_, g) => {
+      const dir = g.dx < 0 ? 1 : -1;
+      const next = neighbor(dir);
+      const far = Math.abs(g.dx) > pageW.current * 0.22 || (Math.abs(g.vx) > 0.5 && Math.abs(g.dx) > 40);
+      if (!far || next === undefined) { Animated.spring(swipeX, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start(); return; }
+      Animated.timing(swipeX, { toValue: -dir * pageW.current, duration: 150, easing: Easing.in(Easing.quad), useNativeDriver: false }).start(() => {
+        swiped.current = true;
+        chooseLens(next, { quiet: true });
+        swipeX.setValue(dir * pageW.current * 0.3);
+        Animated.timing(swipeX, { toValue: 0, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+      });
+    },
+    onPanResponderTerminate: () => { Animated.spring(swipeX, { toValue: 0, useNativeDriver: false }).start(); },
+  })).current;
+  const swipeStyle = {
+    flex: 1,
+    transform: [{ translateX: swipeX }],
+    opacity: swipeX.interpolate({ inputRange: [-400, 0, 400], outputRange: [0.35, 1, 0.35], extrapolate: "clamp" as const }),
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: full ? "#000" : t.bg }} edges={pinned ? [] : ["top"]}
       onLayout={(e) => setPageH(Math.round(e.nativeEvent.layout.height))}>
+      <Animated.View {...swipe.panHandlers} style={swipeStyle} onLayout={(e) => { pageW.current = e.nativeEvent.layout.width || 400; }}>
       {full ? (
         <>
           <FullFeed entries={(feed?.entries || [])} loaded={!!feed} listKey={lens ? `${lens.kind}:${lens.id}` : "all"} height={pageH} topSpace={headerH || insets.top + 50} bottomSpace={tabSpace}
@@ -288,6 +339,7 @@ export default function FeedScreen() {
         contentContainerStyle={{ paddingBottom: tabSpace + space.l }}
       />
       )}
+      </Animated.View>
       {/* Pinned pill row: stays at the top while the feed scrolls underneath, over an adjustable backing. */}
       {pinned ? (
         <View ref={backingRef} onLayout={(e) => { if (scrollPos.current <= 1) setHeaderH(Math.round(e.nativeEvent.layout.height)); }}

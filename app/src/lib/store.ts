@@ -33,10 +33,11 @@ const lensSubs = new Set<() => void>();
 export const useLens = () => useSyncExternalStore((f) => { lensSubs.add(f); return () => lensSubs.delete(f); }, () => lens, () => lens);
 // Choosing an interest makes it the most recent, so its pill moves to the front right away;
 // the server records it too so the order survives a restart.
-export function chooseLens(next: Lens) {
+// quiet: browsing (swiping between pills) shows the interest without moving its pill to the front.
+export function chooseLens(next: Lens, opts: { quiet?: boolean } = {}) {
   lens = next;
   lensSubs.forEach((f) => f());
-  if (next?.kind === "interest" && current) {
+  if (next?.kind === "interest" && current && !opts.quiet) {
     setAppState({ ...current, interests: current.interests.map((i) => (i.id === next.id ? { ...i, lastViewedAt: Date.now() } : i)) });
     _api<AppState>("/api/lens", { interestId: next.id }).then(setAppState).catch(() => {});
   }

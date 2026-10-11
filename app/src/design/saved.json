@@ -16,7 +16,7 @@
   "tab.shadowRadius": 6,
   "tab.shadowX": 0,
   "tab.shadowY": 5,
-  "color.palette": "deepsea",
+  "color.palette": "charcoal",
   "color.accent": "#2563EB",
   "color.bg": "#241414",
   "color.curatorBg": "#1F3A2B",
@@ -32,7 +32,7 @@
   "pill.gap": 7,
   "header.border": false,
   "header.shadow": 0,
-  "pill.fillOpacity": 60,
+  "pill.fillOpacity": 80,
   "pill.blur": 6,
   "pill.shadow": 0,
   "header.below": 20,
@@ -40,7 +40,7 @@
   "header.blur": 8,
   "pill.shadowRadius": 0,
   "pill.shadowY": 3,
-  "pill.fillMode": "palette",
+  "pill.fillMode": "custom",
   "pill.fillColor": "#000000",
   "pill.shadowColor": "#000000",
   "card.layout": "hero",
@@ -57,6 +57,9 @@
   "card.fullBleed": false,
   "color.card": "#111318",
   "type.fonts": "classic",
-  "pill.selOpacity": 85,
-  "pill.selBlur": 4
+  "pill.selOpacity": 95,
+  "pill.selBlur": 4,
+  "pill.selGlow": 58,
+  "pill.selGlowRadius": 22,
+  "pill.edit": true
 }
