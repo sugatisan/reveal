@@ -44,7 +44,7 @@ export type CuratorCard =
   | { type: "curator"; kind: "deeper"; id: string; itemId: string; title: string; prompt: string; kicker?: string; headline?: string; question?: string; image?: string | null; sourceName?: string }
   | { type: "curator"; kind: "ask"; id: string; title: string; prompts: string[] };
 export type FeedEntry = FeedItem | CuratorCard;
-export type Feed = { entries: FeedEntry[]; caughtUp: number; broaderAt?: number; broaderLabel?: string; scoping?: boolean; lastRefresh: number; refreshing: boolean };
+export type Feed = { now?: number; entries: FeedEntry[]; caughtUp: number; broaderAt?: number; broaderLabel?: string; scoping?: boolean; lastRefresh: number; refreshing: boolean };
 export type MiniItem = { id: string; title: string; image?: string; excerpt?: string; link?: string; date?: number; sourceName?: string; saved?: boolean; note?: string };
 export type WebArticle = { title: string; url: string; site: string; why: string };
 export type Turn = { role: "user" | "curator"; text: string; itemId?: string; items?: MiniItem[]; sources?: SourceView[]; missing?: { name: string; site: string }[]; web?: MiniItem[]; offerInterest?: string; followups?: string[]; at: number };

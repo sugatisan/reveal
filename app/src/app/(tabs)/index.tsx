@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, FlatList, LayoutAnimation, Pressable, RefreshControl, ScrollView, Text, View, ViewToken } from "react-native";
+import { ActivityIndicator, Animated, AppState as AppActivity, FlatList, LayoutAnimation, Pressable, RefreshControl, ScrollView, Text, View, ViewToken } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router } from "expo-router";
 import { useTabBarSpace } from "@/components/TabBar";
@@ -63,7 +63,27 @@ export default function FeedScreen() {
   useEffect(() => { load(); }, [load, version]);
   // An interest whose stories are still being checked against its scope: look again shortly, once.
   useEffect(() => { if (!feed?.scoping) return; const h = setTimeout(load, 8000); return () => clearTimeout(h); }, [feed?.scoping, load]);
-  useEffect(() => { api("/api/visit", {}).catch(() => {}); }, []);
+  // A visit: on launch and whenever the app comes back to the front. After 30+ minutes away the server
+  // starts a new one, and the feed reloads so what arrived meanwhile comes first.
+  useEffect(() => {
+    const visit = () => api<{ newVisit?: boolean }>("/api/visit", {}).then((r) => { if (r.newVisit) { setFresh(0); load(); reloadState(); } }).catch(() => {});
+    visit();
+    const sub = AppActivity.addEventListener("change", (s) => { if (s === "active") visit(); });
+    return () => sub.remove();
+  }, [load]);
+
+  // Stories that arrived while you're here: a pill offers them instead of reshuffling what you're reading.
+  const [fresh, setFresh] = useState(0);
+  useEffect(() => {
+    if (!feed?.now) return;
+    setFresh(0);
+    const q = !lens ? "" : lens.kind === "interest" ? `&interest=${encodeURIComponent(lens.id)}` : `&source=${encodeURIComponent(lens.id)}`;
+    const check = () => { if (AppActivity.currentState === "active") api<{ count: number }>(`/api/fresh?since=${feed.now}${q}`).then((r) => setFresh(r.count)).catch(() => {}); };
+    const id = setInterval(check, 60000);
+    return () => clearInterval(id);
+  }, [feed?.now, lens]);
+  const listRef = useRef<FlatList<Row>>(null);
+  const showFresh = () => { setFresh(0); listRef.current?.scrollToOffset({ offset: 0, animated: true }); load(); reloadState(); };
 
   // Implicit signal: an item counts as "shown" once 60% of it is on screen.
   const seen = useRef(new Set<string>());
@@ -192,6 +212,7 @@ export default function FeedScreen() {
         </>
       ) : (
       <FlatList
+        ref={listRef}
         data={rows}
         keyExtractor={(r) => (r.type === "curator" ? "c-" + r.id : r.id)}
         onViewableItemsChanged={onViewable}
@@ -243,6 +264,16 @@ export default function FeedScreen() {
             ...(design["header.backing"] && !full && design["header.shadow"] > 0 ? ({ boxShadow: `0px ${design["header.shadowY"]}px ${design["header.shadowRadius"]}px rgba(0,0,0,${design["header.shadow"] / 100})` } as any) : null) }}>
           <Animated.View style={{ height: topSpacer }} />
           {lensBar}
+        </View>
+      ) : null}
+      {fresh > 0 ? (
+        <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, top: (pinned ? headerH : insets.top + 60) + space.s, alignItems: "center" }}>
+          <Pressable onPress={showFresh} accessibilityRole="button" accessibilityLabel={`Show ${fresh} new stories`}
+            style={({ pressed }) => ({ flexDirection: "row", alignItems: "center", gap: 6, height: 36, paddingHorizontal: 16, borderRadius: 18, backgroundColor: t.accent, opacity: pressed ? 0.85 : 1,
+              ...({ boxShadow: "0px 6px 18px rgba(0,0,0,0.25)" } as any) })}>
+            <Ionicons name="arrow-up" size={15} color={t.accentInk} />
+            <Text style={{ color: t.accentInk, fontWeight: "700", fontSize: 14 }}>{fresh} new {fresh === 1 ? "story" : "stories"}</Text>
+          </Pressable>
         </View>
       ) : null}
       {/* Swipe in from the left edge to open the panel. */}
