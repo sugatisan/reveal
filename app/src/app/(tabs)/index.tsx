@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, AppState as AppActivity, Easing, FlatList, LayoutAnimation, Pressable, RefreshControl, ScrollView, View, ViewToken } from "react-native";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ActivityIndicator, Animated, AppState as AppActivity, FlatList, NativeScrollEvent, NativeSyntheticEvent, Pressable, RefreshControl, ScrollView, View, ViewToken } from "react-native";
 import { Text } from "@/components/AppText";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router, useNavigation } from "expo-router";
@@ -18,7 +18,6 @@ import { FullFeed } from "@/components/FullFeed";
 import { seedBriefs } from "@/components/StoryDetails";
 import { useDesign } from "@/design/store";
 import { openCurator } from "@/lib/curatorSheet";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 // A "pair" is one row of the 2-column grid; everything else spans the full width.
 type Row = FeedEntry | { type: "divider"; id: string; label?: string } | { type: "pair"; id: string; items: FeedItem[] };
@@ -43,14 +42,9 @@ export default function FeedScreen() {
   const topBase = Math.min(topRest, topScrolled);
   const travel = Math.max(24, Math.abs(topRest - topScrolled) * 2);
   const topSpacer = scrollY.interpolate({ inputRange: [0, travel], outputRange: [topRest - topBase, topScrolled - topBase], extrapolate: "clamp" });
-  const onScroll = Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-    useNativeDriver: false,
-    listener: (e: any) => { scrollPos.current = e.nativeEvent.contentOffset.y; },
-  });
   const backingRef = useBackdrop(pinned && design["header.backing"] && design["card.layout"] !== "full" ? design["header.blur"] : 0);
   const drawer = useDrawer();
   const pillScroll = useRef<ScrollView>(null);
-  const [feed, setFeed] = useState<Feed | null>(null);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const toast = useToast();
@@ -58,52 +52,57 @@ export default function FeedScreen() {
   const full = design["card.layout"] === "full";
   const [pageH, setPageH] = useState(0);
 
-  const listRef = useRef<FlatList<Row>>(null);
-  // Each load is tagged: an older, slower request (from the interest you just left) never replaces a newer one.
-  // A different interest or source opens at the top; reloading the same one keeps your place.
-  const latest = useRef(0);
-  const shownKey = useRef<string | null>(null);
-  // Feeds by lens, so swiping (or tapping back) to a pill shows its stories at once instead of the old ones first.
-  // Neighbors of the current pill are fetched ahead of time; anything you do that changes the feed clears it.
-  const cache = useRef(new Map<string, { f: Feed; at: number }>());
-  const FRESH_MS = 3 * 60 * 1000;
+  // One page per pill (All, then your interests), side by side in a native horizontal pager: the next feed
+  // slides in under your finger and the OS handles the drag, momentum and snapping. Each page keeps its own
+  // stories and scroll position. Only the page on screen and its neighbors are rendered.
   const keyOf = (l: Lens) => (l ? `${l.kind}:${l.id}` : "all");
+  const curKey = keyOf(lens);
+  const activeKey = useRef(curKey);
+  activeKey.current = curKey;
+  const [feeds, setFeeds] = useState<Record<string, Feed>>({});
+  const feed = feeds[curKey] ?? null;
+  const fetchedAt = useRef(new Map<string, number>());
+  const inflight = useRef(new Map<string, Promise<Feed>>());
+  const FRESH_MS = 3 * 60 * 1000;
+  const isFresh = (key: string) => Date.now() - (fetchedAt.current.get(key) ?? 0) < FRESH_MS;
+  const setFeedFor = (key: string, up: (f: Feed | null) => Feed | null) =>
+    setFeeds((m) => { const n = up(m[key] ?? null); if (n === (m[key] ?? null)) return m; const c = { ...m }; if (n) c[key] = n; else delete c[key]; return c; });
+  const setFeed = (up: Feed | null | ((f: Feed | null) => Feed | null)) => { const key = activeKey.current; setFeedFor(key, typeof up === "function" ? up : () => up); };
   const fetchFeed = (l: Lens) => {
+    const key = keyOf(l);
+    const going = inflight.current.get(key);
+    if (going) return going;
     const q = !l ? "" : l.kind === "interest" ? `?interest=${encodeURIComponent(l.id)}` : `?source=${encodeURIComponent(l.id)}`;
-    return api<Feed>(`/api/feed${q}`).then((f) => { cache.current.set(keyOf(l), { f, at: Date.now() }); return f; });
+    const p = api<Feed>(`/api/feed${q}`).then((f) => {
+      fetchedAt.current.set(key, Date.now());
+      seedBriefs(f.entries);
+      setFeeds((m) => ({ ...m, [key]: f }));
+      return f;
+    }).finally(() => inflight.current.delete(key));
+    inflight.current.set(key, p);
+    return p;
   };
-  const freshFeed = (l: Lens) => { const c = cache.current.get(keyOf(l)); return c && Date.now() - c.at < FRESH_MS ? c.f : null; };
-  const show = (f: Feed, key: string) => {
-    seedBriefs(f.entries); setFeed(f); setError("");
-    if (shownKey.current !== key) { shownKey.current = key; listRef.current?.scrollToOffset({ offset: 0, animated: false }); }
-  };
-  // force: fetch even if a fresh copy is cached (pull to refresh, a new visit, anything that changed the feed).
+  // force: fetch even if a fresh copy is here (pull to refresh, a new visit, anything that changed the feed).
   const load = useCallback(async (force = true) => {
     const key = keyOf(lens);
-    const cached = freshFeed(lens);
-    if (cached && !force) { show(cached, key); return; }
-    const n = ++latest.current;
-    try {
-      const f = await fetchFeed(lens);
-      if (n !== latest.current) return;
-      show(f, key);
-    }
-    catch (e: any) { if (n === latest.current) setError(e.message); }
+    if (!force && isFresh(key)) return;
+    try { await fetchFeed(lens); if (activeKey.current === key) setError(""); }
+    catch (e: any) { if (activeKey.current === key) setError(e.message); }
   }, [lens]); // eslint-disable-line react-hooks/exhaustive-deps
   const loadRef = useRef(load);
   loadRef.current = load;
-  useEffect(() => { load(false); }, [load]);
+  useEffect(() => { setError(""); load(false); }, [load]);
   const firstVersion = useRef(true);
   useEffect(() => {
     if (firstVersion.current) { firstVersion.current = false; return; }
-    cache.current.clear(); loadRef.current(true);
+    fetchedAt.current.clear(); loadRef.current(true);
   }, [version]);
   // An interest whose stories are still being checked against its scope: look again shortly, once.
   useEffect(() => { if (!feed?.scoping) return; const h = setTimeout(() => load(true), 8000); return () => clearTimeout(h); }, [feed?.scoping, load]);
   // A visit: on launch and whenever the app comes back to the front. After 30+ minutes away the server
   // starts a new one, and the feed reloads so what arrived meanwhile comes first.
   useEffect(() => {
-    const visit = () => api<{ newVisit?: boolean }>("/api/visit", {}).then((r) => { if (r.newVisit) { setFresh(0); cache.current.clear(); load(true); reloadState(); } }).catch(() => {});
+    const visit = () => api<{ newVisit?: boolean }>("/api/visit", {}).then((r) => { if (r.newVisit) { setFresh(0); fetchedAt.current.clear(); load(true); reloadState(); } }).catch(() => {});
     visit();
     const sub = AppActivity.addEventListener("change", (s) => { if (s === "active") visit(); });
     return () => sub.remove();
@@ -119,7 +118,17 @@ export default function FeedScreen() {
     const id = setInterval(check, 60000);
     return () => clearInterval(id);
   }, [feed?.now, lens]);
-  const showFresh = () => { setFresh(0); listRef.current?.scrollToOffset({ offset: 0, animated: true }); load(); reloadState(); };
+
+  // Each page's list, and how far down it's scrolled (the pinned header follows the page on screen).
+  const lists = useRef(new Map<string, FlatList<Row> | null>());
+  const offsets = useRef(new Map<string, number>());
+  const listOf = () => lists.current.get(activeKey.current);
+  const showFresh = () => { setFresh(0); listOf()?.scrollToOffset({ offset: 0, animated: true }); load(true); reloadState(); };
+  const onPageScroll = (key: string) => (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y;
+    offsets.current.set(key, y);
+    if (key === activeKey.current) { scrollPos.current = y; scrollY.setValue(y); }
+  };
 
   // Implicit signal: an item counts as "shown" once 60% of it is on screen.
   const seen = useRef(new Set<string>());
@@ -133,29 +142,35 @@ export default function FeedScreen() {
     }, 4000);
     return () => clearInterval(id);
   }, []);
-  const onViewable = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
-    for (const v of viewableItems) {
-      const e = v.item as Row;
-      const ids = e.type === "item" ? [e.id] : e.type === "pair" ? e.items.map((x) => x.id) : [];
-      for (const id of ids) if (!seen.current.has(id)) { seen.current.add(id); queue.current.add(id); }
-    }
-  }).current;
+  const viewers = useRef(new Map<string, (info: { viewableItems: ViewToken[] }) => void>());
+  const viewFor = (key: string) => {
+    if (!viewers.current.has(key)) viewers.current.set(key, ({ viewableItems }) => {
+      if (key !== activeKey.current) return;
+      for (const v of viewableItems) {
+        const e = v.item as Row;
+        const ids = e.type === "item" ? [e.id] : e.type === "pair" ? e.items.map((x) => x.id) : [];
+        for (const id of ids) if (!seen.current.has(id)) { seen.current.add(id); queue.current.add(id); }
+      }
+    });
+    return viewers.current.get(key)!;
+  };
 
   // Picking a pill (or anything in the panel) moves it to the front, selected, and scrolls the row back to show it.
   const pick = (l: Lens) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     chooseLens(l);
     pillScroll.current?.scrollTo({ x: 0, animated: true });
   };
   // After a swipe, scroll the pill row just enough to show the selected pill; otherwise back to the start.
   const pillX = useRef<Record<string, number>>({});
   const swiped = useRef(false);
-  const lensKey = (l: Lens) => (l ? `${l.kind}:${l.id}` : "all");
   useEffect(() => {
-    const x = swiped.current ? Math.max(0, (pillX.current[lensKey(lens)] ?? 0) - 64) : 0;
+    const x = swiped.current ? Math.max(0, (pillX.current[curKey] ?? 0) - 64) : 0;
     swiped.current = false;
     pillScroll.current?.scrollTo({ x, animated: true });
-  }, [lens]); // eslint-disable-line react-hooks/exhaustive-deps
+    // The pinned header picks up where this page was scrolled to.
+    const y = offsets.current.get(curKey) ?? 0;
+    scrollPos.current = y; scrollY.setValue(y);
+  }, [curKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tapping Feed while already on it: from a filtered view, go back to All; on All, jump to the top.
   const navigation = useNavigation();
@@ -164,14 +179,12 @@ export default function FeedScreen() {
   useEffect(() => (navigation as any).addListener("tabPress", () => {
     if (!navigation.isFocused()) return;
     if (lensRef.current) pick(null);
-    else listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    else listOf()?.scrollToOffset({ offset: 0, animated: true });
   }), [navigation]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (state && !state.interests.length) return <Redirect href="/welcome" />;
 
   const pull = async () => {
     setRefreshing(true);
-    try { await api("/api/refresh", {}); await load(); reloadState(); }
+    try { await api("/api/refresh", {}); await load(true); reloadState(); }
     catch (e: any) { setError(e.message); }
     finally { setRefreshing(false); }
   };
@@ -192,7 +205,7 @@ export default function FeedScreen() {
     if (r.type === "rule" && r.kind === "exclude") {
       const gone = new Set((r.rule as any)?.hiddenIds || []);
       if (gone.size) setFeed((f) => f && { ...f, entries: f.entries.filter((e) => !(e.type === "item" && gone.has(e.id))) });
-      setTimeout(load, 12000);
+      setTimeout(() => load(true), 12000);
     }
     toast.show(lessToast(r), async () => {
       if (r.type === "unfollow") await api("/api/sources/follow", { interestId: r.interestId, sourceId: r.sourceId, follow: true });
@@ -212,22 +225,21 @@ export default function FeedScreen() {
   };
   const ask = (prompt: string, itemId?: string) => openCurator({ prompt, itemId });
 
-  const flat: Row[] = [];
-  let itemIdx = 0;
-  for (const e of feed?.entries || []) {
-    if (e.type === "item") {
-      if (feed && feed.caughtUp > 0 && itemIdx === feed.caughtUp) flat.push({ type: "divider", id: "divider" });
-      // Scoped interest: what fits its scope first, then broader stories from the same sources.
-      if (feed && (feed.broaderAt ?? -1) >= 0 && itemIdx === feed.broaderAt) flat.push({ type: "divider", id: "broader", label: feed.broaderAt === 0 ? `Nothing new fits ${feed.broaderLabel} yet · broader stories` : `Beyond ${feed.broaderLabel} · broader stories` });
-      itemIdx++;
+  const rowsFor = (f: Feed | null): Row[] => {
+    const flat: Row[] = [];
+    let itemIdx = 0;
+    for (const e of f?.entries || []) {
+      if (e.type === "item") {
+        if (f && f.caughtUp > 0 && itemIdx === f.caughtUp) flat.push({ type: "divider", id: "divider" });
+        // Scoped interest: what fits its scope first, then broader stories from the same sources.
+        if (f && (f.broaderAt ?? -1) >= 0 && itemIdx === f.broaderAt) flat.push({ type: "divider", id: "broader", label: f.broaderAt === 0 ? `Nothing new fits ${f.broaderLabel} yet · broader stories` : `Beyond ${f.broaderLabel} · broader stories` });
+        itemIdx++;
+      }
+      flat.push(e);
     }
-    flat.push(e);
-  }
-  // 2-column grid: pair up consecutive stories; curator cards and the divider break the pairing and span the width.
-  const grid = !!design["card.grid"];
-  const rows: Row[] = [];
-  if (!grid) rows.push(...flat);
-  else {
+    // 2-column grid: pair up consecutive stories; curator cards and the divider break the pairing and span the width.
+    if (!design["card.grid"]) return flat;
+    const rows: Row[] = [];
     let pending: FeedItem[] = [];
     const flush = () => { if (pending.length) rows.push({ type: "pair", id: "p-" + pending.map((x) => x.id).join("-"), items: pending }); pending = []; };
     for (const r of flat) {
@@ -235,8 +247,11 @@ export default function FeedScreen() {
       else { flush(); rows.push(r); }
     }
     flush();
-  }
+    return rows;
+  };
 
+  // The pager: the pill order, and which page is on screen (the selected pill follows it mid-swipe;
+  // the lens itself changes once the page settles).
   // Pills: the five interests you opened most recently (new ones count as recent). The panel has the rest.
   const recency = (i: { lastViewedAt: number; createdAt: number }) => Math.max(i.lastViewedAt || 0, i.createdAt || 0);
   const recent = [...(state?.interests || [])].sort((a, b) => recency(b) - recency(a)).slice(0, 5);
@@ -244,152 +259,171 @@ export default function FeedScreen() {
     const cur = state?.interests.find((i) => i.id === lens.id);
     if (cur) recent.unshift(cur), recent.splice(5);
   }
+  const order: Lens[] = [null, ...(lens?.kind === "source" ? [lens] : []), ...recent.map((i) => ({ kind: "interest" as const, id: i.id }))];
+  const orderKey = order.map(keyOf).join("|");
+  const lensIdx = Math.max(0, order.findIndex((l) => keyOf(l) === curKey));
+  const [pageW, setPageW] = useState(0);
+  const [pagerIdx, setPagerIdx] = useState(lensIdx);
+  const pagerIdxRef = useRef(pagerIdx);
+  pagerIdxRef.current = pagerIdx;
+  const visKey = keyOf(order[pagerIdx] ?? lens);
   const glowRoom = (design["pill.selGlow"] ?? 0) > 0 ? Math.ceil((design["pill.selGlowRadius"] ?? 14) + (design["pill.selGlowY"] ?? 0)) : 0;
   const lensBar = (
     // Extra room above and below (taken back with negative margins) so the selected pill's glow isn't clipped by the scroll area.
     <ScrollView ref={pillScroll} horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: -glowRoom }}
       contentContainerStyle={{ gap: pillStyle.gap, paddingHorizontal: space.l, paddingTop: (pinned ? topBase : topRest) + glowRoom, paddingBottom: design["header.below"] + glowRoom, alignItems: "center" }}>
       <MenuButton onPress={drawer.open} />
-      <View onLayout={(e) => { pillX.current.all = e.nativeEvent.layout.x; }}><Pill label="All" active={!lens} onPress={() => pick(null)} /></View>
-      {lens?.kind === "source" ? <View onLayout={(e) => { pillX.current[lensKey(lens)] = e.nativeEvent.layout.x; }}><Pill label={lens.name} active icon="close" onPress={() => pick(null)} /></View> : null}
+      <View onLayout={(e) => { pillX.current.all = e.nativeEvent.layout.x; }}><Pill label="All" active={visKey === "all"} onPress={() => pick(null)} /></View>
+      {lens?.kind === "source" ? <View onLayout={(e) => { pillX.current[keyOf(lens)] = e.nativeEvent.layout.x; }}><Pill label={lens.name} active icon="close" onPress={() => pick(null)} /></View> : null}
       {recent.map((i) => {
-        const on = lens?.kind === "interest" && lens.id === i.id;
+        const on = visKey === "interest:" + i.id;
         const edit = () => drawer.openEdit(i.id);
         return <View key={i.id} onLayout={(e) => { pillX.current["interest:" + i.id] = e.nativeEvent.layout.x; }}><Pill label={i.label} active={on} onPress={() => pick(on ? null : { kind: "interest", id: i.id })} onLongPress={edit} onEdit={on && design["pill.edit"] ? edit : undefined} /></View>;
       })}
     </ScrollView>
   );
 
-  // Swipe across the feed to move between pills, in the order they're shown (All, then your interests).
-  // Swiping doesn't reorder the pills; tapping one still moves it to the front.
-  const order: Lens[] = [null, ...(lens?.kind === "source" ? [lens] : []), ...recent.map((i) => ({ kind: "interest" as const, id: i.id }))];
+  const pager = useRef<FlatList<Lens>>(null);
+  const pagerX = useRef(0);
   const orderRef = useRef(order);
   orderRef.current = order;
-  const lensNow = useRef(lens);
-  lensNow.current = lens;
-  const swipeX = useRef(new Animated.Value(0)).current;
-  const pageW = useRef(400);
-  const neighbor = (dir: 1 | -1) => {
-    const o = orderRef.current;
-    const i = o.findIndex((l) => lensKey(l) === lensKey(lensNow.current));
-    return i < 0 ? undefined : o[i + dir];
+  // Keep the pager on the selected pill: after a tap (instantly; the pills may have reordered) or a pick from the panel.
+  useLayoutEffect(() => {
+    if (!pageW) return;
+    if (Math.round(pagerX.current / pageW) !== lensIdx) {
+      pager.current?.scrollToOffset({ offset: lensIdx * pageW, animated: false });
+      pagerX.current = lensIdx * pageW;
+    }
+    setPagerIdx(lensIdx);
+  }, [lensIdx, orderKey, pageW]);
+  // Once a swipe settles on a page, that pill becomes the lens (quietly: swiping doesn't reorder the pills).
+  const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const commit = () => {
+    if (!pageW) return;
+    const i = Math.round(pagerX.current / pageW);
+    if (Math.abs(pagerX.current - i * pageW) > 2) return;
+    const l = orderRef.current[i];
+    if (l === undefined || keyOf(l) === activeKey.current) return;
+    swiped.current = true;
+    chooseLens(l, { quiet: true });
   };
-  // A sideways drag must never end as a tap that opens the card under your finger.
-  const swipingUntil = useRef(0);
-  const swiping = () => Date.now() < swipingUntil.current;
-  const settle = () => Animated.spring(swipeX, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start();
-  // Native pan (gesture handler): starts only on a clear sideways drag, fails on vertical movement so the
-  // list keeps scrolling, and cancels the card's tap once it takes over. Not from the left edge (the panel's).
-  // Native pan (gesture handler 2.x, the version built into Expo Go): starts only on a clear sideways drag,
-  // fails on vertical movement so the list keeps scrolling, and cancels the card's tap once it takes over.
-  // Not from the left edge: that opens the interests panel.
-  const swipe = useMemo(() => Gesture.Pan()
-    .runOnJS(true)
-    .activeOffsetX([-20, 20])
-    .failOffsetY([-14, 14])
-    .hitSlop({ left: -30 })
-    .onStart(() => { swipingUntil.current = Date.now() + 60000; })
-    .onUpdate((e) => {
-      const has = neighbor(e.translationX < 0 ? 1 : -1) !== undefined;
-      swipeX.setValue(has ? e.translationX : e.translationX * 0.25); // resist at the ends
-    })
-    .onEnd((e) => {
-      swipingUntil.current = Date.now() + 350;
-      const dir = e.translationX < 0 ? 1 : -1;
-      const next = neighbor(dir);
-      const far = Math.abs(e.translationX) > pageW.current * 0.22 || (Math.abs(e.velocityX) > 500 && Math.abs(e.translationX) > 40);
-      if (!far || next === undefined) { settle(); return; }
-      // Start getting the next pill's stories while the current ones slide away, and only bring the feed
-      // back in once they're on screen, so the old stories never slide back in first.
-      const ready = freshFeed(next) ? Promise.resolve(freshFeed(next)!) : fetchFeed(next);
-      const out = new Promise<void>((r) => Animated.timing(swipeX, { toValue: -dir * pageW.current, duration: 160, easing: Easing.in(Easing.quad), useNativeDriver: false }).start(() => r()));
-      Promise.all([ready.catch(() => null), out]).then(([f]) => {
-        swiped.current = true;
-        if (f) show(f, keyOf(next));
-        chooseLens(next, { quiet: true });
-        swipeX.setValue(dir * pageW.current * 0.3);
-        requestAnimationFrame(() => Animated.timing(swipeX, { toValue: 0, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start());
-      });
-    }), []); // eslint-disable-line react-hooks/exhaustive-deps
-  // Fetch the pills on either side ahead of time, so a swipe lands on stories that are already here.
-  const neighborKeys = [neighbor(-1), neighbor(1)].filter((l) => l !== undefined).map((l) => keyOf(l as Lens)).join("|");
+  const onPagerScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    pagerX.current = e.nativeEvent.contentOffset.x;
+    const i = Math.max(0, Math.min(orderRef.current.length - 1, Math.round(pagerX.current / (pageW || 1))));
+    if (i !== pagerIdxRef.current) setPagerIdx(i);
+    // The web has no momentum-end event: settle once scrolling stops.
+    if (settleTimer.current) clearTimeout(settleTimer.current);
+    settleTimer.current = setTimeout(commit, 140);
+  };
+  // Neighbors' stories are fetched ahead, so the page you swipe to is already filled in.
   useEffect(() => {
-    if (!feed) return;
     const h = setTimeout(() => {
-      for (const l of [neighbor(-1), neighbor(1)]) if (l !== undefined && !freshFeed(l)) fetchFeed(l).catch(() => {});
-    }, 400);
+      for (const i of [pagerIdx - 1, pagerIdx, pagerIdx + 1]) {
+        const l = order[i];
+        if (l !== undefined && !isFresh(keyOf(l))) fetchFeed(l).catch(() => {});
+      }
+    }, 250);
     return () => clearTimeout(h);
-  }, [feed?.now, neighborKeys]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pagerIdx, orderKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const swipeStyle = {
-    flex: 1,
-    transform: [{ translateX: swipeX }],
-    opacity: swipeX.interpolate({ inputRange: [-400, 0, 400], outputRange: [0.35, 1, 0.35], extrapolate: "clamp" as const }),
+  const errorText = error || stateError || (state && (state.apiVersion || 0) < NEEDS_API_VERSION ? "The Reveal server is older than the app. Stop it (Ctrl+C) and run npm run dev again." : "");
+  const [barH, setBarH] = useState(0);
+  const renderRow = (r: Row) => {
+    if (r.type === "divider") return (
+      <View style={{ flexDirection: "row", alignItems: "center", gap: space.m, marginHorizontal: space.l, marginBottom: space.l }}>
+        <View style={{ flex: 1, height: 1, backgroundColor: t.line }} />
+        <Text style={{ color: t.muted, fontSize: 13, flexShrink: 1, textAlign: "center" }}>{r.label || "You're caught up · earlier stories"}</Text>
+        <View style={{ flex: 1, height: 1, backgroundColor: t.line }} />
+      </View>
+    );
+    if (r.type === "curator") return <CuratorCardView card={r} onFollow={follow} onAsk={ask} onDismiss={() => dismissCard(r.id)} />;
+    const card = (it: FeedItem, inGrid = false) => (
+      <ItemCard key={it.id} inGrid={inGrid} item={it} onSave={() => save(it)} onLess={() => setLessFor(it.id)}
+        onOpen={() => { sendEvents([{ itemId: it.id, type: "expand" }]).catch(() => {}); router.push({ pathname: "/item/[id]", params: { id: it.id } }); }} />
+    );
+    if (r.type === "pair") {
+      const bleed = !!design["card.fullBleed"];
+      return (
+        <View style={{ flexDirection: "row", gap: bleed ? 2 : design["card.gap"], marginHorizontal: bleed ? 0 : design["card.inset"] }}>
+          {r.items.map((it) => card(it, true))}
+          {r.items.length === 1 ? <View style={{ flex: 1 }} /> : null}
+        </View>
+      );
+    }
+    return card(r);
   };
+  const renderPage = (l: Lens, index: number) => {
+    const key = keyOf(l);
+    const f = feeds[key] ?? null;
+    const here = key === curKey;
+    if (Math.abs(index - pagerIdx) > 1) return <View style={{ width: pageW }} />;
+    if (full) return (
+      <View style={{ width: pageW, height: pageH }}>
+        <FullFeed entries={f?.entries || []} loaded={!!f} listKey={key} height={pageH} topSpace={headerH || insets.top + 50} bottomSpace={tabSpace}
+          onSave={save} onLess={setLessFor} onViewable={viewFor(key)} refreshing={here && refreshing} onRefresh={pull}
+          curator={{ follow, ask, dismiss: dismissCard }} />
+        {!f || (here && errorText) ? (
+          <View style={{ position: "absolute", top: (headerH || insets.top + 50) + space.m, left: 0, right: 0 }}>
+            {!f && !(here && error) ? <ActivityIndicator color="#fff" /> : <ErrorLine text={errorText} onRetry={() => { load(true); reloadState(); }} />}
+          </View>
+        ) : null}
+      </View>
+    );
+    return (
+      <FlatList
+        ref={(r) => { lists.current.set(key, r); }}
+        style={{ width: pageW }}
+        data={rowsFor(f)}
+        keyExtractor={(r) => (r.type === "curator" ? "c-" + r.id : r.id)}
+        onViewableItemsChanged={viewFor(key)}
+        onScroll={onPageScroll(key)}
+        scrollEventThrottle={16}
+        viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
+        refreshControl={<RefreshControl refreshing={here && refreshing} onRefresh={pull} tintColor={t.muted} progressViewOffset={pinned ? headerH : 0} />}
+        scrollIndicatorInsets={pinned ? { top: headerH } : undefined}
+        ListHeaderComponent={
+          <View style={pinned ? { paddingTop: headerH } : null}>
+            {/* Unpinned: the pill row scrolls with the page on screen; neighbors keep the same space. */}
+            {pinned ? null : here ? <View onLayout={(e) => setBarH(Math.round(e.nativeEvent.layout.height))}>{lensBar}</View> : <View style={{ height: barH }} />}
+            {here ? <ErrorLine text={errorText} onRetry={() => { load(true); reloadState(); }} /> : null}
+          </View>
+        }
+        ListEmptyComponent={f ? <Empty title="Nothing here yet" body="Pull down to check your sources, or follow a few more in Sources." /> : <ActivityIndicator style={{ marginTop: 60 }} color={t.muted} />}
+        renderItem={({ item: r }) => renderRow(r)}
+        contentContainerStyle={{ paddingBottom: tabSpace + space.l }}
+      />
+    );
+  };
+
+  if (state && !state.interests.length) return <Redirect href="/welcome" />;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: full ? "#000" : t.bg }} edges={pinned ? [] : ["top"]}
       onLayout={(e) => setPageH(Math.round(e.nativeEvent.layout.height))}>
-      <GestureDetector gesture={swipe}>
-      <Animated.View style={swipeStyle} onLayout={(e) => { pageW.current = e.nativeEvent.layout.width || 400; }}>
-      {full ? (
-        <>
-          <FullFeed entries={(feed?.entries || [])} loaded={!!feed} listKey={lens ? `${lens.kind}:${lens.id}` : "all"} height={pageH} topSpace={headerH || insets.top + 50} bottomSpace={tabSpace}
-            onSave={save} onLess={setLessFor} onViewable={onViewable} refreshing={refreshing} onRefresh={pull}
-            curator={{ follow, ask, dismiss: dismissCard }} />
-          {!feed || error || stateError ? (
-            <View style={{ position: "absolute", top: (headerH || insets.top + 50) + space.m, left: 0, right: 0 }}>
-              {!feed && !error ? <ActivityIndicator color="#fff" /> : <ErrorLine text={error || stateError} onRetry={() => { load(); reloadState(); }} />}
-            </View>
-          ) : null}
-        </>
-      ) : (
-      <FlatList
-        ref={listRef}
-        data={rows}
-        keyExtractor={(r) => (r.type === "curator" ? "c-" + r.id : r.id)}
-        onViewableItemsChanged={onViewable}
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-        viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={pull} tintColor={t.muted} progressViewOffset={pinned ? headerH : 0} />}
-        scrollIndicatorInsets={pinned ? { top: headerH } : undefined}
-        ListHeaderComponent={
-          <View style={pinned ? { paddingTop: headerH } : null}>
-            {pinned ? null : lensBar}
-            <ErrorLine text={error || stateError || (state && (state.apiVersion || 0) < NEEDS_API_VERSION ? "The Reveal server is older than the app. Stop it (Ctrl+C) and run npm run dev again." : "")} onRetry={() => { load(); reloadState(); }} />
-          </View>
-        }
-        ListEmptyComponent={feed ? <Empty title="Nothing here yet" body="Pull down to check your sources, or follow a few more in Sources." /> : <ActivityIndicator style={{ marginTop: 60 }} color={t.muted} />}
-        renderItem={({ item: r }) => {
-          if (r.type === "divider") return (
-            <View style={{ flexDirection: "row", alignItems: "center", gap: space.m, marginHorizontal: space.l, marginBottom: space.l }}>
-              <View style={{ flex: 1, height: 1, backgroundColor: t.line }} />
-              <Text style={{ color: t.muted, fontSize: 13, flexShrink: 1, textAlign: "center" }}>{r.label || "You're caught up · earlier stories"}</Text>
-              <View style={{ flex: 1, height: 1, backgroundColor: t.line }} />
-            </View>
-          );
-          if (r.type === "curator") return <CuratorCardView card={r} onFollow={follow} onAsk={ask} onDismiss={() => dismissCard(r.id)} />;
-          const card = (it: FeedItem, inGrid = false) => (
-            <ItemCard key={it.id} inGrid={inGrid} item={it} onSave={() => save(it)} onLess={() => setLessFor(it.id)}
-              onOpen={() => { if (swiping()) return; sendEvents([{ itemId: it.id, type: "expand" }]).catch(() => {}); router.push({ pathname: "/item/[id]", params: { id: it.id } }); }} />
-          );
-          if (r.type === "pair") {
-            const bleed = !!design["card.fullBleed"];
-            return (
-              <View style={{ flexDirection: "row", gap: bleed ? 2 : design["card.gap"], marginHorizontal: bleed ? 0 : design["card.inset"] }}>
-                {r.items.map((it) => card(it, true))}
-                {r.items.length === 1 ? <View style={{ flex: 1 }} /> : null}
-              </View>
-            );
-          }
-          return card(r);
-        }}
-        contentContainerStyle={{ paddingBottom: tabSpace + space.l }}
-      />
-      )}
-      </Animated.View>
-      </GestureDetector>
+      <View style={{ flex: 1 }} onLayout={(e) => setPageW(Math.round(e.nativeEvent.layout.width))}>
+        {pageW ? (
+          <FlatList
+            ref={pager}
+            data={order}
+            keyExtractor={keyOf}
+            horizontal
+            pagingEnabled
+            directionalLockEnabled
+            decelerationRate="fast"
+            showsHorizontalScrollIndicator={false}
+            getItemLayout={(_, i) => ({ length: pageW, offset: pageW * i, index: i })}
+            initialScrollIndex={lensIdx}
+            windowSize={3}
+            initialNumToRender={3}
+            maxToRenderPerBatch={3}
+            extraData={[feeds, pagerIdx, curKey, headerH, barH, refreshing, design, errorText, pageH]}
+            onScroll={onPagerScroll}
+            onMomentumScrollEnd={commit}
+            scrollEventThrottle={16}
+            renderItem={({ item, index }) => renderPage(item, index)}
+          />
+        ) : null}
+      </View>
       {/* Pinned pill row: stays at the top while the feed scrolls underneath, over an adjustable backing. */}
       {pinned ? (
         <View ref={backingRef} onLayout={(e) => { if (scrollPos.current <= 1) setHeaderH(Math.round(e.nativeEvent.layout.height)); }}
