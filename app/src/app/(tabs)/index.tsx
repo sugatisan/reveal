@@ -63,25 +63,47 @@ export default function FeedScreen() {
   // A different interest or source opens at the top; reloading the same one keeps your place.
   const latest = useRef(0);
   const shownKey = useRef<string | null>(null);
-  const load = useCallback(async () => {
-    const q = !lens ? "" : lens.kind === "interest" ? `?interest=${encodeURIComponent(lens.id)}` : `?source=${encodeURIComponent(lens.id)}`;
-    const key = lens ? `${lens.kind}:${lens.id}` : "all";
+  // Feeds by lens, so swiping (or tapping back) to a pill shows its stories at once instead of the old ones first.
+  // Neighbors of the current pill are fetched ahead of time; anything you do that changes the feed clears it.
+  const cache = useRef(new Map<string, { f: Feed; at: number }>());
+  const FRESH_MS = 3 * 60 * 1000;
+  const keyOf = (l: Lens) => (l ? `${l.kind}:${l.id}` : "all");
+  const fetchFeed = (l: Lens) => {
+    const q = !l ? "" : l.kind === "interest" ? `?interest=${encodeURIComponent(l.id)}` : `?source=${encodeURIComponent(l.id)}`;
+    return api<Feed>(`/api/feed${q}`).then((f) => { cache.current.set(keyOf(l), { f, at: Date.now() }); return f; });
+  };
+  const freshFeed = (l: Lens) => { const c = cache.current.get(keyOf(l)); return c && Date.now() - c.at < FRESH_MS ? c.f : null; };
+  const show = (f: Feed, key: string) => {
+    seedBriefs(f.entries); setFeed(f); setError("");
+    if (shownKey.current !== key) { shownKey.current = key; listRef.current?.scrollToOffset({ offset: 0, animated: false }); }
+  };
+  // force: fetch even if a fresh copy is cached (pull to refresh, a new visit, anything that changed the feed).
+  const load = useCallback(async (force = true) => {
+    const key = keyOf(lens);
+    const cached = freshFeed(lens);
+    if (cached && !force) { show(cached, key); return; }
     const n = ++latest.current;
     try {
-      const f = await api<Feed>(`/api/feed${q}`);
+      const f = await fetchFeed(lens);
       if (n !== latest.current) return;
-      seedBriefs(f.entries); setFeed(f); setError("");
-      if (shownKey.current !== key) { shownKey.current = key; listRef.current?.scrollToOffset({ offset: 0, animated: false }); }
+      show(f, key);
     }
     catch (e: any) { if (n === latest.current) setError(e.message); }
-  }, [lens]);
-  useEffect(() => { load(); }, [load, version]);
+  }, [lens]); // eslint-disable-line react-hooks/exhaustive-deps
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  useEffect(() => { load(false); }, [load]);
+  const firstVersion = useRef(true);
+  useEffect(() => {
+    if (firstVersion.current) { firstVersion.current = false; return; }
+    cache.current.clear(); loadRef.current(true);
+  }, [version]);
   // An interest whose stories are still being checked against its scope: look again shortly, once.
-  useEffect(() => { if (!feed?.scoping) return; const h = setTimeout(load, 8000); return () => clearTimeout(h); }, [feed?.scoping, load]);
+  useEffect(() => { if (!feed?.scoping) return; const h = setTimeout(() => load(true), 8000); return () => clearTimeout(h); }, [feed?.scoping, load]);
   // A visit: on launch and whenever the app comes back to the front. After 30+ minutes away the server
   // starts a new one, and the feed reloads so what arrived meanwhile comes first.
   useEffect(() => {
-    const visit = () => api<{ newVisit?: boolean }>("/api/visit", {}).then((r) => { if (r.newVisit) { setFresh(0); load(); reloadState(); } }).catch(() => {});
+    const visit = () => api<{ newVisit?: boolean }>("/api/visit", {}).then((r) => { if (r.newVisit) { setFresh(0); cache.current.clear(); load(true); reloadState(); } }).catch(() => {});
     visit();
     const sub = AppActivity.addEventListener("change", (s) => { if (s === "active") visit(); });
     return () => sub.remove();
@@ -277,13 +299,28 @@ export default function FeedScreen() {
       const next = neighbor(dir);
       const far = Math.abs(e.translationX) > pageW.current * 0.22 || (Math.abs(e.velocityX) > 500 && Math.abs(e.translationX) > 40);
       if (!far || next === undefined) { settle(); return; }
-      Animated.timing(swipeX, { toValue: -dir * pageW.current, duration: 150, easing: Easing.in(Easing.quad), useNativeDriver: false }).start(() => {
+      // Start getting the next pill's stories while the current ones slide away, and only bring the feed
+      // back in once they're on screen, so the old stories never slide back in first.
+      const ready = freshFeed(next) ? Promise.resolve(freshFeed(next)!) : fetchFeed(next);
+      const out = new Promise<void>((r) => Animated.timing(swipeX, { toValue: -dir * pageW.current, duration: 160, easing: Easing.in(Easing.quad), useNativeDriver: false }).start(() => r()));
+      Promise.all([ready.catch(() => null), out]).then(([f]) => {
         swiped.current = true;
+        if (f) show(f, keyOf(next));
         chooseLens(next, { quiet: true });
         swipeX.setValue(dir * pageW.current * 0.3);
-        Animated.timing(swipeX, { toValue: 0, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+        requestAnimationFrame(() => Animated.timing(swipeX, { toValue: 0, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start());
       });
     }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Fetch the pills on either side ahead of time, so a swipe lands on stories that are already here.
+  const neighborKeys = [neighbor(-1), neighbor(1)].filter((l) => l !== undefined).map((l) => keyOf(l as Lens)).join("|");
+  useEffect(() => {
+    if (!feed) return;
+    const h = setTimeout(() => {
+      for (const l of [neighbor(-1), neighbor(1)]) if (l !== undefined && !freshFeed(l)) fetchFeed(l).catch(() => {});
+    }, 400);
+    return () => clearTimeout(h);
+  }, [feed?.now, neighborKeys]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const swipeStyle = {
     flex: 1,
     transform: [{ translateX: swipeX }],
