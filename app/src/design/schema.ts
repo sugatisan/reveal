@@ -8,7 +8,8 @@ export type Control =
   | { key: string; label: string; hint?: string; type: "toggle"; default: boolean }
   | { key: string; label: string; hint?: string; type: "color"; swatches: string[]; default: string }
   | { key: string; label: string; hint?: string; type: "palette"; default: string }
-  | { key: string; label: string; hint?: string; type: "savePalette"; default: string };
+  | { key: string; label: string; hint?: string; type: "savePalette"; default: string }
+  | { key: string; label: string; hint?: string; type: "fontset"; default: string };
 
 // Controls are grouped into panels (e.g. "Feed card"), and each panel into titled sections
 // that open and close in the studio. Keep sections small: 2–4 related controls each.
@@ -25,8 +26,7 @@ export const GROUPS: Group[] = [
   {
     id: "type-fonts", panel: "Type", title: "Fonts", hint: "One pairing for the whole app: a display face for headlines, titles and the curator, and a text face for everything else.",
     controls: [
-      choice("type.fonts", "Pairing", "classic", [["classic", "Classic"], ["editorial", "Editorial"], ["modern", "Modern"], ["bookish", "Bookish"], ["technical", "Technical"]],
-        "Classic: Georgia + system. Editorial: Newsreader + Inter. Modern: Space Grotesk + Inter. Bookish: DM Serif Display + DM Sans. Technical: IBM Plex Mono + IBM Plex Sans."),
+      { key: "type.fonts", label: "Pairing", hint: "Pick from the list or step through with the arrows.", type: "fontset", default: "classic" },
     ],
   },
   {

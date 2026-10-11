@@ -10,6 +10,7 @@ import { SafeAreaFrameContext, SafeAreaInsetsContext } from "react-native-safe-a
 import { GROUPS, Control, DEFAULTS, Group } from "@/design/schema";
 import { resetToDefaults, revertDesign, saveDesign, setDesign, useDesign, useDesignRemote } from "@/design/store";
 import { luminance, PALETTES, preview, SavedPalette } from "@/design/palettes";
+import { FONT_SETS } from "@/design/fonts";
 
 // ---------- studio mode on/off (survives navigation inside the app) ----------
 function studioOn(): boolean {
@@ -287,6 +288,27 @@ function PalettePicker({ value, onChange, design }: { value: string; onChange: (
   );
 }
 
+// Font pairings: a dropdown with arrows, and the pairing's description underneath.
+function FontPicker({ value, onChange }: { value: string; onChange: (v: any) => void }) {
+  const at = Math.max(0, FONT_SETS.findIndex((x) => x.id === value));
+  const cur = FONT_SETS[at];
+  const step = (n: number) => onChange(FONT_SETS[(at + n + FONT_SETS.length) % FONT_SETS.length].id);
+  const arrow: React.CSSProperties = { width: 32, flex: "none", background: "#12151B", border: "1px solid #2A2E37", borderRadius: 8, color: "#E9ECF2", cursor: "pointer", fontSize: 16 };
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button style={arrow} onClick={() => step(-1)} title="Previous pairing" aria-label="Previous pairing">‹</button>
+        <select value={cur.id} onChange={(e) => onChange(e.target.value)} aria-label="Font pairing"
+          style={{ flex: 1, minWidth: 0, background: "#12151B", border: "1px solid #2A2E37", borderRadius: 8, color: "#E9ECF2", padding: "7px 8px", fontSize: 13 }}>
+          {FONT_SETS.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+        </select>
+        <button style={arrow} onClick={() => step(1)} title="Next pairing" aria-label="Next pairing">›</button>
+      </div>
+      <div style={{ fontSize: 11.5, color: "#8FA0BA", marginTop: 6 }}>{at + 1} of {FONT_SETS.length} · {cur.note}</div>
+    </div>
+  );
+}
+
 // "Save as a palette", at the end of the Custom palette section: the current custom colors become a named tile.
 function SavePalette({ design }: { design: Record<string, any> }) {
   const [name, setName] = useState("");
@@ -336,6 +358,7 @@ function Row({ c, value, onChange, design }: { c: Control; value: any; onChange:
       ) : null}
       {c.type === "palette" ? <PalettePicker value={value} onChange={onChange} design={design || {}} /> : null}
       {c.type === "savePalette" ? <SavePalette design={design || {}} /> : null}
+      {c.type === "fontset" ? <FontPicker value={value} onChange={onChange} /> : null}
       {c.type === "color" ? (
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
           {c.swatches.map((sw) => (
