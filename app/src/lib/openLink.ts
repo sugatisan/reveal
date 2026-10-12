@@ -6,6 +6,7 @@
 // hide tabs a page opens, so a new tab looks like nothing happened.
 import { Linking, Platform } from "react-native";
 import * as WebBrowser from "expo-web-browser";
+import { getDesign } from "@/design/store";
 
 // Hosts whose apps take their links. Matched on the registrable part, so www./m./smile. variants count,
 // and any country store (amazon.co.uk, ebay.de) does too.
@@ -33,5 +34,6 @@ export async function openLink(url: string) {
   if (opensInApp(url)) {
     try { await Linking.openURL(url); return; } catch { /* fall through to the sheet */ }
   }
-  await WebBrowser.openBrowserAsync(url);
+  // Articles: straight into Safari's Reader view when the page supports it (studio: Story page › Reading at the publisher).
+  await WebBrowser.openBrowserAsync(url, { readerMode: getDesign()["story.reader"] !== false });
 }

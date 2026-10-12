@@ -23,6 +23,9 @@ function startPolling() {
   if (__DEV__) setInterval(tick, 1000);
 }
 
+// Current values outside React (e.g. when opening a link).
+export const getDesign = () => merged;
+
 export function useDesign() {
   useEffect(startPolling, []);
   return useSyncExternalStore((f) => { subs.add(f); return () => subs.delete(f); }, () => merged, () => merged);

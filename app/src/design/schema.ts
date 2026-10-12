@@ -225,6 +225,12 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    id: "story-reader", panel: "Story page", title: "Reading at the publisher", hint: "On the phone, articles open in Safari's sheet. Reader shows just the article (no ads or clutter) on pages that support it; the publisher still gets the visit.",
+    controls: [
+      { key: "story.reader", label: "Open articles in Reader when available", type: "toggle", default: true },
+    ],
+  },
+  {
     id: "story-spacing", panel: "Story page", title: "Spacing", hint: "Also used by the full-screen Details sheet.",
     controls: [
       { key: "story.sectionGap", label: "Between sections", hint: "Description, key facts, actions, questions, related.", type: "range", min: 12, max: 64, step: 2, unit: "pt", default: 36 },
