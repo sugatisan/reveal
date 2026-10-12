@@ -395,26 +395,75 @@ const LINKS_SCHEMA = {
       description: "Links whose destination IS the subject of the story or its official media: the game's or product's own page, the maker's page for it, the paper or report, the project's repo, the place's own site, the official trailer. Not other news coverage, not general homepages, not tangents. Most useful first. Empty is normal.",
       items: { type: "object", properties: { n: { type: "integer", description: "The link's number in the list" }, label: { type: "string", description: "1-3 words naming what it is, e.g. Official site, Trailer, The study, GitHub repo, Menu, Kickstarter" } }, required: ["n", "label"] },
     },
+    missing: {
+      type: "array", maxItems: 2,
+      description: "The specific maker, brand, product, place or project the story is about whose own website a reader would want to visit, when none of the picked links already goes there. Proper names exactly as a reader would search them (e.g. 'Mattel Brick Shop', 'Analogue Pocket', 'Noma'). Never the publication itself, its writers, people (unless the person is the brand), or generic things. Most central first. Empty when the picked links cover it or there's no such subject.",
+      items: { type: "object", properties: { name: { type: "string" }, kind: { type: "string", enum: ["maker", "product", "place", "project", "organization"] } }, required: ["name", "kind"] },
+    },
   },
-  required: ["links"],
+  required: ["links", "missing"],
 };
-export async function pickLinks(item, gist, candidates) {
-  if (!hasKey() || !candidates.length) return [];
-  const list = candidates.map((c, i) => `[${i + 1}] ${c.text || "(no text)"} -> ${c.url.replace(/^https?:\/\/(www\.)?/, "").slice(0, 120)}`).join("\n");
-  const prompt = `Story: ${item.title}
+// Links in the article that go to what the story is about, plus the subjects it names without linking
+// (resolved to official sites by the caller). Candidates may carry `dest`: where a redirect link lands.
+export async function pickLinks(item, gist, candidates, publisher = "") {
+  if (!hasKey()) return { links: [], missing: [] };
+  const list = candidates.map((c, i) => `[${i + 1}] ${c.text || "(no text)"} -> ${(c.dest || c.url).replace(/^https?:\/\/(www\.)?/, "").slice(0, 120)}`).join("\n");
+  const prompt = `Story${publisher ? ` from ${publisher}` : ""}: ${item.title}
 ${gist ? `Gist: ${gist}\n` : ""}Links in the article:
-${list}
+${list || "(none)"}
 
-Which of these link to the thing this story is about?`;
-  const out = await claudeForm({ system: "You pick supporting links for stories in a discovery feed.", prompt, schema: LINKS_SCHEMA, model: FAST(), maxTokens: 300, purpose: "story-links" });
+Which of these link to the thing this story is about? And what is it about that has its own website but isn't linked?`;
+  const out = await claudeForm({ system: "You pick supporting links for stories in a discovery feed.", prompt, schema: LINKS_SCHEMA, model: FAST(), maxTokens: 400, purpose: "story-links" });
   const picked = [];
   for (const l of Array.isArray(out.links) ? out.links : []) {
     const c = candidates[Number(l?.n) - 1];
     const label = String(l?.label || "").trim().slice(0, 28);
     if (!c || !label || picked.some((p) => p.url === c.url)) continue;
-    picked.push({ url: c.url, label });
+    picked.push({ url: c.url, label, ...(c.dest ? { dest: c.dest } : {}) });
   }
-  return picked.slice(0, 3);
+  const missing = (Array.isArray(out.missing) ? out.missing : [])
+    .map((m) => ({ name: String(m?.name || "").trim(), kind: String(m?.kind || "maker") }))
+    .filter((m) => m.name && m.name.length <= 60 && (!publisher || m.name.toLowerCase() !== publisher.toLowerCase())).slice(0, 2);
+  return { links: picked.slice(0, 3), missing };
+}
+
+// The official website of a maker, brand, product, place or project, by web search. Only a URL the search
+// actually returned, never a news site, encyclopedia, marketplace or social profile, and its domain must
+// carry the name unless the model is sure. A missing link is better than a wrong one.
+const NOT_OFFICIAL = /(^|\.)(wikipedia|wikimedia|fandom|amazon|ebay|walmart|target|etsy|aliexpress|temu|reddit|facebook|instagram|twitter|x|tiktok|pinterest|linkedin|youtube|medium|substack|bricklink|brickset|imdb|yelp|tripadvisor|crunchbase|bloomberg|reuters|theverge|engadget|wired|caranddriver|motortrend|cnet|techcrunch|gizmodo)\.[a-z.]+$/i;
+const nameTokens = (s) => String(s).toLowerCase().normalize("NFKD").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length >= 3 && !/^(the|and|for|inc|llc|ltd|company|official|shop|store)$/.test(w));
+export async function officialSite(name, kind = "maker", context = "") {
+  if (!hasKey() || !name) return null;
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model: FAST(), max_tokens: 600,
+      system: "You find official websites. Reply with JSON only.",
+      messages: [{ role: "user", content: `Find the official website of "${name}" (a ${kind})${context ? `, as mentioned in: ${context}` : ""}.
+The ${kind === "product" ? "product's page on its maker's own site, or the maker's site" : "brand's, maker's or place's own site"}. Its own store counts. Not news coverage, encyclopedias, marketplaces, retailers or social profiles.
+Return {"url":"","sure":true}. Use a URL exactly as it appeared in the search results. If you can't find its own site, return {"url":"","sure":false}.` }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }],
+    }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error?.message || `Claude API error ${res.status}`);
+  const us = body.usage || {};
+  record({ purpose: "official-site", model: FAST(), input: (us.input_tokens || 0) + (us.cache_creation_input_tokens || 0), output: us.output_tokens || 0, cached: us.cache_read_input_tokens || 0, searches: us.server_tool_use?.web_search_requests || 0 });
+  const found = new Set();
+  for (const c of body.content || []) if (c.type === "web_search_tool_result" && Array.isArray(c.content)) for (const r of c.content) if (r.url) found.add(r.url);
+  const text = (body.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+  let out = {};
+  try { out = json(text); } catch {}
+  const url = String(out.url || "").trim();
+  if (!url || !found.has(url)) return null;
+  let host;
+  try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { return null; }
+  if (NOT_OFFICIAL.test(host)) return null;
+  const labels = host.split(".").slice(0, -1).join(" ").replace(/-/g, " ");
+  const toks = nameTokens(name);
+  const carries = toks.some((t) => labels.includes(t)) || labels.replace(/\s/g, "").length >= 4 && name.toLowerCase().replace(/[^a-z0-9]/g, "").includes(labels.split(" ").pop());
+  return carries || out.sure === true ? url : null;
 }
 
 // What a liked story says about taste: 1-3 specific ingredients (subject, angle or format), each marked

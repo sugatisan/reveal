@@ -30,7 +30,7 @@ const loadBrief = (id: string, d: ItemDetail) => {
   return briefs.get(id)!;
 };
 // Links to what the story is about, worked out the first time anyone opens it.
-type Links = { links: { url: string; label: string }[]; shops?: ItemDetail["shops"] };
+type Links = { links: { url: string; label: string; official?: boolean }[]; shops?: ItemDetail["shops"] };
 const linkLoads = new Map<string, Promise<Links>>();
 const loadLinks = (id: string) => {
   if (!linkLoads.has(id)) linkLoads.set(id, api<Links>("/api/item/links", { id }).then((r) => ({ links: r.links || [], shops: r.shops })).catch(() => { linkLoads.delete(id); return { links: [] }; }));
@@ -147,7 +147,7 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
               }} />
             ))}
             {(links || []).map((l) => (
-              <Chip key={l.url} label={l.label} icon={/trailer|video|watch/i.test(l.label) || /youtube\.com|youtu\.be|vimeo\.com/.test(l.url) ? "play-outline" : "link-outline"} onPress={() => openLink(l.url)} />
+              <Chip key={l.url} label={l.label} icon={l.official ? "globe-outline" : /trailer|video|watch/i.test(l.label) || /youtube\.com|youtu\.be|vimeo\.com/.test(l.url) ? "play-outline" : "link-outline"} onPress={() => openLink(l.url)} />
             ))}
           </View>
           {shops?.some((s) => s.ours) ? <Text style={{ color: t.faint, fontSize: 12, marginTop: space.s }}>Reveal may earn a commission from these links. It never affects what you see.</Text> : null}

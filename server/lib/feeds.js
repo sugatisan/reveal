@@ -505,3 +505,20 @@ export async function articlePage(url, { timeout = 7000 } = {}) {
   }
   return { images: [...new Set([ogUrl, ...(region ? allImages(region, finalUrl, 12) : [])])].filter(Boolean), text: body ? articleText(body) : fallback.length > 400 ? fallback : "", shops: shopLinks(body || text, finalUrl), links: subjectCandidates(body || region, finalUrl) };
 }
+
+// Where a publisher's redirect or short link actually lands (an HTTP redirect, or a meta-refresh /
+// script redirect page). Null when it can't be followed.
+export async function resolveRedirect(url, timeout = 5000) {
+  let from;
+  try { from = new URL(url).hostname; } catch { return null; }
+  try {
+    const r = await fetchText(url, { timeout, accept: "text/html" });
+    let to = r.url;
+    if (new URL(to).hostname === from) {
+      const m = r.text.match(/http-equiv=["']?refresh["']?[^>]*content=["'][^"']*url=([^"'>\s]+)/i) || r.text.match(/location(?:\.href)?\s*=\s*["'](https?:\/\/[^"']+)["']/i) || r.text.match(/location\.replace\(\s*["'](https?:\/\/[^"']+)["']/i);
+      if (!m) return null;
+      to = new URL(decode(m[1]), to).href;
+    }
+    return new URL(to).hostname === from ? null : to;
+  } catch { return null; }
+}

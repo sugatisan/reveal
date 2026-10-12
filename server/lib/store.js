@@ -14,6 +14,7 @@ const empty = () => ({
   events: {}, // itemId -> { expand, open, save, less, shown, savedAt }
   sourceStats: {}, // sourceId -> { expand, open, save, less, shown }
   dismissed: [], // source ids dismissed as suggestions
+  official: {}, // name key -> { name, kind, url, at } or { name, miss: true, at }: official sites for things stories are about, shared by every story
   meta: { lastRefresh: 0, lastVisit: 0, prevVisit: 0 },
 });
 

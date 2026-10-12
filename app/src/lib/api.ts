@@ -49,7 +49,7 @@ export type MiniItem = { id: string; title: string; image?: string; excerpt?: st
 export type WebArticle = { title: string; url: string; site: string; why: string };
 export type Turn = { role: "user" | "curator"; text: string; itemId?: string; items?: MiniItem[]; sources?: SourceView[]; missing?: { name: string; site: string }[]; web?: MiniItem[]; offerInterest?: string; ideas?: { term: string; fits: boolean; interestId: string; interestLabel: string }[]; followups?: string[]; at: number };
 export type ShopLink = { shop: string; url: string; ours: boolean };
-export type ItemDetail = FeedItem & { web?: boolean; gallery?: string[]; aiSummary?: string | null; brief?: StoryBrief | null; forYou?: string | null; shops?: ShopLink[]; links?: { url: string; label: string }[]; lead?: string; interests: { id: string; label: string }[]; related: MiniItem[]; deeper: SourceView[] };
+export type ItemDetail = FeedItem & { web?: boolean; gallery?: string[]; aiSummary?: string | null; brief?: StoryBrief | null; forYou?: string | null; shops?: ShopLink[]; links?: { url: string; label: string; official?: boolean }[]; lead?: string; interests: { id: string; label: string }[]; related: MiniItem[]; deeper: SourceView[] };
 
 export const sendEvents = (events: { itemId: string; type: "shown" | "expand" | "open" | "save" | "less" | "buy" }[]) => api<{ ok: boolean; saved?: boolean }>("/api/events", { events });
 
