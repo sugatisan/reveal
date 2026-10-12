@@ -361,7 +361,8 @@ async function writeBrief(id) {
 // 2. One fast call picks the links that go to the subject, and names subjects the article didn't link.
 // 3. Those names are looked up in a shared directory of official sites; a name it hasn't seen costs one
 //    web search, then every later story that mentions it gets the link for free.
-const LINKS_V = 2;
+const LINKS_V = 3;
+const OFFICIAL_V = 2; // misses from an older lookup are retried
 const linksInflight = new Map();
 function subjectLinks(id) {
   if (!linksInflight.has(id)) linksInflight.set(id, findLinks(id).finally(() => linksInflight.delete(id)));
@@ -391,12 +392,12 @@ async function officialFor(name, kind, context) {
   if (!key) return null;
   const hit = d.official[key];
   const ttl = hit?.miss ? OFFICIAL_TTL.miss : hit?.kind === "product" ? OFFICIAL_TTL.product : OFFICIAL_TTL.other;
-  if (hit && Date.now() - hit.at < ttl) return hit.miss ? null : hit;
+  if (hit && Date.now() - hit.at < ttl && !(hit.miss && hit.v !== OFFICIAL_V)) return hit.miss ? null : hit;
   if (!officialInflight.has(key)) officialInflight.set(key, (async () => {
     let url = null;
     try { url = await agent.officialSite(name, kind, context); }
     catch (e) { console.log(`[official] ${name}: ${e.message}`); return hit && !hit.miss ? hit : null; } // try again another time
-    d.official[key] = url ? { name, kind, url, at: Date.now() } : { name, kind, miss: true, at: Date.now() };
+    d.official[key] = url ? { name, kind, url, at: Date.now(), v: OFFICIAL_V } : { name, kind, miss: true, at: Date.now(), v: OFFICIAL_V };
     console.log(`[official] ${name} -> ${url || "none"}`);
     save();
     return url ? d.official[key] : null;

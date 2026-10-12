@@ -455,15 +455,23 @@ Return {"url":"","sure":true}. Use a URL exactly as it appeared in the search re
   const text = (body.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
   let out = {};
   try { out = json(text); } catch {}
-  const url = String(out.url || "").trim();
-  if (!url || !found.has(url)) return null;
+  const why = (r) => { console.log(`[official] ${name}: ${r}`); return null; };
+  let url = String(out.url || "").trim();
+  if (!url) return why(`no site found (${found.size} search results)`);
   let host;
-  try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { return null; }
-  if (NOT_OFFICIAL.test(host)) return null;
+  try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { return why(`bad url ${url}`); }
+  // The model often tidies a URL (drops a path, adds a slash). Accept it when the search returned a page
+  // on the same site, and use the page the search actually returned.
+  if (!found.has(url)) {
+    const same = [...found].filter((f) => { try { return new URL(f).hostname.replace(/^www\./, "") === host; } catch { return false; } });
+    if (!same.length) return why(`${url} wasn't in the search results`);
+    url = same.find((f) => new URL(f).pathname.split("/").filter(Boolean).length <= 2) || same[0];
+  }
+  if (NOT_OFFICIAL.test(host)) return why(`${host} isn't an official site`);
   const labels = host.split(".").slice(0, -1).join(" ").replace(/-/g, " ");
   const toks = nameTokens(name);
   const carries = toks.some((t) => labels.includes(t)) || labels.replace(/\s/g, "").length >= 4 && name.toLowerCase().replace(/[^a-z0-9]/g, "").includes(labels.split(" ").pop());
-  return carries || out.sure === true ? url : null;
+  return carries || out.sure === true ? url : why(`${host} doesn't carry the name and the model wasn't sure`);
 }
 
 // What a liked story says about taste: 1-3 specific ingredients (subject, angle or format), each marked
