@@ -1,5 +1,5 @@
 // Pull every followed source, store new items, merge duplicates, fill missing images.
-import { fetchText, isFeed, parseFeed, discoverFeed, ogImage, stripTags, cadence, sourceKind, sitemapItems, pageItems } from "./feeds.js";
+import { fetchText, isFeed, parseFeed, discoverFeed, ogImage, stripTags, cadence, sourceKind, sitemapItems, pageItems, articlePage } from "./feeds.js";
 import { looksSmall, isGeneratedCard } from "./images.js";
 import { load, save, hash, followedIds } from "./store.js";
 
@@ -188,7 +188,8 @@ async function doRefresh({ onlyIds, quiet } = {}) {
   const needImg = Object.values(d.items).filter((i) => !i.image && !i.imageTried && !i.dupOf).sort((a, b) => b.date - a.date).slice(0, 40);
   await pool(needImg, 6, async (i) => {
     i.imageTried = true;
-    i.image = await ogImage(i.link);
+    // The share image (og:image); without one, the article's own first photo.
+    i.image = (await ogImage(i.link)) || (await articlePage(i.link).then((p) => p.images[0] || "").catch(() => ""));
   });
   await enrichImages();
   prune();

@@ -125,7 +125,20 @@ async function followSite(url, { origin = "user", why, name } = {}) {
   upsertSource({ id, name: had?.name && !pageTitle(had.name) ? had.name : name && (!f.title || pageTitle(f.title)) ? name : cleanSourceName(f.title || "") || url, site: normalizeUrl(f.site || url), feedUrl: f.feedUrl, status: "ok", kind: sourceKind(f.items), perWeek: cadence(f.items), lastFetched: Date.now(), about: f.description?.slice(0, 200), origin: had?.origin || origin, addedAt: had?.addedAt || Date.now(), ...(why ? { why } : {}) });
   storeItems(id, f.items);
   mergeDuplicates();
+  await photosFor(id, 6000);
   return id;
+}
+
+// A source's newest stories without a photo: read their article pages now (in parallel, a few seconds at most)
+// so they appear with images, instead of waiting for the background pass. Works for any source.
+async function photosFor(sourceId, waitMs = 0) {
+  const d = load();
+  const todo = Object.values(d.items).filter((i) => i.sourceId === sourceId && !i.image && !i.kind && !i.dupOf && i.pageImages === undefined)
+    .sort((a, b) => b.date - a.date).slice(0, 15);
+  if (!todo.length) return;
+  const queue = [...todo];
+  const work = Promise.all(Array.from({ length: 4 }, async () => { for (let i = queue.shift(); i; i = queue.shift()) await ensurePage(i.id); })).then(() => save());
+  if (waitMs) await Promise.race([work, new Promise((r) => setTimeout(r, waitMs))]);
 }
 
 async function createInterest(p, origin) {

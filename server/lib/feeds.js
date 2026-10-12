@@ -332,6 +332,15 @@ export function pageItems(html = "", base = "") {
   let host = "";
   try { host = new URL(base).hostname.replace(/^www\./, ""); } catch { return []; }
   const seen = new Set(), cands = [];
+  // Story cards often link the photo and the headline separately to the same story: collect photos by URL first.
+  const thumbs = new Map();
+  for (const m of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
+    const href = (m[1].match(/href\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean);
+    const img = (m[2].match(/<img[^>]+?(?:data-src|data-lazy-src|src)\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean)
+      || ((m[2].match(/<img[^>]+srcset\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean) || "").split(",").pop()?.trim().split(/\s+/)[0];
+    if (!href || !img || /^data:/.test(img)) continue;
+    try { const u = new URL(decode(href), base); u.hash = ""; const k = u.origin + u.pathname.replace(/\/$/, ""); if (!thumbs.has(k)) thumbs.set(k, absolutize(decode(img), base)); } catch {}
+  }
   for (const m of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
     const href = (m[1].match(/href\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean);
     if (!href || href.startsWith("#") || /^(mailto|tel|javascript):/i.test(href)) continue;
@@ -344,8 +353,7 @@ export function pageItems(html = "", base = "") {
     const key = u.origin + u.pathname.replace(/\/$/, "");
     if (seen.has(key)) continue;
     seen.add(key);
-    const img = (m[2].match(/<img[^>]+(?:data-src|src)\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean);
-    cands.push({ title: label, link: u.href, path: u.pathname, image: img ? absolutize(decode(img), base) : "" });
+    cands.push({ title: label, link: u.href, path: u.pathname, image: thumbs.get(key) || "" });
   }
   // Keep links in the site's most common story shapes: a shared first path segment used 3+ times, or a long slug.
   const first = (p) => p.split("/").filter(Boolean)[0] || "";
