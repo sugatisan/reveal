@@ -410,6 +410,11 @@ const DRAFT_SCHEMA = {
     subject: { type: "string", description: "When qualified: the broad subject without the qualifier (e.g. 'Marvel comics'). Else empty." },
     short: { type: "string", description: "When qualified: the narrow intent in 2-4 words for a divider label (e.g. '1980s Marvel'). Else empty." },
     scope: { type: "string", description: "When qualified: one plain sentence saying what belongs, specific enough to judge a headline by (e.g. 'Marvel comics published 1980-1989: their creators, runs, characters as they appeared then, reprints and collecting them'). Else empty." },
+    named: {
+      type: "array", maxItems: 8,
+      items: { type: "object", properties: { name: { type: "string" }, site: { type: "string", description: "Its homepage URL; for a shop that publishes editorial (like Huckberry's Journal), the editorial section's URL" } }, required: ["name", "site"] },
+      description: "Sites, publications, blogs, shops with editorial, YouTube channels or podcasts the person explicitly named (e.g. 'blogs like Gear for Today, Huckberry' -> Gear for Today, Huckberry). They want to follow these. Never put them in likes.",
+    },
     likes: {
       type: "array", maxItems: 8,
       items: { type: "object", properties: { term: { type: "string", description: "1-3 words as it would appear in a headline" }, why: { type: "string", description: "at most 6 words" } }, required: ["term", "why"] },
@@ -417,7 +422,7 @@ const DRAFT_SCHEMA = {
     },
     home: { type: "string", description: "If this is really a narrower part of one of the person's existing interests (it would fit as something they like inside it), that interest's exact label. Else empty." },
   },
-  required: ["label", "name", "qualified", "subject", "short", "scope", "likes", "home"],
+  required: ["label", "name", "qualified", "subject", "short", "scope", "named", "likes", "home"],
 };
 export async function draftInterest(text, existing = []) {
   if (!hasKey()) return null;
@@ -433,18 +438,22 @@ Read what they mean. Keep their specificity.`;
     subject: q ? String(out.subject || "").trim() : "",
     short: q ? String(out.short || "").trim().slice(0, 30) : "",
     scope: q ? String(out.scope || "").trim().slice(0, 300) : "",
-    likes: (Array.isArray(out.likes) ? out.likes : []).map((x) => ({ term: String(x.term || "").trim(), why: String(x.why || "").trim() })).filter((x) => x.term && x.term.length <= 32).slice(0, 8),
+    named: (Array.isArray(out.named) ? out.named : []).map((x) => ({ name: String(x.name || "").trim(), site: String(x.site || "").trim() })).filter((x) => x.name && x.site).slice(0, 8),
+    likes: (Array.isArray(out.likes) ? out.likes : []).map((x) => ({ term: String(x.term || "").trim(), why: String(x.why || "").trim() }))
+      .filter((x) => x.term && x.term.length <= 32 && !(Array.isArray(out.named) ? out.named : []).some((n) => String(n.name || "").toLowerCase() === x.term.toLowerCase())).slice(0, 8),
     home: String(out.home || "").trim(),
   };
 }
 
 // Sources for a new interest, each marked as dedicated to the narrow intent or broader.
-export async function proposeSources({ label, scope, likes = [] }) {
+export async function proposeSources({ label, scope, likes = [], named = [] }) {
+  // Sites the person named come first, always: they asked for them. The curator adds others around them.
+  const asked = named.map((n) => ({ name: n.name, site: n.site, feed: null, why: "You asked for it", fit: "named" }));
   if (!hasKey()) {
     const p = catalogParse(label)[0];
-    return (p?.sources || []).map((s) => ({ ...s, fit: "broad" }));
+    return [...asked, ...(p?.sources || []).map((s) => ({ ...s, fit: "broad" }))];
   }
-  const prompt = `Interest: "${label}"${scope ? `\nWhat belongs: ${scope}` : ""}${likes.length ? `\nThey especially like: ${likes.join(", ")}` : ""}
+  const prompt = `Interest: "${label}"${scope ? `\nWhat belongs: ${scope}` : ""}${likes.length ? `\nThey especially like: ${likes.join(", ")}` : ""}${named.length ? `\nThey already named (included separately, don't repeat them; find others in the same spirit): ${named.map((n) => n.name).join(", ")}` : ""}
 
 Find 8 sources, best first. ${scope ? "Lead with sources dedicated to exactly this (specialist blogs, fan sites, archives, newsletters, podcasts) even if small; then 2-3 strong broader sources about the wider subject, marked broad." : "Mix the best-known with a few specialist or smaller ones."}
 
@@ -465,7 +474,7 @@ Return: {"sources":[{"name":"","site":"","feed":null,"why":"","fit":"dedicated"}
     if ((again.sources || []).length > (out.sources || []).length) out = again;
   }
   if (!(out.sources || []).length) throw new Error("The curator's answer came back incomplete. Try again.");
-  return (out.sources || []).filter((s) => s.site).map((s) => ({ name: String(s.name), site: String(s.site), feed: s.feed || null, why: String(s.why || ""), fit: s.fit === "dedicated" ? "dedicated" : "broad" }));
+  return [...asked, ...(out.sources || []).filter((s) => s.site).map((s) => ({ name: String(s.name), site: String(s.site), feed: s.feed || null, why: String(s.why || ""), fit: s.fit === "dedicated" ? "dedicated" : "broad" }))];
 }
 
 // Which stories are in scope. 2 = clearly in, 1 = borderline, 0 = out. One fast call per 40 stories.

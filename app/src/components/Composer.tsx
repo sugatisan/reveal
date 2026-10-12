@@ -59,7 +59,7 @@ export function Composer({ text, state, go, onDone, onOpen }: {
     if (finding || into) return;
     setFinding(true); setErr(""); setRows(null); planFor.current = text;
     try {
-      const r = await api<{ sources: Proposal[] }>("/api/compose/sources", { label, scope, likes: picked });
+      const r = await api<{ sources: Proposal[] }>("/api/compose/sources", { label, scope, likes: picked, named: draft?.named || [] });
       if (planFor.current !== text) return;
       const list: Row[] = r.sources.map((p) => ({ ...p, on: false }));
       setRows(list);
@@ -72,7 +72,8 @@ export function Composer({ text, state, go, onDone, onOpen }: {
           const p = list[k];
           const c = await api<ProposalCheck>("/api/compose/check", { site: p.site, feed: p.feed }).catch(() => ({ ok: false }) as ProposalCheck);
           // Start with dedicated sources on (up to 4) plus the first two broad ones.
-          const on = !!c.ok && (p.fit === "dedicated" ? dedicatedOn++ < 4 : broadOn++ < 2);
+          // Sites you named are always on.
+          const on = !!c.ok && (p.fit === "named" || (p.fit === "dedicated" ? dedicatedOn++ < 4 : broadOn++ < 2));
           done[k] = { ...p, check: c, on };
           if (planFor.current === text) setRows([...done]);
         }
@@ -171,7 +172,7 @@ export function Composer({ text, state, go, onDone, onOpen }: {
                         <Text style={{ color: t.ink, fontWeight: "600", flexShrink: 1 }} numberOfLines={1}>{r.check?.name || r.name}</Text>
                       </View>
                       <Text style={{ color: t.muted, fontSize: 12 }} numberOfLines={2}>
-                        {`${r.fit === "dedicated" ? "All about it" : "Broader"}${r.check?.cadence ? ` · ${r.check.cadence}` : ""}${r.why ? ` · ${r.why}` : ""}`}
+                        {`${r.fit === "named" ? "You asked for it" : r.fit === "dedicated" ? "All about it" : "Broader"}${r.check?.cadence ? ` · ${r.check.cadence}` : ""}${r.why && r.fit !== "named" ? ` · ${r.why}` : ""}`}
                       </Text>
                     </View>
                   </Pressable>

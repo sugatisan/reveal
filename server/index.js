@@ -648,11 +648,11 @@ const routes = {
   },
 
   "POST /api/compose/sources": async (req) => {
-    const { label, scope: sc, likes } = await body(req);
+    const { label, scope: sc, likes, named } = await body(req);
     if (!label?.trim()) throw new Error("Name the interest first");
-    const list = await agent.proposeSources({ label: label.trim(), scope: sc || "", likes: Array.isArray(likes) ? likes : [] });
+    const list = await agent.proposeSources({ label: label.trim(), scope: sc || "", likes: Array.isArray(likes) ? likes : [], named: Array.isArray(named) ? named : [] });
     const seen = new Set();
-    return { sources: list.filter((p) => { const id = sourceIdFor(p.site); if (seen.has(id)) return false; seen.add(id); return true; }).slice(0, 10) };
+    return { sources: list.filter((p) => { const id = sourceIdFor(p.site); if (seen.has(id)) return false; seen.add(id); return true; }).slice(0, 12) };
   },
 
   "POST /api/compose/check": async (req) => {

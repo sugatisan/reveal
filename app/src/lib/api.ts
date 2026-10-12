@@ -84,8 +84,8 @@ export const looksLikeSite = (x: string) => /^(https?:\/\/)?([\w-]+\.)+[a-z]{2,}
 export type SitePreview = { name: string; site: string; kind: "podcast" | "video" | "site"; about: string; guess: string | null; already: string[] };
 
 // Interest composer: a quick read while typing, then proposed sources to pick from.
-export type Draft = { label: string; name?: string; qualified: boolean; subject: string; short: string; scope: string; likes: { term: string; why: string }[]; home: string };
-export type Proposal = { name: string; site: string; feed: string | null; why: string; fit: "dedicated" | "broad" };
+export type Draft = { label: string; name?: string; qualified: boolean; subject: string; short: string; scope: string; named?: { name: string; site: string }[]; likes: { term: string; why: string }[]; home: string };
+export type Proposal = { name: string; site: string; feed: string | null; why: string; fit: "dedicated" | "broad" | "named" };
 export type ProposalCheck = { ok: boolean; url?: string; name?: string; kind?: "podcast" | "video" | "site"; cadence?: string; titles?: { title: string; excerpt: string }[] };
 
 // A like teaches the story's interest 1-3 ingredients; returns what it learned (fresh = a new direction).
