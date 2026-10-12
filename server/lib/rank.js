@@ -67,14 +67,20 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     const why = interestId ? (sub || "") : sub ? `${primary.label} · ${sub}` : primary.label;
 
     const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, ...pub } = it; // server-only
-    scored.push({ ...pub, fit, opened: !!(ev.open || ev.expand), imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save, liked: !!ev.like });
+    scored.push({ ...pub, fit, opened: !!(ev.open || ev.expand), imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save, liked: !!ev.like, shownN: ev.shown || 0, engagedAny: !!engaged });
   }
   // One source on its own reads like that site: newest first, nothing reordered.
   if (sourceId) {
     scored.sort((a, b) => b.date - a.date);
-    return { items: scored.slice(0, limit).map(({ fit, ...x }) => x), caughtUp: -1, broaderAt: -1 };
+    return { items: scored.slice(0, limit).map(strip), caughtUp: -1, broaderAt: -1 };
   }
   scored.sort((a, b) => b.score - a.score);
+  // In All: older stories you've opened, liked, or been shown on 2+ visits don't come back (before the
+  // feed is cut to length, so unseen ones fill their places). New since your last visit always shows.
+  if (!interestId) {
+    const since0 = d.meta.prevVisit || 0;
+    for (let k = scored.length - 1; k >= 0; k--) { const x = scored[k]; if (x.fetchedAt <= since0 && (x.engagedAny || x.shownN >= 2)) scored.splice(k, 1); }
+  }
 
   // A scoped interest on its own: stories that match its scope first, then broader ones from the
   // same sources (borderline ones lead that part). "Matches only" drops the broader part.
@@ -85,7 +91,9 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     const rest = own.scopeMode === "only" ? [] : scored.filter((x) => x.fit !== 2).sort((a, b) => (b.fit === 1) - (a.fit === 1) || b.score - a.score);
     const top = spaceMedia(spread(match, limit), mediaEvery, sourceId);
     const bottom = spaceMedia(spread(rest, Math.max(0, limit - top.length)), mediaEvery, sourceId);
-    return { items: [...top, ...bottom].map(({ fit, ...x }) => x), caughtUp: -1, broaderAt: bottom.length ? top.length : -1, broaderLabel: own.scopeShort || own.label, pending: false };
+    // Inside a scoped interest: no source takes more than its share of either part.
+    const t2 = share(top, -1, { all: false }).items, b2 = share(bottom, -1, { all: false }).items;
+    return { items: [...t2, ...b2].map(strip), caughtUp: -1, broaderAt: b2.length ? t2.length : -1, broaderLabel: own.scopeShort || own.label, pending: false };
   }
 
   // Spread sources out: no source twice within 3 slots when there's an alternative.
@@ -112,7 +120,32 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     }
   }
   if (caughtUp < 0) out.splice(0, out.length, ...spaceMedia(out, mediaEvery, sourceId));
-  return { items: out.map(({ fit, ...x }) => x), caughtUp, broaderAt: -1, pending };
+  const fair = share(out, caughtUp, { all: !interestId });
+  return { items: fair.items.map(strip), caughtUp: fair.caughtUp, broaderAt: -1, pending };
+}
+
+const strip = ({ fit, shownN, engagedAny, ...x }) => x;
+
+// Variety, so the feed doesn't read as the same few sites, or the same stories, visit after visit:
+// - Each source gets a share: in All, at most 3 of what's new since your last visit and 2 of the older
+//   stories (one more for sources you engage with a lot); inside an interest, 8 and 4.
+// - In All, older stories you've already opened, liked, or been shown on 2+ visits don't come back;
+//   they're still on the interest's page, the source's page and in search.
+// What's left out makes room at the end for More you might like.
+function share(list, caughtUp, { all }) {
+  const capNew = all ? 3 : 8, capOld = all ? 2 : 4;
+  const fresh = [], old = [], nNew = new Map(), nOld = new Map();
+  list.forEach((x, idx) => {
+    const isNew = caughtUp > 0 && idx < caughtUp;
+    if (all && !isNew && (x.engagedAny || x.shownN >= 2)) return;
+    const counts = isNew ? nNew : nOld;
+    const cap = (isNew ? capNew : capOld) + (affinity(x.sourceId) > 1.3 ? 1 : 0);
+    const n = counts.get(x.sourceId) || 0;
+    if (n >= cap) return;
+    counts.set(x.sourceId, n + 1);
+    (isNew ? fresh : old).push(x);
+  });
+  return { items: [...fresh, ...old], caughtUp: caughtUp > 0 ? (old.length ? fresh.length : -1) : caughtUp };
 }
 
 // No source twice within 3 slots when there's an alternative.
