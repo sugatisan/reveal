@@ -90,7 +90,7 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
             <Pressable onPress={() => onSave(it)} hitSlop={8} accessibilityLabel={it.saved ? "Unsave" : "Save"} style={[st.round, { backgroundColor: img ? "rgba(0,0,0,0.35)" : t.chip }]}>
               <Ionicons name={it.saved ? "bookmark" : "bookmark-outline"} size={22} color={it.saved ? "#F5C542" : ink} />
             </Pressable>
-            <TunePill vertical size="l" liked={it.liked} onMore={() => onMore?.(it)} onLess={() => onLess(it.id)} ink={ink}
+            <TunePill vertical size="xl" liked={it.liked} onMore={() => onMore?.(it)} onLess={() => onLess(it.id)} ink={ink}
               fill={img ? "rgba(0,0,0,0.35)" : t.chip} line={img ? "rgba(255,255,255,0.18)" : t.line} />
           </View>
         <View style={[st.bottom, { paddingBottom: bottomSpace + space.m }]}>
