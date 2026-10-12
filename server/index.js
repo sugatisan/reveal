@@ -394,6 +394,70 @@ async function keepWebFinds(articles = []) {
   return ids.map((id, k) => { const it = d.items[id]; return { id, title: it.title, image: it.image, link: it.link, sourceName: articles[k].site, note: articles[k].why || undefined, saved: !!d.events[id]?.save }; });
 }
 
+// Web finds for "More you might like": the curator searches the web for one interest at a time in the
+// background, so finds are waiting at the end of the feed instead of costing a wait. Budget: at most
+// WEB_RUNS_PER_DAY searches a day, one interest per run, at least 90 min apart (on demand: at least an
+// hour since that interest's last search). Interests with the thinnest supply go first. Strict interests
+// ("just these sources") are left alone. Finds stay fresh for 5 days and are never shown twice.
+const WEB_RUNS_PER_DAY = 8;
+const siteOfUrl = (u) => { try { return new URL(u).hostname.replace(/^www\./, "").split(".").slice(-2).join("."); } catch { return ""; } };
+function webBudget() {
+  const m = load().meta;
+  const day = new Date().toISOString().slice(0, 10);
+  if (m.webDisc?.day !== day) m.webDisc = { day, runs: 0, lastAny: m.webDisc?.lastAny || 0, last: m.webDisc?.last || {} };
+  return m.webDisc;
+}
+let webRunning = false;
+let webRunningFor = null; // the interest being searched right now
+async function webDiscovery({ interestId, onDemand = false } = {}) {
+  if (webRunning || !agent.hasKey()) return 0;
+  const d = load();
+  const b = webBudget();
+  if (b.runs >= WEB_RUNS_PER_DAY) return 0;
+  if (!onDemand && Date.now() - b.lastAny < 90 * 6e4) return 0;
+  const ints = d.interests.filter((i) => !i.strict);
+  let i = interestId ? ints.find((x) => x.id === interestId) : null;
+  if (interestId && (!i || Date.now() - (b.last[i.id] || 0) < 60 * 6e4)) return 0;
+  if (!i) {
+    // The interest whose "more" would run dry soonest, among those not searched in the last 8 hours.
+    const due = ints.filter((x) => Date.now() - (b.last[x.id] || 0) > 8 * 36e5)
+      .map((x) => ({ x, supply: buildMore({ interestId: x.id, limit: 10 }).length, last: b.last[x.id] || 0 }))
+      .sort((a, c) => a.supply - c.supply || a.last - c.last);
+    i = due[0]?.x;
+  }
+  if (!i) return 0;
+  webRunning = true; webRunningFor = i.id; b.runs++; b.lastAny = Date.now(); b.last[i.id] = Date.now(); save();
+  try {
+    const subs = [...(i.subs || [])].sort(() => Math.random() - 0.5).slice(0, 2);
+    const topic = i.longLabel || i.label;
+    const followedNames = i.sourceIds.map((s) => d.sources[s]?.name).filter(Boolean).slice(0, 8);
+    const query = `${topic}${subs.length ? " " + subs.join(" ") : ""}`;
+    const message = `Recent, genuinely interesting articles about ${topic}${i.scope ? ` (${i.scope})` : ""}${subs.length ? `, especially ${subs.join(" and ")}` : ""}. The reader already follows ${followedNames.join(", ") || "a few sites"}, so prefer other publications, and things from the last few weeks. Individual articles, reviews, guides or essays only: never a homepage, a blog or news index, a changelog, a forum thread or a product page.`;
+    const found = await agent.webArticles(query, message, "more-web");
+    const mine = new Set(i.sourceIds.map((s) => siteOfUrl(d.sources[s]?.site || "")).filter(Boolean));
+    // Index pages aren't stories: homepages, /blog, /news, changelogs.
+    const isIndex = (u) => { try { const p = new URL(u).pathname.replace(/\/+$/, ""); return !p || /^\/(blog|news|articles|stories|posts|changelog|change-log|releases|category\/[^/]+|tag\/[^/]+)$/i.test(p) || /change-?log/i.test(p); } catch { return true; } };
+    const keep = found.filter((a) => a.url && !mine.has(siteOfUrl(a.url)) && !isIndex(a.url) && !/change ?log|^blog$|\bblog$/i.test(a.title.trim()));
+    const ids = [];
+    for (const a of keep) {
+      const id = hash(a.url);
+      const sid = "web:" + (a.site || "web");
+      if (!d.sources[sid]) upsertSource({ id: sid, name: a.site, site: "https://" + a.site, status: "ok", origin: "web" });
+      if (!d.items[id]) d.items[id] = { id, sourceId: sid, title: a.title.slice(0, 220), link: a.url, date: Date.now(), excerpt: a.why || "", feedText: "", image: "", images: [], tags: [], also: [], dupOf: null, fetchedAt: Date.now(), web: true };
+      const it = d.items[id];
+      if (!it.webFor) { it.webFor = i.id; it.webAt = Date.now(); }
+      ids.push(id);
+    }
+    save();
+    // Their pages give them a photo (and links); summaries are written when they're opened.
+    await Promise.race([Promise.all(ids.map((id) => ensurePage(id))), new Promise((r) => setTimeout(r, 10000))]);
+    for (const id of ids) { const it = d.items[id]; if (!it.image && it.pageImages?.length) it.image = it.pageImages[0]; }
+    save();
+    console.log(`  Web finds for ${i.label}: ${ids.length}`);
+    return ids.length;
+  } finally { webRunning = false; webRunningFor = null; }
+}
+
 function recordEvent(itemId, type) {
   const d = load();
   const it = d.items[itemId];
@@ -734,8 +798,26 @@ const routes = {
     const interestId = url.searchParams.get("interest") || undefined;
     const exclude = (url.searchParams.get("exclude") || "").split(",").filter(Boolean);
     const items = buildMore({ interestId, exclude, limit: 10 });
+    if (items.length < 6) webDiscovery({ interestId, onDemand: true }).catch((e) => console.error("  Web finds failed:", e.message));
+    // Tell the app a web search for this view is under way, so it checks back instead of ending.
+    const searching = !!webRunningFor && (!interestId || webRunningFor === interestId);
     items.forEach((it) => { if (!briefReady(load().items[it.id])) storyBrief(it.id).catch(() => {}); });
-    return { items: items.map((e) => ({ ...e, brief: briefReady(load().items[e.id]) ? load().items[e.id].brief : null })) };
+    return { searching, items: items.map((e) => ({ ...e, brief: briefReady(load().items[e.id]) ? load().items[e.id].brief : null })) };
+  },
+  "POST /api/more/follow": async (req) => {
+    const { itemId, interestId } = await body(req);
+    const d = load();
+    const it = d.items[itemId];
+    const i = d.interests.find((x) => x.id === interestId);
+    if (!it || !i) throw new Error("Not found");
+    let sid;
+    try { sid = await followSite(it.link, { origin: "agent", name: d.sources[it.sourceId]?.name }); }
+    catch { throw new Error(`${d.sources[it.sourceId]?.name || "That site"} has no feed to follow.`); }
+    if (!i.sourceIds.includes(sid)) i.sourceIds.push(sid);
+    i.suggestedIds = i.suggestedIds.filter((s) => s !== sid);
+    d.sources[sid].addedAt = Date.now();
+    save();
+    return { sourceId: sid, name: d.sources[sid].name };
   },
   "POST /api/item/links": async (req) => { const { id } = await body(req); const links = await subjectLinks(id); return { links, shops: shop.withAffiliate(load().items[id]?.shopLinks || []) }; },
   "GET /api/usage": async (req, url) => usage.summary(Number(url.searchParams.get("days")) || 7),
@@ -1004,5 +1086,7 @@ const refreshBeyond = () => {
   refresh({ onlyIds: ids, quiet: true }).then((r) => console.log(`  Refreshed suggested sources: ${r.added} new items`)).catch(() => {});
 };
 setTimeout(refreshBeyond, 90 * 1000);
+setTimeout(() => webDiscovery().catch(() => {}), 4 * 6e4);
+setInterval(() => webDiscovery().catch((e) => console.error("  Web finds failed:", e.message)), 30 * 6e4);
 setInterval(refreshBeyond, 15 * 6e4);
 for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { flush(); server.closeAllConnections?.(); process.exit(0); });

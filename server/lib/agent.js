@@ -182,7 +182,7 @@ ${SOURCE_RULES}`;
 // "From the web": a few articles found with Claude's web search tool, for when the person's own
 // sources don't cover what they asked. One-offs to read, never sources. Only URLs that actually
 // came back from the search are kept.
-export async function webArticles(query, message) {
+export async function webArticles(query, message, purpose = "curator-web") {
   if (!hasKey() || !query) return [];
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -197,7 +197,7 @@ export async function webArticles(query, message) {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body?.error?.message || `Claude API error ${res.status}`);
   const u = body.usage || {};
-  record({ purpose: "curator-web", model: FAST(), input: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), output: u.output_tokens || 0, cached: u.cache_read_input_tokens || 0, searches: u.server_tool_use?.web_search_requests || 0 });
+  record({ purpose, model: FAST(), input: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), output: u.output_tokens || 0, cached: u.cache_read_input_tokens || 0, searches: u.server_tool_use?.web_search_requests || 0 });
   const found = new Map();
   for (const c of body.content || []) if (c.type === "web_search_tool_result" && Array.isArray(c.content)) for (const r of c.content) if (r.url) found.set(r.url, r);
   const text = (body.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");

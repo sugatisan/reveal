@@ -125,6 +125,8 @@ function spread(list, limit) {
 // Past the end of your feed: the best recent stories from sources suggested for your interests that you
 // don't follow yet, each with its source so you can follow it. Nothing you've already been shown, nothing
 // you said less of; at most two per source per batch, spread across interests and sources.
+// Index pages (homepages, /blog, changelogs) found on the web aren't stories.
+const indexPage = (it) => { try { const p = new URL(it.link).pathname.replace(/\/+$/, ""); return !p || /^\/(blog|news|articles|stories|posts|changelog|change-log|releases)$/i.test(p) || /change-?log/i.test(p) || /(change ?log|^[^:]{0,30}\b(blog|news))$/i.test(String(it.title || "").trim()); } catch { return false; } };
 export function buildMore({ interestId, exclude = [], limit = 12 } = {}) {
   const d = load();
   const now = Date.now();
@@ -133,7 +135,18 @@ export function buildMore({ interestId, exclude = [], limit = 12 } = {}) {
   const skip = new Set(exclude);
   const home = new Map(); // sourceId -> interest
   for (const i of ints) for (const s of i.suggestedIds || []) if (!followed.has(s) && !d.dismissed.includes(s) && !home.has(s)) home.set(s, i);
+  const intById = new Map(ints.map((i) => [i.id, i]));
   const pool = [];
+  // Web finds the curator gathered for these interests in the background (fresh for 5 days).
+  for (const it of Object.values(d.items)) {
+    const i = it.webFor && intById.get(it.webFor);
+    if (!i || skip.has(it.id) || indexPage(it)) continue;
+    const ev = d.events[it.id] || {};
+    if (ev.shown || ev.less || ev.expand || excluded(it)) continue;
+    const ageH = (now - (it.webAt || it.date)) / 36e5;
+    if (ageH > 24 * 5) continue;
+    pool.push({ it, i, sub: subMatch(it, i.subs || []), score: 1.1 + (it.image ? 0.15 : 0) - ageH / 240, web: true });
+  }
   for (const it of Object.values(d.items)) {
     const i = home.get(it.sourceId);
     if (!i || it.dupOf || skip.has(it.id)) continue;
@@ -163,11 +176,11 @@ export function buildMore({ interestId, exclude = [], limit = 12 } = {}) {
       if (out.length >= limit) break;
     }
   }
-  return out.map(({ it, i, sub }) => {
+  return out.map(({ it, i, sub, web }) => {
     const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, linkCands, subjectLinks, ...pub } = it;
     const src = d.sources[it.sourceId] || {};
     return { ...pub, type: "item", why: sub ? `${i.label} · ${sub}` : i.label, sourceName: src.name, imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length,
-      interestIds: [i.id], saved: !!d.events[it.id]?.save, beyond: { sourceId: it.sourceId, sourceName: src.name, interestId: i.id, interestLabel: i.label } };
+      interestIds: [i.id], saved: !!d.events[it.id]?.save, beyond: { kind: web ? "web" : "source", sourceId: it.sourceId, sourceName: web ? src.name || String(it.sourceId).replace(/^web:/, "") : src.name, interestId: i.id, interestLabel: i.label } };
   });
 }
 

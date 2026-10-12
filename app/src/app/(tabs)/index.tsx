@@ -22,7 +22,7 @@ import { openCurator } from "@/lib/curatorSheet";
 // A "pair" is one row of the 2-column grid; everything else spans the full width.
 type Row = FeedEntry | { type: "divider"; id: string; label?: string } | { type: "pair"; id: string; items: FeedItem[] } | { type: "end"; id: string };
 // Past the end of a feed: stories from sources you don't follow yet, a batch at a time as you keep scrolling.
-type More = { items: FeedItem[]; loading: boolean; done: boolean };
+type More = { items: FeedItem[]; loading: boolean; done: boolean; searching?: boolean };
 
 export default function FeedScreen() {
   const t = useTheme();
@@ -230,25 +230,40 @@ export default function FeedScreen() {
   const [more, setMore] = useState<Record<string, More>>({});
   const moreBusy = useRef(new Set<string>());
   const [following, setFollowing] = useState<Record<string, boolean>>({});
+  const moreRef = useRef(more);
+  moreRef.current = more;
+  const polls = useRef(new Map<string, number>());
   const loadMore = (l: Lens) => {
     const key = keyOf(l);
-    const cur = more[key];
+    const cur = moreRef.current[key];
     if (l?.kind === "source" || moreBusy.current.has(key) || cur?.done) return;
     moreBusy.current.add(key);
     setMore((m) => ({ ...m, [key]: { items: m[key]?.items || [], loading: true, done: false } }));
     const exclude = (cur?.items || []).map((x) => x.id).join(",");
     const q = new URLSearchParams({ ...(l?.kind === "interest" ? { interest: l.id } : {}), ...(exclude ? { exclude } : {}) }).toString();
-    api<{ items: FeedItem[] }>(`/api/more${q ? "?" + q : ""}`)
-      .then((r) => { seedBriefs(r.items); setMore((m) => ({ ...m, [key]: { items: [...(m[key]?.items || []), ...r.items], loading: false, done: r.items.length < 4 } })); })
+    api<{ items: FeedItem[]; searching?: boolean }>(`/api/more${q ? "?" + q : ""}`)
+      .then((r) => {
+        seedBriefs(r.items);
+        // A web search for this view is under way: check back every few seconds (a minute at most).
+        const tries = polls.current.get(key) || 0;
+        const searching = !!r.searching && tries < 8;
+        setMore((m) => ({ ...m, [key]: { items: [...(m[key]?.items || []), ...r.items], loading: false, done: !searching && r.items.length < 4, searching } }));
+        if (searching) {
+          polls.current.set(key, tries + 1);
+          setTimeout(() => loadMore(l), 7000);
+        } else polls.current.delete(key);
+      })
       .catch(() => setMore((m) => ({ ...m, [key]: { items: m[key]?.items || [], loading: false, done: true } })))
       .finally(() => moreBusy.current.delete(key));
   };
   // Anything that changes the feed starts "more" over too.
   useEffect(() => { setMore({}); }, [version]);
-  const followBeyond = async (b: NonNullable<FeedItem["beyond"]>) => {
+  const followBeyond = async (b: NonNullable<FeedItem["beyond"]>, itemId: string) => {
     setFollowing((f) => ({ ...f, [b.sourceId]: true }));
     try {
-      await api("/api/sources/follow", { interestId: b.interestId, sourceId: b.sourceId, follow: true });
+      // A web find's site is followed by finding its feed; a suggested source already has one.
+      if (b.kind === "web") await api("/api/more/follow", { itemId, interestId: b.interestId });
+      else await api("/api/sources/follow", { interestId: b.interestId, sourceId: b.sourceId, follow: true });
       toast.show(`Following ${b.sourceName} in ${b.interestLabel}.`);
       reloadState();
     } catch (e: any) { setFollowing((f) => ({ ...f, [b.sourceId]: false })); toast.show(e.message); }
@@ -367,9 +382,15 @@ export default function FeedScreen() {
           <View style={{ width: 36, height: 3, borderRadius: 2, backgroundColor: t.line, marginBottom: space.m }} />
           <Text style={{ color: t.ink, fontSize: 17, fontWeight: "700" }}>You're all caught up</Text>
           <Text style={{ color: t.muted, fontSize: 14, textAlign: "center" }}>
-            {m?.items.length ? "More you might like, from sources you don't follow yet." : m?.loading ? "Looking beyond your sources…" : m?.done ? "That's everything for now. More arrives through the day." : "Keep scrolling for more from beyond your sources."}
+            {m?.items.length ? "More you might like, from beyond your sources." : m?.loading ? "Looking beyond your sources…" : m?.searching ? "Looking on the web for more…" : m?.done ? "That's everything for now. More arrives through the day." : "Keep scrolling for more from beyond your sources."}
           </Text>
-          {m?.loading && !m.items.length ? <ActivityIndicator style={{ marginTop: space.s }} color={t.muted} /> : null}
+          {(m?.loading || m?.searching) && !m.items.length ? <ActivityIndicator style={{ marginTop: space.s }} color={t.muted} /> : null}
+          {m?.done && !m.items.length ? (
+            <Pressable onPress={() => { const l = orderRef.current.find((x) => keyOf(x) === pageKey); moreRef.current = { ...moreRef.current, [pageKey]: { ...m, done: false } }; if (l !== undefined) loadMore(l); }}
+              accessibilityRole="button" style={({ pressed }) => ({ marginTop: space.s, paddingHorizontal: 14, height: 32, borderRadius: 16, justifyContent: "center", backgroundColor: t.chip, opacity: pressed ? 0.7 : 1 })}>
+              <Text style={{ color: t.ink, fontSize: 13, fontWeight: "600" }}>Look again</Text>
+            </Pressable>
+          ) : null}
         </View>
       );
     }
@@ -394,9 +415,9 @@ export default function FeedScreen() {
         <View key={it.id} style={inGrid ? { flex: 1 } : null}>
           {c}
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.s, marginHorizontal: inGrid ? 4 : design["card.inset"] + space.s, marginTop: -space.s, marginBottom: space.l }}>
-            <Text style={{ flex: 1, color: t.muted, fontSize: 12 }} numberOfLines={1}>{on ? `Following ${b.sourceName}` : `${b.sourceName} · not followed`}</Text>
+            <Text style={{ flex: 1, color: t.muted, fontSize: 12 }} numberOfLines={1}>{on ? `Following ${b.sourceName}` : b.kind === "web" ? `From the web · ${b.sourceName}` : `${b.sourceName} · not followed`}</Text>
             {on ? <Ionicons name="checkmark-circle" size={18} color={t.accent} /> : (
-              <Pressable onPress={() => followBeyond(b)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Follow ${b.sourceName} in ${b.interestLabel}`}
+              <Pressable onPress={() => followBeyond(b, it.id)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Follow ${b.sourceName} in ${b.interestLabel}`}
                 style={({ pressed }) => ({ paddingHorizontal: 12, height: 28, borderRadius: 14, justifyContent: "center", backgroundColor: t.chip, opacity: pressed ? 0.7 : 1 })}>
                 <Text style={{ color: t.ink, fontSize: 13, fontWeight: "600" }}>Follow</Text>
               </Pressable>
@@ -440,6 +461,7 @@ export default function FeedScreen() {
         data={rowsFor(f, more[key], !!f && f.entries.length > 0 && l?.kind !== "source")}
         onEndReached={() => { if (f && l?.kind !== "source") loadMore(l); }}
         onEndReachedThreshold={1.5}
+        extraData={[more[key], following, design]}
         keyExtractor={(r) => (r.type === "curator" ? "c-" + r.id : r.id)}
         onViewableItemsChanged={viewFor(key)}
         onScroll={onPageScroll(key)}
