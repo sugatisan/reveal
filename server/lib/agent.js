@@ -221,31 +221,47 @@ export async function siteArticles(site, name = "") {
   let u;
   try { u = new URL(/^https?:/i.test(site) ? site : "https://" + site); } catch { return []; }
   const host = u.hostname.replace(/^www\./, "");
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({
-      model: FAST(), max_tokens: 1500,
-      system: "You find a website's newest published articles. Reply with JSON only.",
-      messages: [{ role: "user", content: `Find the newest articles, stories or posts published on ${name || host} (${u.href}). Individual articles only: not the homepage, category, tag, shop or product pages. Return {"articles":[{"title":"","url":""}]}, up to 10, newest first.` }],
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2, allowed_domains: [host] }],
-    }),
-  });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body?.error?.message || `Claude API error ${res.status}`);
-  const us = body.usage || {};
-  record({ purpose: "site-search", model: FAST(), input: (us.input_tokens || 0) + (us.cache_creation_input_tokens || 0), output: us.output_tokens || 0, cached: us.cache_read_input_tokens || 0, searches: us.server_tool_use?.web_search_requests || 0 });
-  const found = new Map();
-  for (const c of body.content || []) if (c.type === "web_search_tool_result" && Array.isArray(c.content)) for (const r of c.content) if (r.url) found.set(r.url, r);
-  const text = (body.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
-  let picks = [];
-  try { picks = json(text).articles || []; } catch {}
+  const log = (line) => { console.log(`[site-search] ${host}: ${line}`); try { fs.mkdirSync("data/debug", { recursive: true }); fs.appendFileSync("data/debug/site-search.txt", `${new Date().toISOString()} ${host} ${line}\n`); } catch {} };
   const onSite = (x) => { try { return new URL(x).hostname.replace(/^www\./, "").endsWith(host); } catch { return false; } };
-  const article = (x) => { try { const p = new URL(x).pathname.replace(/\/+$/, ""); return p && p.split("/").filter(Boolean).length >= 1 && !/^\/(tag|tags|category|categories|shop|products?|collections?|search|page)(\/|$)/i.test(p); } catch { return false; } };
-  const list = picks.filter((a) => a?.url && found.has(a.url)).map((a) => ({ title: String(a.title || found.get(a.url).title || "").trim(), url: a.url }));
-  if (!list.length) for (const r of found.values()) list.push({ title: r.title, url: r.url });
-  const seen = new Set();
-  return list.filter((a) => a.title && onSite(a.url) && article(a.url) && !seen.has(a.url) && seen.add(a.url)).slice(0, 10);
+  const article = (x) => { try { const p = new URL(x).pathname.replace(/\/+$/, ""); return p && p.split("/").filter(Boolean).length >= 1 && !/^\/(tag|tags|category|categories|shop|products?|collections?|search|page|cart|account)(\/|$)/i.test(p); } catch { return false; } };
+  // Restricting the search to the site is the precise way, but the search refuses sites that block
+  // its crawler (common for shops). Then search openly for "site:host" and keep only that host's pages.
+  const attempt = async (restricted) => {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+      body: JSON.stringify({
+        model: FAST(), max_tokens: 1500,
+        system: "You find a website's newest published articles. Reply with JSON only.",
+        messages: [{ role: "user", content: `Find the newest articles, stories or posts published on ${name || host} (${u.href}).${restricted ? "" : ` Search for site:${host} and only return pages on ${host}.`} Individual articles only: not the homepage, category, tag, shop or product pages. Return {"articles":[{"title":"","url":""}]}, up to 10, newest first.` }],
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2, ...(restricted ? { allowed_domains: [host] } : {}) }],
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body?.error?.message || `Claude API error ${res.status}`);
+    const us = body.usage || {};
+    record({ purpose: "site-search", model: FAST(), input: (us.input_tokens || 0) + (us.cache_creation_input_tokens || 0), output: us.output_tokens || 0, cached: us.cache_read_input_tokens || 0, searches: us.server_tool_use?.web_search_requests || 0 });
+    const found = new Map();
+    for (const c of body.content || []) {
+      if (c.type !== "web_search_tool_result") continue;
+      if (Array.isArray(c.content)) { for (const r of c.content) if (r.url) found.set(r.url, r); }
+      else if (c.content?.error_code) log(`search error: ${c.content.error_code}`);
+    }
+    const text = (body.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+    let picks = [];
+    try { picks = json(text).articles || []; } catch {}
+    const list = picks.filter((a) => a?.url && found.has(a.url)).map((a) => ({ title: String(a.title || found.get(a.url).title || "").trim(), url: a.url }));
+    for (const r of found.values()) if (!list.some((a) => a.url === r.url)) list.push({ title: r.title, url: r.url });
+    const seen = new Set();
+    const keep = list.filter((a) => a.title && onSite(a.url) && article(a.url) && !seen.has(a.url) && seen.add(a.url)).slice(0, 10);
+    log(`${restricted ? "restricted" : "open"} search: ${found.size} results, ${keep.length} articles kept${found.size && !keep.length ? ` (e.g. ${[...found.keys()].slice(0, 3).join(" ")})` : ""}`);
+    return keep;
+  };
+  let list = [];
+  try { list = await attempt(true); } catch (e) { log(`restricted search failed: ${e.message}`); }
+  if (list.length >= 2) return list;
+  try { const open = await attempt(false); if (open.length > list.length) list = open; } catch (e) { log(`open search failed: ${e.message}`); if (!list.length) throw e; }
+  return list;
 }
 
 // Topics someone might want less of, for the "less of this" sheet. Cached on the story by the caller.

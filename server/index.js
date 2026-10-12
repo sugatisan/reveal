@@ -125,7 +125,7 @@ const siteSearchCache = new Map();
 async function searchSite(site, name) {
   const hit = siteSearchCache.get(site);
   if (hit && Date.now() - hit.at < 15 * 6e4) return hit.items;
-  const items = await agent.siteArticles(site, name).catch(() => []);
+  const items = await agent.siteArticles(site, name).catch((e) => { console.log(`[site-search] ${site}: ${e.message}`); return []; });
   siteSearchCache.set(site, { items, at: Date.now() });
   return items;
 }
