@@ -431,15 +431,17 @@ Which of these link to the thing this story is about? And what is it about that 
 // The official website of a maker, brand, product, place or project, by web search. Only a URL the search
 // actually returned, never a news site, encyclopedia, marketplace or social profile, and its domain must
 // carry the name unless the model is sure. A missing link is better than a wrong one.
-const NOT_OFFICIAL = /(^|\.)(wikipedia|wikimedia|fandom|amazon|ebay|walmart|target|etsy|aliexpress|temu|reddit|facebook|instagram|twitter|x|tiktok|pinterest|linkedin|youtube|medium|substack|bricklink|brickset|imdb|yelp|tripadvisor|crunchbase|bloomberg|reuters|theverge|engadget|wired|caranddriver|motortrend|cnet|techcrunch|gizmodo)\.[a-z.]+$/i;
+// Never "official": encyclopedias, marketplaces, social and video platforms, blogging platforms. Plus, per call,
+// the publisher that wrote the story (passed in by the caller).
+const NOT_OFFICIAL = /(^|\.)(wikipedia|wikimedia|wikidata|fandom|amazon|ebay|walmart|target|etsy|aliexpress|temu|reddit|facebook|instagram|twitter|x|threads|tiktok|pinterest|linkedin|youtube|medium|substack|imdb|yelp|tripadvisor|crunchbase|google|apple\.news|msn|yahoo)\.[a-z.]+$/i;
 const nameTokens = (s) => String(s).toLowerCase().normalize("NFKD").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length >= 3 && !/^(the|and|for|inc|llc|ltd|company|official|shop|store)$/.test(w));
 function carriesName(host, name) {
   const labels = host.replace(/^www\./, "").split(".").slice(0, -1).join(" ").replace(/-/g, " ");
   const last = labels.split(" ").pop();
   return nameTokens(name).some((t) => labels.includes(t)) || last.length >= 4 && name.toLowerCase().replace(/[^a-z0-9]/g, "").includes(last);
 }
-export async function officialSite(name, kind = "maker", context = "") {
-  if (!hasKey() || !name) return null;
+export async function officialSite(name, kind = "maker", context = "", { exclude = [], log = true } = {}) {
+  if (!hasKey() || !name) return { url: null, reason: "no API key" };
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
@@ -461,8 +463,9 @@ Return {"url":"","sure":true}. Use a URL exactly as it appeared in the search re
   const text = (body.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
   let out = {};
   try { out = json(text); } catch {}
-  const note = (r) => { console.log(`[official] ${name}: ${r}`); try { fs.mkdirSync("data/debug", { recursive: true }); fs.appendFileSync("data/debug/official.txt", `${new Date().toISOString()} ${name} (${kind}): ${r}\n  model: ${text.replace(/\s+/g, " ").slice(0, 300)}\n  results: ${[...found].slice(0, 8).join(" ")}\n`); } catch {} };
-  const why = (r) => { note(r); return null; };
+  const note = (r) => { if (!log) return; console.log(`[official] ${name}: ${r}`); try { fs.mkdirSync("data/debug", { recursive: true }); fs.appendFileSync("data/debug/official.txt", `${new Date().toISOString()} ${name} (${kind}): ${r}\n  model: ${text.replace(/\s+/g, " ").slice(0, 300)}\n  results: ${[...found].slice(0, 8).join(" ")}\n`); } catch {} };
+  const why = (r) => { note(r); return { url: null, reason: r }; };
+  const excluded = (h) => exclude.some((e) => e && (h === e || h.endsWith("." + e)));
   let url = String(out.url || "").trim();
   if (!url) return why(`no site found (${found.size} search results)`);
   let host;
@@ -474,15 +477,15 @@ Return {"url":"","sure":true}. Use a URL exactly as it appeared in the search re
     // New things often only show up as news in search; the model may still know the maker's page.
     // Use the page it named if it loads; otherwise the site's own homepage, if the search found the site.
     let loaded = null;
-    if (!NOT_OFFICIAL.test(host) && (same.length || carriesName(host, name))) {
+    if (!NOT_OFFICIAL.test(host) && !excluded(host) && (same.length || carriesName(host, name))) {
       try { const r = await fetchText(url, { timeout: 6000, accept: "text/html" }); if (/^https?:/.test(r.url)) loaded = r.url; } catch {}
     }
     if (loaded) url = loaded;
     else if (same.length) url = `https://${new URL(same[0]).hostname}/`;
     else return why(`${url} wasn't in the search results${carriesName(host, name) ? " and didn't load" : ""}`);
   }
-  if (NOT_OFFICIAL.test(host)) return why(`${host} isn't an official site`);
-  if (carriesName(host, name) || out.sure === true) { note(`found ${url}`); return url; }
+  if (NOT_OFFICIAL.test(host) || excluded(host)) return why(`${host} isn't an official site`);
+  if (carriesName(host, name) || out.sure === true) { note(`found ${url}`); return { url, reason: carriesName(host, name) ? "found; domain carries the name" : "found; model sure" }; }
   return why(`${host} doesn't carry the name and the model wasn't sure`);
 }
 

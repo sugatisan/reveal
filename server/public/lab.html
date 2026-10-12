@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reveal · Links lab</title>
+<style>
+  :root {
+    --bg: #14161B; --panel: #1C1F26; --panel2: #232731; --line: #2E333F; --ink: #ECEEF2; --dim: #8FA0BA; --faint: #5E6A80;
+    --right: #4CC38A; --wrong: #F06A6A; --miss: #E8B44C; --noise: #E07BD0; --quiet: #6FA8F5; --none: #5E6A80;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
+  a { color: inherit; }
+  header { position: sticky; top: 0; z-index: 5; background: rgba(20,22,27,.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); padding: 14px 28px; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: -.01em; }
+  header .sub { color: var(--dim); font-size: 13px; }
+  header .spacer { flex: 1; }
+  button { font: inherit; color: var(--ink); background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: #46506a; }
+  button.primary { background: #ECEEF2; color: #14161B; border-color: #ECEEF2; font-weight: 600; }
+  button:disabled { opacity: .45; cursor: default; }
+  main { padding: 22px 28px 80px; max-width: 1280px; margin: 0 auto; }
+  .status { color: var(--dim); font-size: 13px; }
+  .bar { height: 4px; background: var(--panel2); border-radius: 2px; overflow: hidden; width: 160px; }
+  .bar > i { display: block; height: 100%; background: var(--ink); transition: width .3s; }
+  .scores { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
+  .score { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .score .k { color: var(--dim); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+  .score .v { font-size: 30px; font-weight: 650; margin: 2px 0; font-variant-numeric: tabular-nums; }
+  .score .h { color: var(--faint); font-size: 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  th { color: var(--dim); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; background: var(--panel2); cursor: default; }
+  tr:last-child td { border-bottom: 0; }
+  tr.cat { cursor: pointer; }
+  tr.cat:hover td { background: #212530; }
+  tr.cat.on td { background: #262b37; }
+  .stack { display: flex; height: 8px; border-radius: 4px; overflow: hidden; width: 180px; background: var(--panel2); }
+  .stack i { display: block; height: 100%; }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; margin: 22px 0 12px; align-items: center; }
+  .chip { border-radius: 999px; padding: 4px 11px; font-size: 13px; background: var(--panel); }
+  .chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+  .case { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; display: grid; grid-template-columns: 1fr 300px; gap: 18px; }
+  .case .meta { color: var(--dim); font-size: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .tag { border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; font-size: 11px; color: var(--dim); }
+  .tag.warn { color: var(--miss); border-color: #5b4a24; }
+  .case h3 { margin: 4px 0 8px; font-size: 15px; font-weight: 600; line-height: 1.35; }
+  .case h3 a { text-decoration: none; }
+  .case h3 a:hover { text-decoration: underline; }
+  .row { display: flex; gap: 8px; margin: 4px 0; font-size: 13px; }
+  .row .l { color: var(--faint); width: 74px; flex-shrink: 0; }
+  .link { display: inline-flex; gap: 6px; align-items: center; background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; margin: 0 6px 6px 0; font-size: 13px; text-decoration: none; max-width: 100%; }
+  .link .src { color: var(--faint); font-size: 11px; }
+  .link.ok { border-color: #2f5f47; }
+  .link.bad { border-color: #6b3434; }
+  .verdict { font-weight: 650; font-size: 13px; display: flex; align-items: center; justify-content: space-between; }
+  .side { border-left: 1px solid var(--line); padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .judge { display: flex; gap: 6px; }
+  .judge button { flex: 1; padding: 5px 0; font-size: 13px; }
+  .judge button.on-right { background: #1d3a2c; border-color: var(--right); }
+  .judge button.on-wrong { background: #3d2222; border-color: var(--wrong); }
+  input.note { width: 100%; background: var(--bg); border: 1px solid var(--line); color: var(--ink); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; }
+  details { font-size: 12px; color: var(--dim); }
+  details summary { cursor: pointer; color: var(--faint); }
+  details pre { white-space: pre-wrap; word-break: break-word; background: var(--bg); border-radius: 8px; padding: 8px; margin: 6px 0 0; font: 12px/1.45 ui-monospace, Menlo, monospace; color: #b8c2d4; }
+  .notes { color: var(--faint); font-size: 12px; font-style: italic; }
+  .empty { color: var(--dim); text-align: center; padding: 40px; }
+  .legend { color: var(--dim); font-size: 12px; display: flex; gap: 14px; flex-wrap: wrap; margin: 8px 2px 0; }
+  @media (max-width: 900px) { .scores { grid-template-columns: repeat(2, 1fr); } .case { grid-template-columns: 1fr; } .side { border-left: 0; padding-left: 0; } }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Links lab</h1>
+    <div class="sub">Real articles from categories outside your feed, run through the same link finder the app uses. Its own data and cache; never touches your feed.</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="status" id="status"></div>
+  <div class="bar" id="bar" hidden><i></i></div>
+  <button id="rerunBad" title="Re-run cases scored wrong, miss or noise, keeping the cache">Re-run failures</button>
+  <button class="primary" id="runAll" title="Clears the lab's cache of official sites and runs every case. Real web searches: roughly $1-2 per run.">Run all</button>
+</header>
+<main>
+  <div class="scores" id="scores"></div>
+  <table id="cats"></table>
+  <div class="legend" id="legend"></div>
+  <div class="filters" id="filters"></div>
+  <div id="cases"></div>
+</main>
+<script>
+const COLORS = { right: "var(--right)", "right-later": "var(--right)", wrong: "var(--wrong)", miss: "var(--miss)", noise: "var(--noise)", quiet: "var(--quiet)" };
+const LABELS = { right: "Right", "right-later": "Right (not first)", wrong: "Wrong link", miss: "Missed", noise: "Link where none belongs", quiet: "Correctly quiet" };
+const HELP = {
+  right: "First link is on an expected first-party site",
+  wrong: "Showed links, none on an expected site",
+  miss: "Expected a link, showed none",
+  noise: "Showed a link on a story that shouldn't have one",
+  quiet: "Story shouldn't have a link, and didn't",
+};
+let data = null, filter = "all", cat = null, poll = null;
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = (x) => (x == null ? "–" : Math.round(x * 100) + "%");
+const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
+const onSite = (u, hosts) => { const h = host(u); return hosts.some((e) => h === e || h.endsWith("." + e)); };
+const ago = (t) => { if (!t) return "never"; const m = Math.round((Date.now() - t) / 6e4); return m < 1 ? "just now" : m < 60 ? m + " min ago" : Math.round(m / 60) + " h ago"; };
+
+async function api(path, body) {
+  const r = await fetch(path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+async function load() { data = await api("/api/lab/links"); render(); }
+
+function render() {
+  const { run, overall: o } = data;
+  // header status
+  const bar = $("#bar");
+  if (run.running) { $("#status").textContent = `Running ${run.done}/${run.total}…`; bar.hidden = false; bar.firstElementChild.style.width = (run.total ? (run.done / run.total) * 100 : 0) + "%"; }
+  else { bar.hidden = true; $("#status").textContent = run.runAt ? `Last run ${ago(run.runAt)}${run.cost ? ` · ${run.cost.calls} AI calls · ~$${run.cost.usd.toFixed(2)}` : ""}` : "Not run yet"; }
+  $("#runAll").disabled = $("#rerunBad").disabled = run.running;
+  if (run.running && !poll) poll = setInterval(load, 1500);
+  if (!run.running && poll) { clearInterval(poll); poll = null; }
+
+  // scores
+  const spec = o.exact + o.page + o.home;
+  $("#scores").innerHTML = [
+    ["Coverage", pct(o.coverage), `${o.right + o.wrong} of ${o.ranExpecting} stories that should have a link got one`],
+    ["Precision", pct(o.precision), `${o.right} of ${o.right + o.wrong + o.noise} stories with links were right`],
+    ["Quiet when it should be", pct(o.quietRate), `${o.quiet} of ${o.ranQuietOf} roundups, opinion and how-tos showed nothing`],
+    ["Specific", spec ? pct((o.exact + o.page) / spec) : "–", `${o.exact} exact page · ${o.page} deeper page · ${o.home} homepage only`],
+  ].map(([k, v, h]) => `<div class="score"><div class="k">${k}</div><div class="v">${v}</div><div class="h">${h}</div></div>`).join("");
+
+  // categories
+  const cats = [...data.categories].sort((a, b) => a.name.localeCompare(b.name));
+  $("#cats").innerHTML = `<tr><th>Category</th><th>Cases</th><th>Coverage</th><th>Precision</th><th>Quiet</th><th>Results</th></tr>` + cats.map((c) => {
+    const parts = [["right", c.right], ["wrong", c.wrong], ["miss", c.miss], ["noise", c.noise], ["quiet", c.quiet]];
+    const tot = c.ran || 1;
+    return `<tr class="cat ${cat === c.name ? "on" : ""}" data-cat="${esc(c.name)}"><td>${esc(c.name)}</td><td>${c.ran}/${c.cases}</td><td>${pct(c.coverage)}</td><td>${pct(c.precision)}</td><td>${pct(c.quietRate)}</td><td><div class="stack">${parts.map(([k, n]) => (n ? `<i style="width:${(n / tot) * 100}%;background:${COLORS[k]}" title="${LABELS[k]}: ${n}"></i>` : "")).join("")}</div></td></tr>`;
+  }).join("");
+  $("#legend").innerHTML = Object.entries(HELP).map(([k, h]) => `<span><span class="dot" style="background:${COLORS[k]}"></span>${LABELS[k]}: ${h}</span>`).join("");
+
+  // filters
+  const rows = data.rows.filter((r) => !cat || r.category === cat);
+  const count = (f) => rows.filter((r) => match(r, f)).length;
+  const F = [["all", "All"], ["wrong", "Wrong"], ["miss", "Missed"], ["noise", "Noise"], ["right", "Right"], ["quiet", "Quiet"], ["judged", "Judged by you"], ["unrun", "Not run"]];
+  $("#filters").innerHTML = F.map(([k, l]) => `<button class="chip ${filter === k ? "on" : ""}" data-f="${k}">${k !== "all" && COLORS[k] ? `<span class="dot" style="background:${COLORS[k]}"></span>` : ""}${l} <span style="opacity:.6">${count(k)}</span></button>`).join("") + (cat ? `<button class="chip on" data-clearcat>${esc(cat)} ✕</button>` : "");
+
+  // cases
+  const list = rows.filter((r) => match(r, filter));
+  $("#cases").innerHTML = list.length ? list.map(caseHtml).join("") : `<div class="empty">${data.run.runAt ? "Nothing here." : "Run the lab to see results."}</div>`;
+}
+function match(r, f) {
+  const v = r.score?.v;
+  if (f === "all") return true;
+  if (f === "unrun") return !r.score;
+  if (f === "judged") return !!r.judgment;
+  if (f === "right") return v === "right" || v === "right-later";
+  return v === f;
+}
+function caseHtml(r) {
+  const res = r.result, s = r.score;
+  const v = s?.v;
+  const links = res?.links || [];
+  const expected = r.expectNone ? `<span style="color:var(--quiet)">No link: ${esc(r.storyKind)}</span>` :
+    r.hosts.map((h) => `<span class="link">${esc(h)}</span>`).join("") + (r.idealUrl ? `<div style="font-size:12px;color:var(--faint);margin-top:2px">ideal: <a href="${esc(r.idealUrl)}" target="_blank">${esc(r.idealUrl)}</a></div>` : "");
+  const got = !res ? `<span style="color:var(--faint)">Not run</span>` : res.error && !links.length ? `<span style="color:var(--wrong)">Error: ${esc(res.error)}</span>` :
+    links.length ? links.map((l) => `<a class="link ${r.expectNone ? "bad" : onSite(l.url, r.hosts) ? "ok" : "bad"}" href="${esc(l.url)}" target="_blank" title="${esc(l.url)}">${esc(l.label)} <span class="src">${esc(host(l.url))} · ${l.from === "lookup" ? "looked up" : "from article"}</span></a>`).join("") : `<span style="color:var(--faint)">Nothing</span>`;
+  const t = res?.trace;
+  const trace = res ? [
+    `Article read: ${res.readArticle ? `yes (${res.textChars} chars of text)` : `no${res.articleError ? ` (${res.articleError})` : ""}`}`,
+    t ? `Outside links in article: ${t.candidates}${t.redirectsFollowed ? ` · redirects followed: ${t.redirectsFollowed}` : ""}` : "",
+    t?.picked?.length ? `Picked from article: ${t.picked.map((p) => `${p.label} → ${p.dest || p.url}`).join("; ")}` : t ? "Picked from article: none" : "",
+    t?.missing?.length ? `Named but not linked: ${t.missing.map((m) => `${m.name} (${m.kind})`).join(", ")}` : t ? "Named but not linked: none" : "",
+    ...(t?.lookups || []).map((l) => `Lookup "${l.name}": ${l.url || "no site"} — ${l.from}${l.reason ? `; ${l.reason}` : ""}`),
+    res.shops?.length ? `Where to buy: ${res.shops.map((x) => x.shop).join(", ")}` : "",
+    `Took ${(res.ms / 1000).toFixed(1)}s`,
+  ].filter(Boolean).join("\n") : "";
+  const j = r.judgment?.verdict;
+  return `<div class="case" data-id="${esc(r.id)}">
+    <div>
+      <div class="meta"><span>${esc(r.category)}</span><span class="tag">${esc(r.storyKind)}</span>${r.subjectType !== "none" ? `<span class="tag">${esc(r.subjectType)}</span>` : ""}${r.unverified ? `<span class="tag warn" title="The researcher couldn't confirm the expected site">expected site unverified</span>` : ""}<span>${esc(r.publisher)}</span></div>
+      <h3><a href="${esc(r.url)}" target="_blank">${esc(r.title)}</a></h3>
+      ${r.subject ? `<div class="row"><span class="l">About</span><span>${esc(r.subject)}</span></div>` : ""}
+      <div class="row"><span class="l">Expected</span><div>${expected}</div></div>
+      <div class="row"><span class="l">Got</span><div>${got}</div></div>
+      ${r.notes ? `<div class="notes">${esc(r.notes)}</div>` : ""}
+      ${trace ? `<details><summary>How it got there</summary><pre>${esc(trace)}</pre></details>` : ""}
+    </div>
+    <div class="side">
+      <div class="verdict"><span style="color:${COLORS[v] || "var(--faint)"}">${v ? LABELS[v] : "Not run"}${s?.depth ? ` · ${s.depth === "exact" ? "exact page" : s.depth === "page" ? "deeper page" : "homepage"}` : ""}</span>${s?.judged ? `<span class="tag">your call</span>` : ""}</div>
+      <div class="judge">
+        <button data-judge="right" class="${j === "right" ? "on-right" : ""}" title="The result is right (e.g. a valid site the test didn't list)">✓ Right</button>
+        <button data-judge="wrong" class="${j === "wrong" ? "on-wrong" : ""}" title="The result is wrong, whatever the automatic score says">✕ Wrong</button>
+        ${j ? `<button data-judge="" title="Back to the automatic score">Clear</button>` : ""}
+      </div>
+      <input class="note" placeholder="Note (why)…" value="${esc(r.judgment?.note || "")}" data-note>
+      <button data-rerun ${data.run.running ? "disabled" : ""}>Re-run this case</button>
+    </div>
+  </div>`;
+}
+
+document.addEventListener("click", async (e) => {
+  const el = e.target.closest("button, tr.cat");
+  if (!el) return;
+  const card = el.closest(".case");
+  try {
+    if (el.id === "runAll") { if (!confirmRun()) return; data = await api("/api/lab/links/run", { fresh: true }); }
+    else if (el.id === "rerunBad") { const ids = data.rows.filter((r) => ["wrong", "miss", "noise"].includes(r.score?.v)).map((r) => r.id); if (!ids.length) return; data = await api("/api/lab/links/run", { ids, fresh: false }); }
+    else if (el.dataset.f) { filter = el.dataset.f; }
+    else if ("clearcat" in el.dataset) { cat = null; }
+    else if (el.classList.contains("cat")) { cat = cat === el.dataset.cat ? null : el.dataset.cat; }
+    else if (card && "judge" in el.dataset) { data = await api("/api/lab/links/judge", { id: card.dataset.id, verdict: el.dataset.judge || null, note: card.querySelector("[data-note]").value }); }
+    else if (card && "rerun" in el.dataset) { data = await api("/api/lab/links/run", { ids: [card.dataset.id], fresh: false }); }
+    render();
+  } catch (err) { $("#status").textContent = "Error: " + err.message; }
+});
+// Saving a note keeps the current verdict (or saves it with no verdict change if none).
+document.addEventListener("change", async (e) => {
+  if (!e.target.matches("[data-note]")) return;
+  const card = e.target.closest(".case");
+  const r = data.rows.find((x) => x.id === card.dataset.id);
+  if (!r.judgment) return; // notes ride along with a verdict
+  data = await api("/api/lab/links/judge", { id: r.id, verdict: r.judgment.verdict, note: e.target.value });
+});
+// The in-app confirm dialog is fine here: this is a desktop page, not the phone app.
+function confirmRun() { return window.confirm("Run all 65 cases from scratch? This makes real web searches (roughly $1–2)."); }
+load();
+</script>
+</body>
+</html>

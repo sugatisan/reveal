@@ -1,0 +1,1089 @@
+{
+ "about": "Links lab test set: real articles across categories outside the owner's own interests, with the first-party link we'd expect. hosts = acceptable domains (subdomains count); expectNone = no link should be shown; unverified = expected domain not confirmed by the researcher.",
+ "cases": [
+  {
+   "id": "cooking-this-modern-mexican-kitchen-was-just-nam",
+   "category": "cooking & food",
+   "title": "This modern Mexican kitchen was just named one of the best new restaurants in the country by Bon Appétit",
+   "url": "https://www.timeout.com/los-angeles/news/this-modern-mexican-kitchen-was-just-named-one-of-the-best-new-restaurants-in-the-country-by-bon-appetit-082426",
+   "publisher": "Time Out Los Angeles",
+   "storyKind": "news",
+   "subject": "Broken Spanish Comedor (Culver City restaurant)",
+   "subjectType": "place",
+   "expectNone": false,
+   "hosts": [
+    "brokenspanish.com"
+   ],
+   "idealUrl": "https://brokenspanish.com/",
+   "notes": "Article links only Time Out's own listing; LA Mag links brokenspanish.com as the site.",
+   "unverified": false
+  },
+  {
+   "id": "cooking-simple-too-an-evening-with-yotam-ottolen",
+   "category": "cooking & food",
+   "title": "SIMPLE TOO: An Evening with Yotam Ottolenghi",
+   "url": "https://www.todocanada.ca/city/toronto/event/simple-too-an-evening-with-yotam-ottolenghi/",
+   "publisher": "To Do Canada",
+   "storyKind": "listing",
+   "subject": "SIMPLE TOO: An Evening with Yotam Ottolenghi (Oct 4, 2026, Roy Thomson Hall)",
+   "subjectType": "event",
+   "expectNone": false,
+   "hosts": [
+    "mhrth.com"
+   ],
+   "idealUrl": "https://roythomsonhall.mhrth.com/tickets/yotam-ottolenghi/",
+   "notes": "Venue's own ticket page is the event's first-party page.",
+   "unverified": false
+  },
+  {
+   "id": "cooking-the-15-best-new-london-restaurants-openi",
+   "category": "cooking & food",
+   "title": "The 15 best new London restaurants opening in September 2026",
+   "url": "https://www.timeout.com/london/news/best-new-restaurants-september-2026-083026",
+   "publisher": "Time Out London",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Roundup of 15 openings.",
+   "unverified": false
+  },
+  {
+   "id": "health-garmin-fenix-9-pro-review-the-best-gets-b",
+   "category": "health & fitness",
+   "title": "Garmin Fenix 9 Pro review: The best gets better as we put Garmin's new flagship through its paces in the French Alps",
+   "url": "https://techradar.com/health-fitness/smartwatches/garmin-fenix-9-pro-review",
+   "publisher": "TechRadar",
+   "storyKind": "review",
+   "subject": "Garmin fēnix 9 Pro smartwatch",
+   "subjectType": "product",
+   "expectNone": false,
+   "hosts": [
+    "garmin.com"
+   ],
+   "idealUrl": "",
+   "notes": "Regional garmin.* domains are also first-party.",
+   "unverified": false
+  },
+  {
+   "id": "health-scientists-have-ranked-which-exercises-ar",
+   "category": "health & fitness",
+   "title": "Scientists Have Ranked Which Exercises Are Best For Your Bones",
+   "url": "https://www.sciencealert.com/scientists-have-ranked-which-exercises-are-best-for-your-bones",
+   "publisher": "ScienceAlert",
+   "storyKind": "news",
+   "subject": "BMJ network meta-analysis of exercise and bone density (124 trials)",
+   "subjectType": "document",
+   "expectNone": false,
+   "hosts": [
+    "bmj.com",
+    "doi.org"
+   ],
+   "idealUrl": "https://doi.org/10.1136/bmj-2026-100561",
+   "notes": "The study the article links to.",
+   "unverified": false
+  },
+  {
+   "id": "health-fda-approves-high-dose-semaglutide-7-2-mg",
+   "category": "health & fitness",
+   "title": "FDA Approves High-Dose Semaglutide 7.2 mg for Obesity",
+   "url": "https://www.patientcareonline.com/view/fda-approves-high-dose-semaglutide-7-2-mg-obesity",
+   "publisher": "Patient Care Online",
+   "storyKind": "news",
+   "subject": "Wegovy 7.2 mg (Novo Nordisk)",
+   "subjectType": "product",
+   "expectNone": false,
+   "hosts": [
+    "novonordisk.com",
+    "wegovy.com"
+   ],
+   "idealUrl": "https://www.novonordisk.com/content/nncorp/global/en/news-and-media/news-and-ir-materials/news-details.html?id=916516",
+   "notes": "Maker's news release; wegovy.com likely fine but unverified.",
+   "unverified": false
+  },
+  {
+   "id": "health-best-fitness-tracker-2026-top-picks-from-",
+   "category": "health & fitness",
+   "title": "Best fitness tracker 2026: Top picks from Apple, Fitbit, Garmin and more",
+   "url": "https://www.tomsguide.com/best-picks/best-fitness-trackers",
+   "publisher": "Tom's Guide",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Buying guide, many products.",
+   "unverified": false
+  },
+  {
+   "id": "personal-apple-card-turns-seven-with-big-change-",
+   "category": "personal finance & investing",
+   "title": "Apple Card Turns Seven With Big Change Ahead",
+   "url": "https://macrumors.com/2026/08/20/apple-card-turns-seven-with-big-change-ahead",
+   "publisher": "MacRumors",
+   "storyKind": "news",
+   "subject": "Apple Card (transition to Chase as issuer)",
+   "subjectType": "product",
+   "expectNone": false,
+   "hosts": [
+    "apple.com",
+    "applecard.apple"
+   ],
+   "idealUrl": "https://learn.applecard.apple/transition",
+   "notes": "Apple's own transition FAQ.",
+   "unverified": false
+  },
+  {
+   "id": "personal-the-2027-social-security-cola-will-be-a",
+   "category": "personal finance & investing",
+   "title": "The 2027 Social Security COLA Will Be Announced on Oct. 14. Here's the Number to Expect.",
+   "url": "https://nasdaq.com/articles/2027-social-security-cola-will-be-announced-oct-14-heres-number-expect",
+   "publisher": "The Motley Fool (via Nasdaq)",
+   "storyKind": "news",
+   "subject": "2027 Social Security cost-of-living adjustment (SSA)",
+   "subjectType": "organization",
+   "expectNone": false,
+   "hosts": [
+    "ssa.gov"
+   ],
+   "idealUrl": "https://www.ssa.gov/OACT/COLA/colasummary.html",
+   "notes": "No links in the article.",
+   "unverified": false
+  },
+  {
+   "id": "personal-best-high-yield-savings-rates-today-oct",
+   "category": "personal finance & investing",
+   "title": "Best High-Yield Savings Rates Today, Oct. 5, 2026: Up to 5.00% APY Available",
+   "url": "https://www.fool.com/money/banks/articles/top-savings-account-rates-today-oct-5-2026/",
+   "publisher": "The Motley Fool",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Daily rate roundup.",
+   "unverified": false
+  },
+  {
+   "id": "government-surface-transportation-among-projects",
+   "category": "government & policy",
+   "title": "Surface transportation among projects funded by new CR signed by Trump",
+   "url": "https://www.thetrucker.com/trucking-news/the-nation/surface-transportation-among-projects-funded-by-government-resolution",
+   "publisher": "The Trucker",
+   "storyKind": "news",
+   "subject": "H.R. 6500, Continuing Appropriations and Extensions Act, 2027",
+   "subjectType": "document",
+   "expectNone": false,
+   "hosts": [
+    "congress.gov",
+    "govinfo.gov",
+    "appropriations.senate.gov",
+    "whitehouse.gov"
+   ],
+   "idealUrl": "https://www.appropriations.senate.gov/news/majority/bill-text-continuing-appropriations-and-extensions-act-2027",
+   "notes": "Bill text.",
+   "unverified": false
+  },
+  {
+   "id": "government-supreme-court-opens-new-term-with-maj",
+   "category": "government & policy",
+   "title": "Supreme Court Opens New Term with Major Climate Case",
+   "url": "https://eos.org/research-and-developments/supreme-court-opens-new-term-with-major-climate-case",
+   "publisher": "Eos",
+   "storyKind": "news",
+   "subject": "Suncor Energy v. County Commissioners of Boulder County (No. 25-170)",
+   "subjectType": "document",
+   "expectNone": false,
+   "hosts": [
+    "supremecourt.gov"
+   ],
+   "idealUrl": "https://www.supremecourt.gov/docket/docketfiles/html/public/25-170.html",
+   "notes": "Court docket.",
+   "unverified": false
+  },
+  {
+   "id": "government-us-poverty-rate-hits-record-low-as-me",
+   "category": "government & policy",
+   "title": "US poverty rate hits record low as median household income reaches new high",
+   "url": "https://www.fox26houston.com/news/us-poverty-rate-census-bureau",
+   "publisher": "FOX 26 Houston",
+   "storyKind": "news",
+   "subject": "Census Bureau 2025 income, poverty and health insurance reports",
+   "subjectType": "document",
+   "expectNone": false,
+   "hosts": [
+    "census.gov"
+   ],
+   "idealUrl": "https://www.census.gov/newsroom/press-releases/2026/income-poverty-health-insurance-coverage.html",
+   "notes": "Census release.",
+   "unverified": false
+  },
+  {
+   "id": "government-court-announces-cases-it-will-hear-in",
+   "category": "government & policy",
+   "title": "Court announces cases it will hear in October, which include significant disputes on climate change and immigration detention",
+   "url": "https://scotusblog.com/2026/08/court-announces-cases-it-will-hear-in-october-which-include-significant-disputes-on-climate-chan",
+   "publisher": "SCOTUSblog",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Seven cases; supremecourt.gov calendar would be a lenient pass.",
+   "unverified": false
+  },
+  {
+   "id": "science-nobel-medicine-prize-goes-to-3-scientist",
+   "category": "science & research",
+   "title": "Nobel medicine prize goes to 3 scientists for research into brain activity",
+   "url": "https://www.wunc.org/2026-10-05/nobel-medicine-prize-goes-to-3-scientists-for-research-into-brain-activity",
+   "publisher": "WUNC (NPR/AP)",
+   "storyKind": "news",
+   "subject": "2026 Nobel Prize in Physiology or Medicine",
+   "subjectType": "event",
+   "expectNone": false,
+   "hosts": [
+    "nobelprize.org"
+   ],
+   "idealUrl": "https://www.nobelprize.org/prizes/medicine/2026/",
+   "notes": "Nobel Foundation.",
+   "unverified": false
+  },
+  {
+   "id": "science-liftoff-nasa-s-roman-space-telescope-soa",
+   "category": "science & research",
+   "title": "Liftoff! NASA's Roman Space Telescope soars to the stars on a SpaceX Falcon Heavy rocket in spectacular launch (video)",
+   "url": "https://www.space.com/space-exploration/launches-spacecraft/nasa-roman-space-telescope-launch-success-on-a-spacex-falcon-heavy-rocket-spectacular-launch-video",
+   "publisher": "Space.com",
+   "storyKind": "news",
+   "subject": "Nancy Grace Roman Space Telescope",
+   "subjectType": "product",
+   "expectNone": false,
+   "hosts": [
+    "nasa.gov"
+   ],
+   "idealUrl": "https://science.nasa.gov/mission/roman-space-telescope",
+   "notes": "SpaceX is only the launcher.",
+   "unverified": false
+  },
+  {
+   "id": "science-engineered-probiotic-wipes-out-43-of-col",
+   "category": "science & research",
+   "title": "Engineered Probiotic Wipes Out 43% of Colorectal Tumors in Mice",
+   "url": "https://www.sciencealert.com/engineered-probiotic-wipes-out-43-of-colorectal-tumors-in-mice",
+   "publisher": "ScienceAlert",
+   "storyKind": "news",
+   "subject": "Science Translational Medicine study on an engineered probiotic",
+   "subjectType": "document",
+   "expectNone": false,
+   "hosts": [
+    "science.org",
+    "doi.org"
+   ],
+   "idealUrl": "https://doi.org/10.1126/scitranslmed.ady2289",
+   "notes": "The paper.",
+   "unverified": false
+  },
+  {
+   "id": "science-2026-space-outlook-new-missions-look-to-",
+   "category": "science & research",
+   "title": "2026 Space Outlook: New Missions Look to the Moon, Mars, and Beyond as Humanity Seeks Permanent Space Habitation",
+   "url": "https://thedebrief.org/2026-space-outlook-new-missions-look-to-the-moon-mars-and-beyond-as-humanity-seeks-permanent-space-habitation/",
+   "publisher": "The Debrief",
+   "storyKind": "explainer",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Year-ahead outlook, many missions.",
+   "unverified": false
+  },
+  {
+   "id": "parenting-updated-aap-guidance-changes-iron-defi",
+   "category": "parenting & family",
+   "title": "Updated AAP guidance changes iron deficiency screening and treatment in children",
+   "url": "https://www.contemporarypediatrics.com/view/updated-aap-guidance-changes-iron-deficiency-screening-and-treatment-in-children",
+   "publisher": "Contemporary Pediatrics",
+   "storyKind": "news",
+   "subject": "AAP clinical report on iron deficiency",
+   "subjectType": "document",
+   "expectNone": false,
+   "hosts": [
+    "aap.org",
+    "healthychildren.org"
+   ],
+   "idealUrl": "https://www.aap.org/en/news-room/news-releases/aap/2026/american-academy-of-pediatrics-updates-guidance-on-prevention-screening-and-treatment-for-iron-deficiency-in-infants-children-and-teens/",
+   "notes": "AAP release; publications.aap.org also fine.",
+   "unverified": false
+  },
+  {
+   "id": "parenting-cbca-2026-book-of-the-year-award-winne",
+   "category": "parenting & family",
+   "title": "CBCA 2026 Book of the Year Award winners",
+   "url": "https://www.booksandpublishing.com.au/?p=338552",
+   "publisher": "Books+Publishing",
+   "storyKind": "news",
+   "subject": "Children's Book Council of Australia 2026 Book of the Year Awards",
+   "subjectType": "event",
+   "expectNone": false,
+   "hosts": [
+    "cbca.org.au"
+   ],
+   "idealUrl": "https://cbca.org.au/2026-winners/",
+   "notes": "Awarding body.",
+   "unverified": false
+  },
+  {
+   "id": "parenting-bluey-is-back-everything-to-know-about",
+   "category": "parenting & family",
+   "title": "'Bluey' is back—everything to know about the upcoming minisodes available this fall",
+   "url": "https://mother.ly/entertainment/what-to-watch/bluey-minisodes-october/",
+   "publisher": "Motherly",
+   "storyKind": "announcement",
+   "subject": "Bluey Minisodes (Bluey TV series)",
+   "subjectType": "creative work",
+   "expectNone": false,
+   "hosts": [
+    "bluey.tv"
+   ],
+   "idealUrl": "",
+   "notes": "Older story (2024).",
+   "unverified": false
+  },
+  {
+   "id": "parenting-baby-product-recalls-are-already-pilin",
+   "category": "parenting & family",
+   "title": "Baby Product Recalls Are Already Piling Up in 2026, What Parents Should Know",
+   "url": "https://www.aol.com/lifestyle/baby-product-recalls-already-piling-000000457.html",
+   "publisher": "AOL",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Many recalls.",
+   "unverified": false
+  },
+  {
+   "id": "fashion-jaden-smith-unveils-highly-anticipated-d",
+   "category": "fashion & beauty",
+   "title": "Jaden Smith Unveils Highly Anticipated Debut Christian Louboutin Collection",
+   "url": "https://www.complex.com/style/a/will-lavin/jaden-smith-christian-louboutin-collection-2026",
+   "publisher": "Complex",
+   "storyKind": "announcement",
+   "subject": "Christian Louboutin men's FW26 collection by Jaden Smith",
+   "subjectType": "product",
+   "expectNone": false,
+   "hosts": [
+    "christianlouboutin.com"
+   ],
+   "idealUrl": "",
+   "notes": "Brand site, not Jaden Smith's channels.",
+   "unverified": false
+  },
+  {
+   "id": "fashion-paris-fashion-week-c-line-s-women-s-spri",
+   "category": "fashion & beauty",
+   "title": "Paris Fashion Week: Céline's Women's Spring-Summer 2027 show to revisit in images and video",
+   "url": "https://www.sortiraparis.com/en/what-to-do-in-paris/shopping-fashion/articles/348018-paris-fashion-week-celine-s-women-s-spring-summer-2027-show-to-revisit-in-images-and-video",
+   "publisher": "Sortir à Paris",
+   "storyKind": "news",
+   "subject": "Celine Spring-Summer 2027 show",
+   "subjectType": "event",
+   "expectNone": false,
+   "hosts": [
+    "celine.com"
+   ],
+   "idealUrl": "",
+   "notes": "Fashion house site.",
+   "unverified": false
+  },
+  {
+   "id": "fashion-john-galliano-s-next-move-after-maison-m",
+   "category": "fashion & beauty",
+   "title": "John Galliano's Next Move After Maison Margiela Is a Zara Line",
+   "url": "https://hypebeast.com/2026/3/john-galliano-zara-partnership-collaboration-collection-release-info",
+   "publisher": "Hypebeast",
+   "storyKind": "announcement",
+   "subject": "John Galliano x Zara collection",
+   "subjectType": "product",
+   "expectNone": false,
+   "hosts": [
+    "zara.com"
+   ],
+   "idealUrl": "",
+   "notes": "Zara sells the line.",
+   "unverified": false
+  },
+  {
+   "id": "fashion-they-re-here-the-7-makeup-trends-that-wi",
+   "category": "fashion & beauty",
+   "title": "They're Here: The 7 Makeup Trends That Will Define Fall 2026",
+   "url": "https://www.whowhatwear.com/beauty/makeup/fall-makeup-trends-2026",
+   "publisher": "Who What Wear",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Trend roundup.",
+   "unverified": false
+  },
+  {
+   "id": "travel-review-rosewood-bangkok-thailand-solid-se",
+   "category": "travel",
+   "title": "Review: Rosewood Bangkok, Thailand (Solid, Second Tier Luxury City Hotel)",
+   "url": "https://onemileatatime.com/reviews/rosewood-bangkok/",
+   "publisher": "One Mile at a Time",
+   "storyKind": "review",
+   "subject": "Rosewood Bangkok",
+   "subjectType": "place",
+   "expectNone": false,
+   "hosts": [
+    "rosewoodhotels.com"
+   ],
+   "idealUrl": "https://www.rosewoodhotels.com/en/bangkok",
+   "notes": "Hotel page on brand site, linked in article.",
+   "unverified": false
+  },
+  {
+   "id": "travel-alaska-airlines-announces-start-date-for-",
+   "category": "travel",
+   "title": "Alaska Airlines announces start date for Rome flights; Atmos Rewards bookings now open",
+   "url": "https://thepointsguy.com/news/alaska-airlines-rome-flights-now-on-sale",
+   "publisher": "The Points Guy",
+   "storyKind": "news",
+   "subject": "Alaska Airlines Seattle–Rome route",
+   "subjectType": "organization",
+   "expectNone": false,
+   "hosts": [
+    "alaskaair.com"
+   ],
+   "idealUrl": "",
+   "notes": "Older (2025).",
+   "unverified": false
+  },
+  {
+   "id": "travel-air-france-to-launch-new-route-from-las-v",
+   "category": "travel",
+   "title": "Air France to launch new route from Las Vegas to Paris in 2026",
+   "url": "https://thepointsguy.com/news/air-france-new-route-las-vegas-paris/",
+   "publisher": "The Points Guy",
+   "storyKind": "announcement",
+   "subject": "Air France Las Vegas–Paris route",
+   "subjectType": "organization",
+   "expectNone": false,
+   "hosts": [
+    "airfrance.com",
+    "airfrance.us"
+   ],
+   "idealUrl": "",
+   "notes": "Older (2025); regional variants fine.",
+   "unverified": false
+  },
+  {
+   "id": "travel-the-best-new-hotels-around-the-world-for-",
+   "category": "travel",
+   "title": "The Best New Hotels Around the World for September 2026",
+   "url": "https://www.businesstraveller.com/lifestyle/the-best-new-hotels-around-the-world-for-september-2026/",
+   "publisher": "Business Traveller",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Many hotels.",
+   "unverified": false
+  },
+  {
+   "id": "music-peter-gabriel-announces-details-for-his-ne",
+   "category": "music",
+   "title": "Peter Gabriel Announces Details For His New Album o\\i",
+   "url": "https://stereogum.com/2513279/peter-gabriel-announces-details-for-his-new-album-oi/news",
+   "publisher": "Stereogum",
+   "storyKind": "announcement",
+   "subject": "Peter Gabriel – o\\i",
+   "subjectType": "creative work",
+   "expectNone": false,
+   "hosts": [
+    "petergabriel.com",
+    "realworldrecords.com"
+   ],
+   "idealUrl": "",
+   "notes": "Artist site; label unverified.",
+   "unverified": false
+  },
+  {
+   "id": "music-lorenzo-senni-announces-new-album-all-ages",
+   "category": "music",
+   "title": "Lorenzo Senni Announces New Album All Ages: Hear \"Art Life & Skateboarding\" (Feat. Chad Muska & Jamie Thomas)",
+   "url": "https://stereogum.com/2513796/lorenzo-senni-announces-new-album-all-ages-hear-art-life-skateboarding-feat-chad-muska-jamie-thomas/music",
+   "publisher": "Stereogum",
+   "storyKind": "announcement",
+   "subject": "Lorenzo Senni – All Ages",
+   "subjectType": "creative work",
+   "expectNone": false,
+   "hosts": [
+    "warp.net"
+   ],
+   "idealUrl": "",
+   "notes": "Label (Warp); domain unverified.",
+   "unverified": true
+  },
+  {
+   "id": "music-album-of-the-week-cameron-winter-live-at-c",
+   "category": "music",
+   "title": "Album Of The Week: Cameron Winter Live At Carnegie Hall",
+   "url": "https://stereogum.com/2513341/album-of-the-week-cameron-winter-live-at-carnegie-hall/reviews/album-of-the-week",
+   "publisher": "Stereogum",
+   "storyKind": "review",
+   "subject": "Cameron Winter – Live At Carnegie Hall",
+   "subjectType": "creative work",
+   "expectNone": false,
+   "hosts": [
+    "partisanrecords.com"
+   ],
+   "idealUrl": "",
+   "notes": "Label (Partisan); domain unverified.",
+   "unverified": true
+  },
+  {
+   "id": "music-the-50-best-albums-of-2026-so-far",
+   "category": "music",
+   "title": "The 50 Best Albums Of 2026 So Far",
+   "url": "https://stereogum.com/2500311/the-50-best-albums-of-2026-so-far/lists/album-list",
+   "publisher": "Stereogum",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "List of 50.",
+   "unverified": false
+  },
+  {
+   "id": "books-our-noble-selves-review-kate-atkinson-s-po",
+   "category": "books & publishing",
+   "title": "'Our Noble Selves' review: Kate Atkinson's post-WWII novel is a very fun read",
+   "url": "https://www.npr.org/2026/09/16/nx-s1-5969746/our-noble-selves-review-kate-atkinson",
+   "publisher": "NPR",
+   "storyKind": "review",
+   "subject": "Our Noble Selves by Kate Atkinson",
+   "subjectType": "creative work",
+   "expectNone": false,
+   "hosts": [
+    "penguinrandomhouse.com",
+    "penguin.co.uk"
+   ],
+   "idealUrl": "https://www.penguinrandomhouse.com/books/768992/our-noble-selves-by-kate-atkinson/",
+   "notes": "Publisher page.",
+   "unverified": false
+  },
+  {
+   "id": "books-etna-review-a-dog-narrates-paul-yoon-s-ext",
+   "category": "books & publishing",
+   "title": "'Etna' review: A dog narrates Paul Yoon's extraordinary war novel",
+   "url": "https://www.npr.org/2026/08/17/nx-s1-5935270/etna-paul-yoon-review",
+   "publisher": "NPR",
+   "storyKind": "review",
+   "subject": "Etna by Paul Yoon",
+   "subjectType": "creative work",
+   "expectNone": false,
+   "hosts": [
+    "simonandschuster.com",
+    "simonandschuster.co.uk"
+   ],
+   "idealUrl": "https://www.simonandschuster.com/books/Etna/Paul-Yoon/9781797197029",
+   "notes": "Scribner / S&S.",
+   "unverified": false
+  },
+  {
+   "id": "books-the-giver-author-lois-lowry-is-out-with-a-",
+   "category": "books & publishing",
+   "title": "'The Giver' author Lois Lowry is out with a new dystopian novel called 'Building 903'",
+   "url": "https://npr.org/2026/10/09/nx-s1-5995221/nprs-book-of-the-day-lois-lowry-building-903",
+   "publisher": "NPR",
+   "storyKind": "news",
+   "subject": "Building 903 by Lois Lowry",
+   "subjectType": "creative work",
+   "expectNone": false,
+   "hosts": [
+    "harpercollins.com",
+    "harpercollins.co.uk"
+   ],
+   "idealUrl": "",
+   "notes": "Publisher inferred from ISBN.",
+   "unverified": true
+  },
+  {
+   "id": "books-here-are-10-books-to-put-on-your-fall-read",
+   "category": "books & publishing",
+   "title": "Here are 10 books to put on your fall reading list",
+   "url": "https://www.npr.org/2026/10/02/nx-s1-5983820/what-to-read-books-fiction-nonfiction",
+   "publisher": "NPR",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Ten books.",
+   "unverified": false
+  },
+  {
+   "id": "film-digger-review-i-rritu-and-cruise-dig-themse",
+   "category": "film & tv",
+   "title": "Digger review: Iñárritu and Cruise dig themselves into a metafictional morass",
+   "url": "https://www.rogerebert.com/reviews/digger-tom-cruise-alejandro-gonzalez-inarritu-film-review-2026",
+   "publisher": "RogerEbert.com",
+   "storyKind": "review",
+   "subject": "Digger (2026 film)",
+   "subjectType": "creative work",
+   "expectNone": false,
+   "hosts": [
+    "warnerbros.com",
+    "wbd.com"
+   ],
+   "idealUrl": "",
+   "notes": "Distributor; no standalone site confirmed.",
+   "unverified": true
+  },
+  {
+   "id": "film-artificial-review-luca-guadagnino-has-made-",
+   "category": "film & tv",
+   "title": "'Artificial' Review: Luca Guadagnino Has Made the Real Sequel to 'The Social Network'",
+   "url": "https://variety.com/2026/film/reviews/artificial-review-andrew-garfield-luca-gaudagnino-1236898663/",
+   "publisher": "Variety",
+   "storyKind": "review",
+   "subject": "Artificial (2026 film)",
+   "subjectType": "creative work",
+   "expectNone": false,
+   "hosts": [
+    "neonrated.com"
+   ],
+   "idealUrl": "",
+   "notes": "Tricky: Neon, not Amazon MGM.",
+   "unverified": true
+  },
+  {
+   "id": "film-the-social-reckoning-review-aaron-sorkin-s-",
+   "category": "film & tv",
+   "title": "'The Social Reckoning' Review: Aaron Sorkin's Soft Sequel",
+   "url": "https://variety.com/2026/film/reviews/the-social-reckoning-review-1236904146/",
+   "publisher": "Variety",
+   "storyKind": "review",
+   "subject": "The Social Reckoning (2026 film)",
+   "subjectType": "creative work",
+   "expectNone": false,
+   "hosts": [
+    "sonypictures.com"
+   ],
+   "idealUrl": "",
+   "notes": "Sony distributor.",
+   "unverified": true
+  },
+  {
+   "id": "film-the-best-movies-of-2026-so-far",
+   "category": "film & tv",
+   "title": "The Best Movies of 2026 (So Far)",
+   "url": "https://www.indiewire.com/gallery/best-movies-2026/",
+   "publisher": "IndieWire",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Many films.",
+   "unverified": false
+  },
+  {
+   "id": "sports-chelsea-s-cole-palmer-signs-new-contract-",
+   "category": "sports",
+   "title": "Chelsea's Cole Palmer signs new contract until 2034",
+   "url": "https://www.espn.com/football/story/_/id/50146352/chelsea-cole-palmer-premier-league-xabi-alonso",
+   "publisher": "ESPN",
+   "storyKind": "news",
+   "subject": "Chelsea FC (Cole Palmer contract)",
+   "subjectType": "organization",
+   "expectNone": false,
+   "hosts": [
+    "chelseafc.com"
+   ],
+   "idealUrl": "",
+   "notes": "Club site.",
+   "unverified": false
+  },
+  {
+   "id": "sports-sparks-fire-head-coach-lynne-roberts-afte",
+   "category": "sports",
+   "title": "Sparks fire head coach Lynne Roberts after 2 seasons",
+   "url": "https://www.espn.com/wnba/story/_/id/50028304/sources-sparks-fire-head-coach-lynne-roberts-2-seasons",
+   "publisher": "ESPN",
+   "storyKind": "news",
+   "subject": "Los Angeles Sparks",
+   "subjectType": "organization",
+   "expectNone": false,
+   "hosts": [
+    "sparks.wnba.com",
+    "wnba.com"
+   ],
+   "idealUrl": "",
+   "notes": "Team site.",
+   "unverified": true
+  },
+  {
+   "id": "sports-previewing-the-2026-nfl-season-bold-predi",
+   "category": "sports",
+   "title": "Previewing the 2026 NFL season: Bold predictions, strengths and concerns for all 32 teams",
+   "url": "https://www.espn.com/nfl/story/_/id/49825684/nfl-team-previews-2026-predictions-fantasy-nuggets-rankings-depth-charts",
+   "publisher": "ESPN",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "All 32 teams.",
+   "unverified": false
+  },
+  {
+   "id": "home-navimow-h5-pro-robotic-lawn-mower-offers-tr",
+   "category": "home & garden",
+   "title": "Navimow H5 Pro Robotic Lawn Mower Offers True Zero-Edge Mowing",
+   "url": "https://www.homecrux.com/navimow-h5-pro-robotic-lawn-mower-launched-at-ifa/412831/",
+   "publisher": "Homecrux",
+   "storyKind": "announcement",
+   "subject": "Segway Navimow H5 Pro robotic lawn mower",
+   "subjectType": "product",
+   "expectNone": false,
+   "hosts": [
+    "navimow.segway.com",
+    "segway.com"
+   ],
+   "idealUrl": "",
+   "notes": "Article never names the maker.",
+   "unverified": false
+  },
+  {
+   "id": "home-what-s-new-at-ikea-for-fall-2026-24-fresh-a",
+   "category": "home & garden",
+   "title": "What's New at IKEA for Fall 2026? 24 Fresh Arrivals Revealing the Season's Biggest Color and Pattern Trends",
+   "url": "https://www.homesandgardens.com/collection/decor/new-in-at-ikea-fall-2026",
+   "publisher": "Homes & Gardens",
+   "storyKind": "roundup",
+   "subject": "IKEA fall 2026 collection",
+   "subjectType": "organization",
+   "expectNone": false,
+   "hosts": [
+    "ikea.com"
+   ],
+   "idealUrl": "https://www.ikea.com/us/en/cat/fall-decor-shop-700796/",
+   "notes": "Edge case: single-brand roundup still expects a link; ideal URL is affiliate-wrapped in the article.",
+   "unverified": false
+  },
+  {
+   "id": "home-what-you-should-be-doing-in-the-garden-in-o",
+   "category": "home & garden",
+   "title": "What you should be doing in the garden in October",
+   "url": "https://www.offalyexpress.ie/news/lifestyle/1611585/what-you-should-be-doing-in-the-garden-in-october.html",
+   "publisher": "Offaly Express",
+   "storyKind": "explainer",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Seasonal how-to (2024).",
+   "unverified": false
+  },
+  {
+   "id": "pets-huxley-kent-introduces-halloween-fall-2026-",
+   "category": "pets",
+   "title": "Huxley & Kent Introduces Halloween & Fall 2026 Collection",
+   "url": "https://petsplusmag.com/huxley-kent-introduces-halloween-fall-2026-collection/amp/",
+   "publisher": "Pets+",
+   "storyKind": "announcement",
+   "subject": "Huxley & Kent Halloween & Fall 2026 dog toys",
+   "subjectType": "product",
+   "expectNone": false,
+   "hosts": [
+    "huxleyandkent.com"
+   ],
+   "idealUrl": "",
+   "notes": "Linked in article.",
+   "unverified": false
+  },
+  {
+   "id": "pets-giddy-kitty-caps-breakout-superzoo-2026-wit",
+   "category": "pets",
+   "title": "Giddy Kitty Caps Breakout SUPERZOO 2026 with Two Industry Awards and Major Retail Growth",
+   "url": "https://pet-insight.com/giddy-kitty-caps-breakout-superzoo-2026-with-two-industry-awards-and-major-retail-growth/",
+   "publisher": "Pet Insight",
+   "storyKind": "news",
+   "subject": "Giddy Kitty",
+   "subjectType": "organization",
+   "expectNone": false,
+   "hosts": [
+    "giddykitty.com"
+   ],
+   "idealUrl": "",
+   "notes": "Linked in article.",
+   "unverified": false
+  },
+  {
+   "id": "pets-hundreds-of-dog-food-bags-recalled-over-sal",
+   "category": "pets",
+   "title": "Hundreds of dog food bags recalled over salmonella concerns. Check to see if yours is included",
+   "url": "https://www.wlox.com/2026/08/15/hundreds-dog-food-bags-recalled-over-salmonella-concerns-check-see-if-yours-is-included/",
+   "publisher": "WLOX",
+   "storyKind": "news",
+   "subject": "Oma's Pride dog food recall",
+   "subjectType": "organization",
+   "expectNone": false,
+   "hosts": [
+    "omaspride.com",
+    "fda.gov"
+   ],
+   "idealUrl": "",
+   "notes": "Maker site; FDA recall notice is an acceptable primary source.",
+   "unverified": false
+  },
+  {
+   "id": "pets-letter-be-cautious-around-dogs",
+   "category": "pets",
+   "title": "Letter: Be cautious around dogs",
+   "url": "https://www.columbian.com/news/2026/jan/16/letter-be-cautious-around-dogs/",
+   "publisher": "The Columbian",
+   "storyKind": "opinion",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Letter to the editor.",
+   "unverified": false
+  },
+  {
+   "id": "local-city-le-yard-grabs-keys-to-hell-s-kitchen-",
+   "category": "local/city news",
+   "title": "Le Yard Grabs Keys to Hell's Kitchen Space, Eyes December Opening",
+   "url": "https://hoodline.com/2026/09/le-yard-grabs-keys-to-hell-s-kitchen-space-eyes-december-opening/",
+   "publisher": "Hoodline",
+   "storyKind": "news",
+   "subject": "Le Yard (restaurant, NYC)",
+   "subjectType": "place",
+   "expectNone": false,
+   "hosts": [
+    "leyardny.com"
+   ],
+   "idealUrl": "",
+   "notes": "Linked in article.",
+   "unverified": false
+  },
+  {
+   "id": "local-city-baltimore-municipal-id-program-set-fo",
+   "category": "local/city news",
+   "title": "Baltimore Municipal ID Program Set for Fall 2027 Pilot",
+   "url": "https://govtech.com/gov-experience/baltimore-municipal-id-program-set-for-fall-2027-pilot",
+   "publisher": "GovTech",
+   "storyKind": "news",
+   "subject": "Baltimore municipal ID program",
+   "subjectType": "organization",
+   "expectNone": false,
+   "hosts": [
+    "baltimorecity.gov"
+   ],
+   "idealUrl": "",
+   "notes": "City agency program.",
+   "unverified": false
+  },
+  {
+   "id": "local-city-man-fatally-shot-while-trying-to-stop",
+   "category": "local/city news",
+   "title": "Man fatally shot while trying to stop a robbery, Las Vegas police say",
+   "url": "https://lasvegassun.com/news/2026/jul/31/man-fatally-shot-while-trying-to-stop-a-robbery-la/",
+   "publisher": "Las Vegas Sun",
+   "storyKind": "news",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Private individual; no link.",
+   "unverified": false
+  },
+  {
+   "id": "local-city-tracking-the-2026-2027-downtown-atlan",
+   "category": "local/city news",
+   "title": "Tracking the 2026-2027 downtown Atlanta restaurant openings",
+   "url": "https://roughdraftatlanta.com/2026/10/08/downtown-atlanta-restaurant-openings/",
+   "publisher": "Rough Draft Atlanta",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "~40 venues.",
+   "unverified": false
+  },
+  {
+   "id": "outdoors-haleakala-national-park-reopens-as-stor",
+   "category": "outdoors & camping",
+   "title": "Haleakala National Park reopens as storm passes",
+   "url": "https://www.hawaiinewsnow.com/2026/09/28/haleakala-national-park-reopens-storm-passes/",
+   "publisher": "Hawaii News Now",
+   "storyKind": "news",
+   "subject": "Haleakalā National Park",
+   "subjectType": "place",
+   "expectNone": false,
+   "hosts": [
+    "nps.gov"
+   ],
+   "idealUrl": "https://www.nps.gov/hale/",
+   "notes": "Park pages under nps.gov/hale/.",
+   "unverified": false
+  },
+  {
+   "id": "outdoors-the-sturdiest-outdoor-sandals-i-ve-ever",
+   "category": "outdoors & camping",
+   "title": "The Sturdiest Outdoor Sandals I've Ever Tried: Bedrock Cairn EVO C Pro Sandals Review",
+   "url": "https://gearjunkie.com/footwear/bedrock-cairn-evo-c-pro-sandals-review",
+   "publisher": "GearJunkie",
+   "storyKind": "review",
+   "subject": "Bedrock Cairn EVO C Pro sandals",
+   "subjectType": "product",
+   "expectNone": false,
+   "hosts": [
+    "bedrocksandals.com"
+   ],
+   "idealUrl": "",
+   "notes": "Maker site.",
+   "unverified": false
+  },
+  {
+   "id": "outdoors-overland-news-of-the-week-june-19-2026",
+   "category": "outdoors & camping",
+   "title": "Overland News of the Week, June 19, 2026",
+   "url": "https://expeditionportal.com/overland-news-of-the-week-june19th-2026/",
+   "publisher": "Expedition Portal",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "16 unrelated items.",
+   "unverified": false
+  },
+  {
+   "id": "art-how-a-practice-evolves-over-30-years-es-devl",
+   "category": "art & museums",
+   "title": "'How a practice evolves over 30 years': Es Devlin at the Design Museum is both intimate and sweeping",
+   "url": "https://www.wallpaper.com/design-interiors/design-events/es-devlin-design-museum-london",
+   "publisher": "Wallpaper*",
+   "storyKind": "review",
+   "subject": "Es Devlin: Other Worlds (Design Museum, London)",
+   "subjectType": "event",
+   "expectNone": false,
+   "hosts": [
+    "designmuseum.org"
+   ],
+   "idealUrl": "",
+   "notes": "Museum site.",
+   "unverified": false
+  },
+  {
+   "id": "art-renoir-and-love-at-london-s-national-gallery",
+   "category": "art & museums",
+   "title": "'Renoir and Love' at London's National Gallery displays the French Impressionist's modern approach to human interaction",
+   "url": "https://www.wanderlustmagazine.com/news/renoir-and-love-at-londons-national-gallery-displays-the-french-impressionists-modern-approach-to-human-interaction/",
+   "publisher": "Wanderlust",
+   "storyKind": "news",
+   "subject": "Renoir and Love (National Gallery, London)",
+   "subjectType": "event",
+   "expectNone": false,
+   "hosts": [
+    "nationalgallery.org.uk"
+   ],
+   "idealUrl": "https://www.nationalgallery.org.uk/exhibitions/renoir-and-love",
+   "notes": "Exhibition page, linked in article.",
+   "unverified": false
+  },
+  {
+   "id": "art-the-top-exhibitions-to-see-in-london-october",
+   "category": "art & museums",
+   "title": "The Top Exhibitions To See In London: October 2026",
+   "url": "https://londonist.com/london/museums-and-galleries/the-top-exhibitions-to-see-in-london-october-2026",
+   "publisher": "Londonist",
+   "storyKind": "roundup",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "~30 exhibitions.",
+   "unverified": false
+  },
+  {
+   "id": "business-vesta-raises-30m-to-bring-swarms-of-age",
+   "category": "business & startups",
+   "title": "Vesta raises $30M to bring swarms of agents to mortgage lenders",
+   "url": "https://techcrunch.com/2026/10/08/vesta-raises-30m-as-lenders-adopt-ai-agents/",
+   "publisher": "TechCrunch",
+   "storyKind": "news",
+   "subject": "Vesta (mortgage software startup)",
+   "subjectType": "organization",
+   "expectNone": false,
+   "hosts": [
+    "vesta.com"
+   ],
+   "idealUrl": "",
+   "notes": "From TechCrunch's link.",
+   "unverified": false
+  },
+  {
+   "id": "business-xona-s-commercial-gps-alternative-is-ab",
+   "category": "business & startups",
+   "title": "Xona's commercial GPS alternative is about to go live",
+   "url": "https://techcrunch.com/2026/10/09/xonas-commercial-gps-alternative-is-about-to-go-live/",
+   "publisher": "TechCrunch",
+   "storyKind": "news",
+   "subject": "Xona Space Systems",
+   "subjectType": "organization",
+   "expectNone": false,
+   "hosts": [
+    "xonaspace.com"
+   ],
+   "idealUrl": "",
+   "notes": "From TechCrunch's link.",
+   "unverified": false
+  },
+  {
+   "id": "business-global-venture-capital-is-having-a-gang",
+   "category": "business & startups",
+   "title": "Global Venture Capital is Having a Gangbuster Year",
+   "url": "https://www.crowdfundinsider.com/2026/10/315859-global-venture-capital-is-having-a-gangbuster-year/",
+   "publisher": "Crowdfund Insider",
+   "storyKind": "opinion",
+   "subject": "",
+   "subjectType": "none",
+   "expectNone": true,
+   "hosts": [],
+   "idealUrl": "",
+   "notes": "Trend piece.",
+   "unverified": false
+  }
+ ]
+}

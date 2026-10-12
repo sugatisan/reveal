@@ -19,6 +19,8 @@ const { refresh, isRefreshing, fetchSource, storeItems, mergeDuplicates, enrichI
 const { buildFeed, buildMore, suggestionsFor, subMatch } = await import("./lib/rank.js");
 const usage = await import("./lib/usage.js");
 const shop = await import("./lib/shop.js");
+const links = await import("./lib/links.js");
+const lab = await import("./lib/lab.js");
 const images = await import("./lib/images.js");
 const agent = await import("./lib/agent.js");
 const curator = await import("./lib/curator.js");
@@ -354,56 +356,15 @@ async function writeBrief(id) {
   return it.brief;
 }
 
-// Links to what a story is about (official site, trailer, the study…). Worked out once, the first time the
-// story is opened:
-// 1. The article's own links, with publisher redirects (shop-links.co and the like) followed so we know
-//    where they land; ones that land on a shop join "Where to buy" (keeping the publisher's link).
-// 2. One fast call picks the links that go to the subject, and names subjects the article didn't link.
-// 3. Those names are looked up in a shared directory of official sites; a name it hasn't seen costs one
-//    web search, then every later story that mentions it gets the link for free.
+// Links to what a story is about: see lib/links.js. Worked out once, the first time the story is opened.
 const LINKS_V = 4;
-const OFFICIAL_V = 3; // misses from an older lookup are retried
 const linksInflight = new Map();
 function subjectLinks(id) {
   if (!linksInflight.has(id)) linksInflight.set(id, findLinks(id).finally(() => linksInflight.delete(id)));
   return linksInflight.get(id);
 }
-const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
-async function followRedirects(it) {
-  const cands = it.linkCands || [];
-  const todo = cands.filter((c) => c.dest === undefined && shop.REDIRECTS.test(hostOf(c.url))).slice(0, 8);
-  await Promise.all(todo.map(async (c) => { c.dest = (await resolveRedirect(c.url)) || null; }));
-  it.shopLinks = it.shopLinks || [];
-  for (const c of todo) {
-    const s = c.dest && shop.shopFor(c.dest);
-    if (!s) continue;
-    if (!it.shopLinks.some((x) => x.shop === s.name) && it.shopLinks.length < 4) it.shopLinks.push({ shop: s.name, host: s.host, url: c.url, publisherAffiliate: true });
-    c.shop = true;
-  }
-  return cands.filter((c) => !c.shop);
-}
-const officialKey = (name) => String(name).toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
-const OFFICIAL_TTL = { product: 30 * 864e5, miss: 7 * 864e5, other: 180 * 864e5 };
-const officialInflight = new Map();
-async function officialFor(name, kind, context) {
-  const d = load();
-  d.official ||= {};
-  const key = officialKey(name);
-  if (!key) return null;
-  const hit = d.official[key];
-  const ttl = hit?.miss ? OFFICIAL_TTL.miss : hit?.kind === "product" ? OFFICIAL_TTL.product : OFFICIAL_TTL.other;
-  if (hit && Date.now() - hit.at < ttl && !(hit.miss && hit.v !== OFFICIAL_V)) return hit.miss ? null : hit;
-  if (!officialInflight.has(key)) officialInflight.set(key, (async () => {
-    let url = null;
-    try { url = await agent.officialSite(name, kind, context); }
-    catch (e) { console.log(`[official] ${name}: ${e.message}`); return hit && !hit.miss ? hit : null; } // try again another time
-    d.official[key] = url ? { name, kind, url, at: Date.now(), v: OFFICIAL_V } : { name, kind, miss: true, at: Date.now(), v: OFFICIAL_V };
-    console.log(`[official] ${name} -> ${url || "none"}`);
-    save();
-    return url ? d.official[key] : null;
-  })().finally(() => officialInflight.delete(key)));
-  return officialInflight.get(key);
-}
+// The feed's shared cache of official sites, kept in the main store.
+const officialCache = { get entries() { const d = load(); return (d.official ||= {}); }, save: () => save() };
 async function findLinks(id) {
   const d = load();
   const it = d.items[id];
@@ -415,26 +376,15 @@ async function findLinks(id) {
   // (Shop links are refreshed too, so newer shops like Steam show up on them.)
   if (it.linkCands === undefined && it.link && !it.web) { try { const pg = await articlePage(it.link); it.linkCands = pg.links || []; it.shopLinks = pg.shops || it.shopLinks; } catch { it.linkCands = []; } }
   const src = d.sources[it.sourceId] || {};
-  let picked;
+  let r;
   try {
-    const cands = await followRedirects(it);
-    picked = await agent.pickLinks(it, it.brief?.gist || it.excerpt || "", cands, src.name || "");
+    r = await links.resolveLinks({ title: it.title, link: it.link, gist: it.brief?.gist || it.excerpt || "", publisher: src.name || "", publisherSite: src.site || "", cands: it.linkCands || [], shopLinks: it.shopLinks || [] }, officialCache);
   } catch { return it.subjectLinks || []; } // try again next time it's opened
-  const links = picked.links.map(({ url, label }) => ({ url, label }));
-  const covered = new Set([...picked.links.map((l) => hostOf(l.dest || l.url)), ...(it.shopLinks || []).map((s) => s.host), hostOf(it.link || ""), hostOf(src.site || "")].filter(Boolean));
-  const context = `${it.title}${src.name ? ` (${src.name})` : ""}`;
-  const found = await Promise.all(picked.missing.map((m) => officialFor(m.name, m.kind, context)));
-  for (const o of found) {
-    if (!o || links.length >= 4) continue;
-    const h = hostOf(o.url);
-    if ([...covered].some((c) => c === h || c.endsWith("." + h) || h.endsWith("." + c))) continue;
-    covered.add(h);
-    links.push({ url: o.url, label: o.name.slice(0, 28), official: true });
-  }
-  it.subjectLinks = links;
+  it.shopLinks = r.shopLinks;
+  it.subjectLinks = r.links.map(({ from, ...l }) => l);
   it.linksV = LINKS_V;
   save();
-  return links;
+  return it.subjectLinks;
 }
 
 const tok = (s) => new Set(String(s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 3));
@@ -958,6 +908,10 @@ const routes = {
   },
   "POST /api/item/links": async (req) => { const { id } = await body(req); const links = await subjectLinks(id); return { links, shops: shop.withAffiliate(load().items[id]?.shopLinks || []) }; },
   "GET /api/usage": async (req, url) => usage.summary(Number(url.searchParams.get("days")) || 7),
+  // Links lab (server/public/lab.html): test articles across categories, scored. Separate data, never the feed's.
+  "GET /api/lab/links": async () => lab.view(),
+  "POST /api/lab/links/run": async (req) => { const { ids, fresh } = await body(req); return lab.start({ ids: Array.isArray(ids) ? ids : null, fresh: fresh !== false, getUsage: () => usage.summary(1).total }); },
+  "POST /api/lab/links/judge": async (req) => { const { id, verdict, note } = await body(req); return lab.judge(String(id || ""), verdict === "right" || verdict === "wrong" ? verdict : null, note); },
 
   "POST /api/interests/focus": async (req) => {
     const { id, term } = await body(req);
