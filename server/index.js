@@ -851,6 +851,15 @@ const routes = {
   "POST /api/item/links": async (req) => { const { id } = await body(req); const links = await subjectLinks(id); return { links, shops: shop.withAffiliate(load().items[id]?.shopLinks || []) }; },
   "GET /api/usage": async (req, url) => usage.summary(Number(url.searchParams.get("days")) || 7),
 
+  "POST /api/interests/focus": async (req) => {
+    const { id, term } = await body(req);
+    const i = load().interests.find((x) => x.id === id);
+    if (!i) throw new Error("Interest not found");
+    const t = String(term || "").trim();
+    if (t && !i.subs.some((s) => s.toLowerCase() === t.toLowerCase())) i.subs.push(t);
+    save();
+    return state();
+  },
   "POST /api/like": async (req) => { const { itemId, interestId, like } = await body(req); return { ...(await likeStory(itemId, interestId, !!like)), state: state() }; },
   "POST /api/interests/learned/remove": async (req) => {
     const { id, term } = await body(req);
@@ -998,6 +1007,12 @@ const routes = {
       ans = await agent.curate({ message, interests, candidates: listed, history: t.turns, context: ctx && { ...ctx, sourceName: d.sources[ctx.sourceId]?.name } });
     } else ans = curator.fallbackAnswer(message, cands);
 
+    // "More like this" about a story: besides stories, offer interest-level options. What the story is about,
+    // as focus words for its interest (or a new interest when it's a new direction). Runs alongside the answer.
+    const home = ctx ? (d.interests.find((i) => i.sourceIds.includes(ctx.sourceId)) || (ctx.webFor && d.interests.find((i) => i.id === ctx.webFor)) || curator.homeOf(ctx, d)) : null;
+    const ideasP = ctx && home && /more like|explore similar|similar stor/i.test(message)
+      ? agent.likeIngredients(ctx, ctx.brief?.gist || "", home).catch(() => []) : Promise.resolve([]);
+
     // Not covered by your sources and you want something to read: look on the web, alongside the source checks.
     const webP = ans.web ? agent.webArticles(ans.web, message).catch((e) => { console.error("  Web search failed:", e.message); return []; }) : Promise.resolve([]);
 
@@ -1029,7 +1044,8 @@ const routes = {
     const turnUser = { role: "user", text: message.trim(), itemId: itemId || undefined, at: Date.now() };
     // Offer a new interest only when it isn't one already.
     const offer = ans.interest && !d.interests.some((i) => i.label.toLowerCase() === ans.interest.toLowerCase()) ? ans.interest : undefined;
-    const turnCurator = { role: "curator", text: ans.reply, items, sources, missing: missing.length ? missing : undefined, web: web.length ? web : undefined, offerInterest: offer, followups: ans.followups, at: Date.now() };
+    const ideas = (await ideasP).map((x) => ({ term: x.term, fits: x.fits, interestId: home.id, interestLabel: home.label }));
+    const turnCurator = { role: "curator", text: ans.reply, items, ideas: ideas.length ? ideas : undefined, sources, missing: missing.length ? missing : undefined, web: web.length ? web : undefined, offerInterest: offer, followups: ans.followups, at: Date.now() };
     t.turns.push(turnUser, turnCurator);
     t.turns = t.turns.slice(-40);
     save();

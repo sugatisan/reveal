@@ -45,6 +45,14 @@ export function CuratorThread({ bottomPad, onOpenItem, onLeave, onMakeInterest, 
   const isSaved = (it: MiniItem) => savedMap[it.id] ?? !!it.saved;
   const toggleSave = (it: MiniItem) => { setSavedMap((m) => ({ ...m, [it.id]: !isSaved(it) })); sendEvents([{ itemId: it.id, type: "save" }]).catch(() => {}); };
   const [busy, setBusy] = useState("");
+  const [focused, setFocused] = useState<Record<string, boolean>>({});
+  // Add what the story is about to its interest as a focus word (stories about it get more weight).
+  const addFocus = async (x: { term: string; interestId: string }) => {
+    const k = x.interestId + ":" + x.term;
+    setFocused((f) => ({ ...f, [k]: true }));
+    try { await api("/api/interests/focus", { id: x.interestId, term: x.term }); reloadState(); bumpFeed(); }
+    catch (e: any) { setFocused((f) => ({ ...f, [k]: false })); setError(e.message); }
+  };
   const scroll = useRef<ScrollView>(null);
   const design = useDesign();
   const unified = design["nav.ask"] === "unified";
@@ -123,6 +131,21 @@ export function CuratorThread({ bottomPad, onOpenItem, onLeave, onMakeInterest, 
             <View key={i} style={{ gap: space.s }}>
               <Text style={{ color: t.ink, fontFamily: serif, fontSize: 19, lineHeight: 26 }}>{turn.text}</Text>
               {turn.items?.map((it) => <MiniItemRow key={it.id} item={it} onPress={() => onOpenItem(it)} onSave={() => toggleSave(it)} saved={isSaved(it)} />)}
+              {/* "More like this": the kinds of things to get more of, as interest-level options, not just stories. */}
+              {turn.ideas?.length ? (
+                <View style={{ gap: space.s, marginTop: space.s }}>
+                  <Text style={label}>MORE OF THIS, FROM NOW ON</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
+                    {turn.ideas.map((x) => {
+                      const k = x.interestId + ":" + x.term;
+                      return x.fits
+                        ? <Chip key={k} label={focused[k] ? `${x.term} added to ${x.interestLabel}` : `${x.term} · ${x.interestLabel}`} icon={focused[k] ? "checkmark" : "add"} active={focused[k]}
+                            onPress={() => { if (!focused[k]) addFocus(x); }} />
+                        : <Chip key={k} label={`New interest: ${x.term}`} icon="sparkles-outline" tone="curator" onPress={() => onMakeInterest(x.term)} />;
+                    })}
+                  </View>
+                </View>
+              ) : null}
               {turn.web?.length ? (
                 <View style={{ gap: 2, marginTop: space.s }}>
                   <Text style={label}>FROM THE WEB</Text>
