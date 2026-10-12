@@ -99,14 +99,23 @@ export async function resolveLinks(story, cache, { log = true } = {}) {
     return "dropped: same site already linked";
   };
   for (const l of picked.links) add({ url: l.url, ...(l.dest ? { dest: l.dest } : {}), label: l.label, from: "article" });
+  // A homepage doesn't cover the subject: look the subject up too, so its own page can replace it.
+  if (picked.subject && !picked.skipped && !picked.missing.some((m) => m.role === "subject") && !links.some((l) => !isHome(l.dest || l.url)))
+    picked.missing.unshift({ name: picked.subject, kind: picked.subjectType, role: "subject" });
+  picked.missing = picked.missing.slice(0, 2);
+  trace.missing = picked.missing;
   const context = `${story.title}${story.publisher ? ` (${story.publisher})` : ""}`;
   const exclude = [hostOf(story.link || ""), hostOf(story.publisherSite || "")].filter(Boolean);
   const found = await Promise.all(picked.missing.map((m) => officialFor(cache, m.name, m.kind, context, { exclude, log })));
   trace.lookups = picked.missing.map((m, i) => ({ name: m.name, kind: m.kind, role: m.role, url: found[i].entry?.url || null, from: found[i].from, reason: found[i].reason || "" }));
   found.forEach((f, i) => {
     if (!f.entry) return;
-    const note = add({ url: f.entry.url, label: f.entry.name.slice(0, 28), official: true, from: "lookup" });
+    const note = add({ url: f.entry.url, label: f.entry.name.slice(0, 28), official: true, from: "lookup", role: picked.missing[i].role });
     if (note) trace.lookups[i].reason += ` (${note})`;
   });
-  return { links, shopLinks: fr.shopLinks, trace };
+  // Order: the subject's own pages first; then homepages; then its owner; press releases and pre-save or
+  // streaming pages last. Stable within each rank.
+  const rank = (l) => /press|pre-?save|stream|listen|watch on/i.test(l.label) ? 3 : l.role === "owner" ? 2 : l.from === "article" && isHome(l.dest || l.url) ? 1 : 0;
+  links.sort((a, b) => rank(a) - rank(b));
+  return { links: links.map(({ role, ...l }) => l), shopLinks: fr.shopLinks, trace };
 }

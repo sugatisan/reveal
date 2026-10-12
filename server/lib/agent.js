@@ -397,6 +397,8 @@ const LINKS_SCHEMA = {
   properties: {
     storyKind: { type: "string", enum: STORY_KINDS, description: "announcement: something new is launched or revealed. review: an evaluation of one thing. news: a report of an event. explainer: a how-to, guide or background piece. opinion: a column, letter or essay. roundup: a list, gallery or buying guide covering several things. deal: a discount on something. listing: an event listing, auction or for-sale post." },
     subject: { type: "string", description: "The ONE specific thing the story is mainly about, as a reader would search it (e.g. 'Mattel Brick Shop', 'Renoir and Love', 'Rosewood Bangkok', 'H.R. 6500'). Empty if it isn't mainly about one thing: roundups and lists of several things, trend pieces, how-tos, opinion, or a story about a private person (a crime victim, a resident). A roundup where every item comes from one brand is about that brand." },
+    distinctThings: { type: "integer", description: "How many distinct products, works, places, organizations, cases or events the story covers in substance (not passing mentions). A review of one film is 1; a list of 7 court cases is 7." },
+    singleOwner: { type: "boolean", description: "True when all of those things come from one maker, brand or organization (e.g. a roundup of one brand's new collection)." },
     subjectType: { type: "string", enum: [...SUBJECT_TYPES, "none"], description: "document: a study, report, filing, bill, ruling or press release. creative work: a book, film, show, album, game, app, artwork. public figure: only people famous in their own right; never private individuals." },
     links: {
       type: "array", maxItems: 3,
@@ -409,9 +411,10 @@ const LINKS_SCHEMA = {
       items: { type: "object", properties: { name: { type: "string" }, kind: { type: "string", enum: SUBJECT_TYPES }, role: { type: "string", enum: ["subject", "owner"] } }, required: ["name", "kind", "role"] },
     },
   },
-  required: ["storyKind", "subject", "subjectType", "links", "missing"],
+  required: ["storyKind", "subject", "distinctThings", "singleOwner", "subjectType", "links", "missing"],
 };
-const NO_LINK_KINDS = new Set(["roundup", "opinion", "explainer"]);
+// Labels that mean "another publication's coverage", which never belongs in Links.
+const COVERAGE_LABEL = /\b(article|coverage|review|interview|story|op-ed|column)\b/i;
 // Links in the article that go to what the story is about, plus the subjects it names without linking
 // (resolved to official sites by the caller). Candidates may carry `dest`: where a redirect link lands.
 export async function pickLinks(item, gist, candidates, publisher = "") {
@@ -424,13 +427,16 @@ ${list || "(none)"}
 What kind of story is this, and what one thing is it mainly about? Which links go to that thing, and what should be looked up that isn't linked?`;
   const out = await claudeForm({ system: "You pick supporting links for stories in a discovery feed. Links take readers to the source of what a story is about: its own page, its maker's, the document itself. A missing link is better than a wrong one.", prompt, schema: LINKS_SCHEMA, model: FAST(), maxTokens: 500, purpose: "story-links" });
   const storyKind = String(out.storyKind || ""), subject = String(out.subject || "").trim(), subjectType = String(out.subjectType || "none");
-  // No single subject, or a kind of story that isn't about one: no links at all.
-  if (!subject || subjectType === "none" || NO_LINK_KINDS.has(storyKind)) return { links: [], missing: [], storyKind, subject, subjectType, skipped: true };
+  // No links when the story isn't about one thing: no subject, an opinion piece, or several things that don't
+  // share an owner. A how-to or explainer about one specific thing (a ruling, a benefit change) still links.
+  const many = Number(out.distinctThings) >= 3 && !out.singleOwner;
+  if (!subject || subjectType === "none" || storyKind === "opinion" || many) return { links: [], missing: [], storyKind, subject, subjectType, skipped: true };
   const picked = [];
   for (const l of Array.isArray(out.links) ? out.links : []) {
     const c = candidates[Number(l?.n) - 1];
     const label = String(l?.label || "").trim().slice(0, 28);
     if (!c || !label || picked.some((p) => p.url === c.url)) continue;
+    if (COVERAGE_LABEL.test(label) && subjectType !== "document") continue;
     picked.push({ url: c.url, label, ...(c.dest ? { dest: c.dest } : {}) });
   }
   const missing = (Array.isArray(out.missing) ? out.missing : [])
