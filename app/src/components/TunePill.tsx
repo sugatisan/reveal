@@ -26,7 +26,6 @@ export function TunePill({ liked, less, onMore, onLess, size = "m", vertical, in
   const icon = size === "s" ? 15 : size === "l" ? 20 : size === "xl" ? 21 : 17;
   const base = ink || t.muted;
   // The pill sets the size; each half fills exactly its half, and the selected side is a circle centered in it.
-  // so the selected fill follows the pill's shape and the icon sits dead center.
   const r = h / 2;
   const W = vertical ? h : w * 2, H = vertical ? w * 2 : h;
   const dot = Math.min(h, w) - 4;
