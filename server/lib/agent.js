@@ -396,8 +396,8 @@ const LINKS_SCHEMA = {
   type: "object",
   properties: {
     storyKind: { type: "string", enum: STORY_KINDS, description: "announcement: something new is launched or revealed. review: an evaluation of one thing. news: a report of an event. explainer: a how-to, guide or background piece. opinion: a column, letter or essay. roundup: a list, gallery or buying guide covering several things. deal: a discount on something. listing: an event listing, auction or for-sale post." },
-    subject: { type: "string", description: "The ONE specific thing the story is mainly about, as a reader would search it (e.g. 'Mattel Brick Shop', 'Renoir and Love', 'Rosewood Bangkok', 'H.R. 6500'). Empty if it isn't mainly about one thing: roundups and lists of several things, trend pieces, how-tos, opinion, or a story about a private person (a crime victim, a resident). A roundup where every item comes from one brand is about that brand." },
-    distinctThings: { type: "integer", description: "How many distinct products, works, places, organizations, cases or events the story covers in substance (not passing mentions). A review of one film is 1; a list of 7 court cases is 7." },
+    subject: { type: "string", description: "The ONE specific thing the story is mainly about, as a reader would search it (e.g. 'Mattel Brick Shop', 'Renoir and Love', 'Rosewood Bangkok', 'H.R. 6500'). Empty if it isn't mainly about one thing: roundups and lists of several things, trend pieces, how-tos, opinion, or a story about a private person (a crime victim, a resident). A roundup where every item comes from one brand is about that brand. An award, prize or ranking announcement is about the award (e.g. '2026 Nobel Prize in Medicine'), even with several winners." },
+    distinctThings: { type: "integer", description: "How many distinct products, works, places, organizations, cases or events the story covers in substance (not passing mentions). A review of one film is 1; a list of 7 court cases is 7; an award announced with several winners is 1 (the award); a player's contract with a club is 1." },
     singleOwner: { type: "boolean", description: "True when all of those things come from one maker, brand or organization (e.g. a roundup of one brand's new collection)." },
     subjectType: { type: "string", enum: [...SUBJECT_TYPES, "none"], description: "document: a study, report, filing, bill, ruling or press release. creative work: a book, film, show, album, game, app, artwork. public figure: only people famous in their own right; never private individuals." },
     links: {
@@ -407,7 +407,7 @@ const LINKS_SCHEMA = {
     },
     missing: {
       type: "array", maxItems: 2,
-      description: "Names to look up when the picked links don't already go to them: first the subject itself, then (optionally) its owner when that's a different name: the maker of a product, the publisher of a book, the label of an album, the studio or distributor of a film, the agency behind a program, the institution behind a study. Never the publication, other media outlets, investors, venues merely hosting it, police or agencies merely reporting it, or people mentioned in passing. Empty when there's no subject.",
+      description: "Names to look up when the picked links don't already go to them: first the subject itself, then (optionally) its owner when that's a different name: the maker of a product, the publisher of a book, the label of an album, the studio or distributor of a film, the agency behind a program, the institution behind a study, the club or team of an athlete, the company of an executive. When the subject is a person, always include their owner, since many people have no site of their own. Never the publication, other media outlets, investors, venues merely hosting it, police or agencies merely reporting it, or people mentioned in passing. Empty when there's no subject.",
       items: { type: "object", properties: { name: { type: "string" }, kind: { type: "string", enum: SUBJECT_TYPES }, role: { type: "string", enum: ["subject", "owner"] } }, required: ["name", "kind", "role"] },
     },
   },
@@ -429,7 +429,7 @@ What kind of story is this, and what one thing is it mainly about? Which links g
   const storyKind = String(out.storyKind || ""), subject = String(out.subject || "").trim(), subjectType = String(out.subjectType || "none");
   // No links when the story isn't about one thing: no subject, an opinion piece, or several things that don't
   // share an owner. A how-to or explainer about one specific thing (a ruling, a benefit change) still links.
-  const many = Number(out.distinctThings) >= 3 && !out.singleOwner;
+  const many = (Number(out.distinctThings) >= 3 || storyKind === "roundup") && !out.singleOwner;
   if (!subject || subjectType === "none" || storyKind === "opinion" || many) return { links: [], missing: [], storyKind, subject, subjectType, skipped: true };
   const picked = [];
   for (const l of Array.isArray(out.links) ? out.links : []) {
