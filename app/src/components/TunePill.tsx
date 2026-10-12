@@ -42,9 +42,10 @@ export function TunePill({ liked, less, onMore, onLess, size = "m", vertical, in
   };
   return (
     <View style={[st.pill, { flexDirection: vertical ? "column" : "row", borderRadius: h / 2, borderColor: line || t.line, backgroundColor: fill || "transparent" }]}>
-      {side("more")}
+      {/* Positive always on the right (on top when stacked). */}
+      {side(vertical ? "more" : "less")}
       <View style={vertical ? { height: StyleSheet.hairlineWidth, alignSelf: "stretch", backgroundColor: line || t.line } : { width: StyleSheet.hairlineWidth, alignSelf: "stretch", backgroundColor: line || t.line }} />
-      {side("less")}
+      {side(vertical ? "less" : "more")}
     </View>
   );
 }
