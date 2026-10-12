@@ -213,6 +213,41 @@ export async function webArticles(query, message, purpose = "curator-web") {
   return out.filter((a) => a.title).slice(0, 5);
 }
 
+// A site's newest articles, found by web search limited to that site. For sites someone asked to follow
+// that have no feed and can't be read directly (blocked, or built in JavaScript). Only URLs the search
+// actually returned, on that site, that look like articles.
+export async function siteArticles(site, name = "") {
+  if (!hasKey()) return [];
+  let u;
+  try { u = new URL(/^https?:/i.test(site) ? site : "https://" + site); } catch { return []; }
+  const host = u.hostname.replace(/^www\./, "");
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model: FAST(), max_tokens: 1500,
+      system: "You find a website's newest published articles. Reply with JSON only.",
+      messages: [{ role: "user", content: `Find the newest articles, stories or posts published on ${name || host} (${u.href}). Individual articles only: not the homepage, category, tag, shop or product pages. Return {"articles":[{"title":"","url":""}]}, up to 10, newest first.` }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2, allowed_domains: [host] }],
+    }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error?.message || `Claude API error ${res.status}`);
+  const us = body.usage || {};
+  record({ purpose: "site-search", model: FAST(), input: (us.input_tokens || 0) + (us.cache_creation_input_tokens || 0), output: us.output_tokens || 0, cached: us.cache_read_input_tokens || 0, searches: us.server_tool_use?.web_search_requests || 0 });
+  const found = new Map();
+  for (const c of body.content || []) if (c.type === "web_search_tool_result" && Array.isArray(c.content)) for (const r of c.content) if (r.url) found.set(r.url, r);
+  const text = (body.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+  let picks = [];
+  try { picks = json(text).articles || []; } catch {}
+  const onSite = (x) => { try { return new URL(x).hostname.replace(/^www\./, "").endsWith(host); } catch { return false; } };
+  const article = (x) => { try { const p = new URL(x).pathname.replace(/\/+$/, ""); return p && p.split("/").filter(Boolean).length >= 1 && !/^\/(tag|tags|category|categories|shop|products?|collections?|search|page)(\/|$)/i.test(p); } catch { return false; } };
+  const list = picks.filter((a) => a?.url && found.has(a.url)).map((a) => ({ title: String(a.title || found.get(a.url).title || "").trim(), url: a.url }));
+  if (!list.length) for (const r of found.values()) list.push({ title: r.title, url: r.url });
+  const seen = new Set();
+  return list.filter((a) => a.title && onSite(a.url) && article(a.url) && !seen.has(a.url) && seen.add(a.url)).slice(0, 10);
+}
+
 // Topics someone might want less of, for the "less of this" sheet. Cached on the story by the caller.
 export async function topicsFor(item, sourceName) {
   if (!hasKey()) return [];
@@ -413,7 +448,7 @@ const DRAFT_SCHEMA = {
     named: {
       type: "array", maxItems: 8,
       items: { type: "object", properties: { name: { type: "string" }, site: { type: "string", description: "Its homepage URL; for a shop that publishes editorial (like Huckberry's Journal), the editorial section's URL" } }, required: ["name", "site"] },
-      description: "Sites, publications, blogs, shops with editorial, YouTube channels or podcasts the person explicitly named (e.g. 'blogs like Gear for Today, Huckberry' -> Gear for Today, Huckberry). They want to follow these. Never put them in likes.",
+      description: "Only proper names of real sites, publications, blogs, shops with editorial, YouTube channels or podcasts the person explicitly named (never a category like 'everyday carry' or 'menswear') (e.g. 'blogs like Gear for Today, Huckberry' -> Gear for Today, Huckberry). They want to follow these. Never put them in likes.",
     },
     likes: {
       type: "array", maxItems: 8,

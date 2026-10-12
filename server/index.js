@@ -118,7 +118,32 @@ async function findFeed(url) {
 // A feed title that reads like a page title ("The best vintage and classic cars for sale online | Bring a Trailer")
 // loses to a clean name when we have one.
 const pageTitle = (t = "") => t.length > 32 || /\s[|–—-]\s/.test(t);
+// Last resort for a site someone asked for that has no feed and can't be read (blocked, or built in
+// JavaScript): its newest articles via web search limited to that site, refreshed twice a day.
+const SEARCH = "search:";
+const siteSearchCache = new Map();
+async function searchSite(site, name) {
+  const hit = siteSearchCache.get(site);
+  if (hit && Date.now() - hit.at < 15 * 6e4) return hit.items;
+  const items = await agent.siteArticles(site, name).catch(() => []);
+  siteSearchCache.set(site, { items, at: Date.now() });
+  return items;
+}
+const asItems = (list) => list.map((a) => ({ title: a.title, link: a.url, guid: a.url, date: null, html: "", image: "", tags: [], images: [] }));
+async function followSearch(site, { origin = "user", why, name } = {}) {
+  const list = await searchSite(site, name);
+  if (list.length < 2) throw new Error("Couldn't find recent stories from that site, even by searching it");
+  const id = sourceIdFor(site);
+  const had = load().sources[id];
+  upsertSource({ id, name: had?.name || name || new URL(normalizeUrl(site)).hostname.replace(/^www\./, ""), site: normalizeUrl(site), feedUrl: SEARCH + site, status: "ok", kind: "site", perWeek: undefined, lastFetched: Date.now(), origin: had?.origin || origin, addedAt: had?.addedAt || Date.now(), ...(why ? { why } : {}) });
+  storeItems(id, asItems(list));
+  mergeDuplicates();
+  await photosFor(id, 6000);
+  return id;
+}
+
 async function followSite(url, { origin = "user", why, name } = {}) {
+  if (String(url).startsWith(SEARCH)) return followSearch(String(url).slice(SEARCH.length), { origin, why, name });
   const f = await findFeed(url);
   const id = sourceIdFor(f.site || url);
   const had = load().sources[id];
@@ -657,10 +682,15 @@ const routes = {
 
   "POST /api/compose/check": async (req) => {
     // One proposed source: does it have a working feed? Cached, so creating the interest doesn't fetch again.
-    const { site, feed } = await body(req);
-    let f = null, url = feed || site;
-    try { f = await findFeed(url); } catch { if (feed && site) { url = site; f = await findFeed(site).catch(() => null); } }
-    if (!f) return { ok: false };
+    const { site, feed, named, name } = await body(req);
+    let f = null, url = feed || site, why = "";
+    try { f = await findFeed(url); } catch (e) { why = String(e.message || e); if (feed && site) { url = site; f = await findFeed(site).catch((e2) => { why = String(e2.message || e2); return null; }); } }
+    // A site you named: if it has no readable feed or page, follow it through search instead.
+    if (!f && named && site) {
+      const list = await searchSite(site, name);
+      if (list.length >= 2) return { ok: true, url: SEARCH + site, name, kind: "site", cadence: "Checked twice a day", via: "search", titles: list.slice(0, 8).map((x) => ({ title: x.title, excerpt: "" })) };
+    }
+    if (!f) return { ok: false, reason: why };
     return { ok: true, url, name: f.title, kind: sourceKind(f.items), cadence: cadenceLabel(cadence(f.items)), titles: f.items.slice(0, 8).map((x) => ({ title: x.title, excerpt: (x.excerpt || "").slice(0, 160) })) };
   },
 
@@ -757,7 +787,12 @@ const routes = {
         // The homepage first; if no feed is found there, the feed address the curator knows.
         let sid;
         try { sid = await followSite(x.url || x.text, { name: x.text }); }
-        catch (e) { if (!x.feed) throw e; sid = await followSite(x.feed, { name: x.text }); }
+        catch (e) {
+          if (x.feed) sid = await followSite(x.feed, { name: x.text }).catch(() => null);
+          // Still nothing: a site you asked for is followed through search.
+          if (!sid && x.url) sid = await followSearch(x.url, { name: x.text }).catch(() => null);
+          if (!sid) throw e;
+        }
         i.suggestedIds = i.suggestedIds.filter((s) => s !== sid);
         if (!i.sourceIds.includes(sid)) i.sourceIds.push(sid);
         i.subs = i.subs.filter((s) => s.toLowerCase() !== x.text.toLowerCase()); // kept as a like on an earlier try
@@ -1154,6 +1189,19 @@ const refreshBeyond = () => {
   refresh({ onlyIds: ids, quiet: true }).then((r) => console.log(`  Refreshed suggested sources: ${r.added} new items`)).catch(() => {});
 };
 setTimeout(refreshBeyond, 90 * 1000);
+// Search-backed sources: their newest articles twice a day (a web search each, a few at a time).
+const refreshSearchSources = async () => {
+  const d = load();
+  const fol = new Set(followedIds());
+  const due = Object.values(d.sources).filter((s) => s.feedUrl?.startsWith(SEARCH) && fol.has(s.id) && Date.now() - (s.lastFetched || 0) > 12 * 36e5).slice(0, 3);
+  for (const s of due) {
+    try { const list = await agent.siteArticles(s.feedUrl.slice(SEARCH.length), s.name); if (list.length) { storeItems(s.id, asItems(list)); s.status = "ok"; } s.lastFetched = Date.now(); await photosFor(s.id); }
+    catch (e) { s.error = String(e.message || e); }
+  }
+  if (due.length) { mergeDuplicates(); save(); }
+};
+setTimeout(() => refreshSearchSources().catch(() => {}), 3 * 6e4);
+setInterval(() => refreshSearchSources().catch(() => {}), 30 * 6e4);
 // Read the newest stories' article pages ahead of time (no AI): finds embedded videos (trailers) to play
 // inline in the feed, plus gallery images and links, before anyone opens them. A dozen at a time.
 let pagesRunning = false;

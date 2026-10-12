@@ -70,7 +70,7 @@ export function Composer({ text, state, go, onDone, onOpen }: {
       await Promise.all(Array.from({ length: 4 }, async () => {
         for (let k = queue.shift(); k !== undefined; k = queue.shift()) {
           const p = list[k];
-          const c = await api<ProposalCheck>("/api/compose/check", { site: p.site, feed: p.feed }).catch(() => ({ ok: false }) as ProposalCheck);
+          const c = await api<ProposalCheck>("/api/compose/check", { site: p.site, feed: p.feed, named: p.fit === "named", name: p.name }).catch(() => ({ ok: false }) as ProposalCheck);
           // Start with dedicated sources on (up to 4) plus the first two broad ones.
           // Sites you named are always on.
           const on = !!c.ok && (p.fit === "named" || (p.fit === "dedicated" ? dedicatedOn++ < 4 : broadOn++ < 2));

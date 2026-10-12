@@ -21,6 +21,8 @@ async function pool(list, n, fn) {
 }
 
 export async function fetchSource(src) {
+  // Search-backed sources (sites with no feed that can't be read directly) refresh on their own schedule.
+  if (src.feedUrl?.startsWith("search:")) return { title: src.name, site: src.site, description: src.about || "", feedUrl: src.feedUrl, items: [] };
   // Sites without a feed: their news sitemap, or their homepage's list of stories (see discoverFeed).
   if (src.feedUrl?.startsWith("sitemap:")) {
     const u = src.feedUrl.slice(8);
