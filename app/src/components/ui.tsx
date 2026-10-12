@@ -5,6 +5,8 @@ import { Image } from "expo-image";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { MiniItem, SourceView } from "@/lib/api";
 import { radius, serif, space, Theme, useTheme } from "@/lib/theme";
+import { useTabBarSpace } from "@/components/TabBar";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export function Chip({ label, onPress, active, tone = "default", icon }: { label: string; onPress?: () => void; active?: boolean; tone?: "default" | "curator"; icon?: keyof typeof Ionicons.glyphMap }) {
   const t = useTheme();
@@ -69,7 +71,11 @@ export function ErrorLine({ text, onRetry }: { text: string; onRetry?: () => voi
   );
 }
 
-export function useToast() {
+// aboveTabBar: sit just above the floating tab bar (screens that have one), not behind it.
+export function useToast({ aboveTabBar = false }: { aboveTabBar?: boolean } = {}) {
+  const barSpace = useTabBarSpace();
+  const insets = useSafeAreaInsets();
+  const bottom = aboveTabBar ? barSpace + space.s : Math.max(insets.bottom, space.l) + space.s;
   const [msg, setMsg] = useState<{ text: string; undo?: () => void } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const show = (text: string, undo?: () => void) => {
@@ -77,16 +83,16 @@ export function useToast() {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => setMsg(null), 3500);
   };
-  const node = <Toast msg={msg} onDone={() => setMsg(null)} />;
+  const node = <Toast msg={msg} onDone={() => setMsg(null)} bottom={bottom} />;
   return { show, node };
 }
-function Toast({ msg, onDone }: { msg: { text: string; undo?: () => void } | null; onDone: () => void }) {
+function Toast({ msg, onDone, bottom }: { msg: { text: string; undo?: () => void } | null; onDone: () => void; bottom: number }) {
   const t = useTheme();
   const a = useRef(new Animated.Value(0)).current;
   useEffect(() => { Animated.timing(a, { toValue: msg ? 1 : 0, duration: 180, useNativeDriver: true }).start(); }, [msg, a]);
   if (!msg) return null;
   return (
-    <Animated.View pointerEvents="box-none" style={[s.toast, { backgroundColor: t.ink, opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
+    <Animated.View pointerEvents="box-none" style={[s.toast, { bottom, zIndex: 50, elevation: 50, backgroundColor: t.ink, opacity: a, transform: [{ translateY: a.interpolate({ inputRange: [0, 1], outputRange: [20, 0] }) }] }]}>
       <Text style={{ color: t.bg, flex: 1 }}>{msg.text}</Text>
       {msg.undo ? <Text onPress={() => { msg.undo?.(); onDone(); }} style={{ color: t.accent, fontWeight: "700" }}>Undo</Text> : null}
     </Animated.View>

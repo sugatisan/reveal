@@ -49,7 +49,7 @@ export default function FeedScreen() {
   const pillScroll = useRef<ScrollView>(null);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const toast = useToast();
+  const toast = useToast({ aboveTabBar: true });
   const [lessFor, setLessFor] = useState<string | null>(null);
   const full = design["card.layout"] === "full";
   const [pageH, setPageH] = useState(0);
