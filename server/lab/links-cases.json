@@ -483,10 +483,11 @@
    "expectNone": false,
    "hosts": [
     "airfrance.com",
-    "airfrance.us"
+    "airfrance.us",
+    "airfrance.fr"
    ],
    "idealUrl": "",
-   "notes": "Older (2025); regional variants fine.",
+   "notes": "Older (2025); regional variants fine. Also accepted: airfrance.fr (first-party; added after the first lab run).",
    "unverified": false
   },
   {
@@ -550,10 +551,11 @@
    "subjectType": "creative work",
    "expectNone": false,
    "hosts": [
-    "partisanrecords.com"
+    "partisanrecords.com",
+    "mrcameronwinter.com"
    ],
    "idealUrl": "",
-   "notes": "Label (Partisan); domain unverified.",
+   "notes": "Label (Partisan); domain unverified. Also accepted: mrcameronwinter.com (first-party; added after the first lab run).",
    "unverified": true
   },
   {
@@ -583,10 +585,11 @@
    "expectNone": false,
    "hosts": [
     "penguinrandomhouse.com",
-    "penguin.co.uk"
+    "penguin.co.uk",
+    "kateatkinson.co.uk"
    ],
    "idealUrl": "https://www.penguinrandomhouse.com/books/768992/our-noble-selves-by-kate-atkinson/",
-   "notes": "Publisher page.",
+   "notes": "Publisher page. Also accepted: kateatkinson.co.uk (first-party; added after the first lab run).",
    "unverified": false
   },
   {
@@ -601,10 +604,11 @@
    "expectNone": false,
    "hosts": [
     "simonandschuster.com",
-    "simonandschuster.co.uk"
+    "simonandschuster.co.uk",
+    "paulyoon.com"
    ],
    "idealUrl": "https://www.simonandschuster.com/books/Etna/Paul-Yoon/9781797197029",
-   "notes": "Scribner / S&S.",
+   "notes": "Scribner / S&S. Also accepted: paulyoon.com (first-party; added after the first lab run).",
    "unverified": false
   },
   {
@@ -619,10 +623,11 @@
    "expectNone": false,
    "hosts": [
     "harpercollins.com",
-    "harpercollins.co.uk"
+    "harpercollins.co.uk",
+    "loislowry.com"
    ],
    "idealUrl": "",
-   "notes": "Publisher inferred from ISBN.",
+   "notes": "Publisher inferred from ISBN. Also accepted: loislowry.com (first-party; added after the first lab run).",
    "unverified": true
   },
   {
@@ -652,10 +657,11 @@
    "expectNone": false,
    "hosts": [
     "warnerbros.com",
-    "wbd.com"
+    "wbd.com",
+    "diggermovie.com"
    ],
    "idealUrl": "",
-   "notes": "Distributor; no standalone site confirmed.",
+   "notes": "Distributor; no standalone site confirmed. Also accepted: diggermovie.com (first-party; added after the first lab run).",
    "unverified": true
   },
   {
@@ -669,10 +675,11 @@
    "subjectType": "creative work",
    "expectNone": false,
    "hosts": [
-    "neonrated.com"
+    "neonrated.com",
+    "artificial.movie"
    ],
    "idealUrl": "",
-   "notes": "Tricky: Neon, not Amazon MGM.",
+   "notes": "Tricky: Neon, not Amazon MGM. Also accepted: artificial.movie (first-party; added after the first lab run).",
    "unverified": true
   },
   {
@@ -686,10 +693,11 @@
    "subjectType": "creative work",
    "expectNone": false,
    "hosts": [
-    "sonypictures.com"
+    "sonypictures.com",
+    "thesocialreckoning.movie"
    ],
    "idealUrl": "",
-   "notes": "Sony distributor.",
+   "notes": "Sony distributor. Also accepted: thesocialreckoning.movie (first-party; added after the first lab run).",
    "unverified": true
   },
   {
@@ -769,10 +777,11 @@
    "expectNone": false,
    "hosts": [
     "navimow.segway.com",
-    "segway.com"
+    "segway.com",
+    "navimow.com"
    ],
    "idealUrl": "",
-   "notes": "Article never names the maker.",
+   "notes": "Article never names the maker. Also accepted: navimow.com (first-party; added after the first lab run).",
    "unverified": false
   },
   {

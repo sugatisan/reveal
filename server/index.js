@@ -357,7 +357,7 @@ async function writeBrief(id) {
 }
 
 // Links to what a story is about: see lib/links.js. Worked out once, the first time the story is opened.
-const LINKS_V = 4;
+const LINKS_V = 5;
 const linksInflight = new Map();
 function subjectLinks(id) {
   if (!linksInflight.has(id)) linksInflight.set(id, findLinks(id).finally(() => linksInflight.delete(id)));

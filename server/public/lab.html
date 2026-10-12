@@ -110,12 +110,23 @@ const onSite = (u, hosts) => { const h = host(u); return hosts.some((e) => h ===
 const ago = (t) => { if (!t) return "never"; const m = Math.round((Date.now() - t) / 6e4); return m < 1 ? "just now" : m < 60 ? m + " min ago" : Math.round(m / 60) + " h ago"; };
 
 async function api(path, body) {
-  const r = await fetch(path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
-  const j = await r.json();
-  if (!r.ok) throw new Error(j.error || r.status);
+  let r;
+  try { r = await fetch(path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}); }
+  catch { throw new Error("Can't reach the Reveal server. Is npm run dev running?"); }
+  if (r.status === 404) throw new Error("The Reveal server is running older code without the lab. Restart it: Ctrl+C in its terminal, then npm run dev.");
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `Server error ${r.status}`);
   return j;
 }
-async function load() { data = await api("/api/lab/links"); render(); }
+async function load() {
+  try { data = await api("/api/lab/links"); render(); }
+  catch (err) {
+    $("#status").textContent = "";
+    $("#cases").innerHTML = `<div class="empty" style="color:var(--miss)">${esc(err.message)}</div>`;
+    if (!poll) poll = setInterval(load, 3000); // keeps trying, so it fills in once the server is back
+    return;
+  }
+}
 
 function render() {
   const { run, overall: o } = data;

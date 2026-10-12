@@ -26,7 +26,7 @@ const cache = { entries: read(CACHE, {}), save: () => write(CACHE, cache.entries
 // right: the first link is on an expected site · right-later: an expected site, but not first
 // wrong: links shown, none on an expected site · miss: expected a link, none shown
 // quiet: correctly showed nothing · noise: showed a link where none was expected
-const onSite = (url, hosts) => { const h = hostOf(url); return hosts.some((e) => h === e || h.endsWith("." + e)); };
+const onSite = (l, hosts) => { const h = hostOf(typeof l === "string" ? l : l.dest || l.url); return hosts.some((e) => h === e || h.endsWith("." + e)); };
 export function verdict(c, r) {
   if (!r || r.error && !r.links) return null;
   const j = judgments[c.id]?.verdict;
@@ -34,8 +34,8 @@ export function verdict(c, r) {
   let v;
   if (c.expectNone) v = links.length ? "noise" : "quiet";
   else if (!links.length) v = "miss";
-  else if (onSite(links[0].url, c.hosts)) v = "right";
-  else if (links.some((l) => onSite(l.url, c.hosts))) v = "right-later";
+  else if (onSite(links[0], c.hosts)) v = "right";
+  else if (links.some((l) => onSite(l, c.hosts))) v = "right-later";
   else v = "wrong";
   // Your call overrides the automatic one (the expected sites aren't always complete).
   if (j === "right" && (v === "wrong" || v === "right-later" || v === "noise")) v = c.expectNone ? "quiet" : "right";
@@ -43,10 +43,11 @@ export function verdict(c, r) {
   if (j === "wrong" && v === "quiet") v = "miss";
   // How specific: the exact page, a deeper page, or just a homepage.
   let depth = null;
-  const hit = links.find((l) => !c.expectNone && onSite(l.url, c.hosts));
+  const hit = links.find((l) => !c.expectNone && onSite(l, c.hosts));
   if (hit) {
     const clean = (u) => u.replace(/^https?:\/\/(www\.)?/, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
-    depth = c.idealUrl && clean(hit.url) === clean(c.idealUrl) ? "exact" : (() => { try { return new URL(hit.url).pathname.replace(/\/+$/, "") ? "page" : "home"; } catch { return "home"; } })();
+    const hu = hit.dest || hit.url;
+    depth = c.idealUrl && clean(hu) === clean(c.idealUrl) ? "exact" : (() => { try { return new URL(hu).pathname.replace(/\/+$/, "") ? "page" : "home"; } catch { return "home"; } })();
   }
   return { v, depth, judged: !!j };
 }

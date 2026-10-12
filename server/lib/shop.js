@@ -21,7 +21,7 @@ const SHOPS = [
   ["apps.apple.com", "App Store"], ["play.google.com/store", "Google Play"],
 ];
 // Hosts that mean "someone already monetizes this click".
-export const REDIRECTS = /(shop-links\.co|tidd\.ly|prf\.hn|bit\.ly|ow\.ly|trib\.al|bzfd\.it|lmt\.co|fave\.co|skimresources|redirectingat|linksynergy|shareasale|anrdoezrs|tkqlhce|jdoqocy|dpbolvw|kqzyfj|awin1|howl\.me|geni\.us|fave\.co|narrativ|sovrn|go\.skimlinks|click\.|affiliate|impact\.com|pxf\.io|sjv\.io|avantlink|rstyle\.me|shopstyle)/i;
+export const REDIRECTS = /(shop-links\.co|georiot\.com|7tiv\.net|tidd\.ly|prf\.hn|bit\.ly|ow\.ly|trib\.al|bzfd\.it|lmt\.co|fave\.co|skimresources|redirectingat|linksynergy|shareasale|anrdoezrs|tkqlhce|jdoqocy|dpbolvw|kqzyfj|awin1|howl\.me|geni\.us|fave\.co|narrativ|sovrn|go\.skimlinks|click\.|affiliate|impact\.com|pxf\.io|sjv\.io|avantlink|rstyle\.me|shopstyle)/i;
 const TAG_PARAMS = /[?&](tag|campid|affid|aff_id|ref|irclickid|clickid|utm_source=.*affil)/i;
 
 export function shopFor(u) {

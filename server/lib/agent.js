@@ -388,33 +388,44 @@ Brief a reader deciding whether to open this story.`;
 }
 
 // Links to what a story is about, chosen from the article's own links (by number). Never writes a URL.
+// The same rules for any topic: links come from what kind of story it is and what kind of thing it's about,
+// never from the topic. A story with no single subject (roundups, opinion, how-tos, trend pieces) gets none.
+export const SUBJECT_TYPES = ["product", "creative work", "organization", "place", "event", "public figure", "document"];
+const STORY_KINDS = ["announcement", "review", "news", "explainer", "opinion", "roundup", "deal", "listing"];
 const LINKS_SCHEMA = {
   type: "object",
   properties: {
+    storyKind: { type: "string", enum: STORY_KINDS, description: "announcement: something new is launched or revealed. review: an evaluation of one thing. news: a report of an event. explainer: a how-to, guide or background piece. opinion: a column, letter or essay. roundup: a list, gallery or buying guide covering several things. deal: a discount on something. listing: an event listing, auction or for-sale post." },
+    subject: { type: "string", description: "The ONE specific thing the story is mainly about, as a reader would search it (e.g. 'Mattel Brick Shop', 'Renoir and Love', 'Rosewood Bangkok', 'H.R. 6500'). Empty if it isn't mainly about one thing: roundups and lists of several things, trend pieces, how-tos, opinion, or a story about a private person (a crime victim, a resident). A roundup where every item comes from one brand is about that brand." },
+    subjectType: { type: "string", enum: [...SUBJECT_TYPES, "none"], description: "document: a study, report, filing, bill, ruling or press release. creative work: a book, film, show, album, game, app, artwork. public figure: only people famous in their own right; never private individuals." },
     links: {
       type: "array", maxItems: 3,
-      description: "Links whose destination IS the subject of the story or its official media: the game's or product's own page, the maker's page for it, the paper or report, the project's repo, the place's own site, the official trailer. Not other news coverage, not general homepages, not tangents. Most useful first. Empty is normal.",
-      items: { type: "object", properties: { n: { type: "integer", description: "The link's number in the list" }, label: { type: "string", description: "1-3 words naming what it is, e.g. Official site, Trailer, The study, GitHub repo, Menu, Kickstarter" } }, required: ["n", "label"] },
+      description: "Links in the article whose destination IS the subject or its owner's own page for it: the product's page, the maker's site, the study itself, the bill text, the venue's or exhibition's page, the official trailer, the press release. Never another publication's coverage, never a retailer listing (those are handled separately), never tangents. Most useful first. Empty when there's no subject.",
+      items: { type: "object", properties: { n: { type: "integer", description: "The link's number in the list" }, label: { type: "string", description: "1-3 words naming what it is, e.g. Official site, Trailer, The study, Bill text, Exhibition, Press release" } }, required: ["n", "label"] },
     },
     missing: {
       type: "array", maxItems: 2,
-      description: "The specific maker, brand, product, place or project the story is about whose own website a reader would want to visit, when none of the picked links already goes there. Proper names exactly as a reader would search them (e.g. 'Mattel Brick Shop', 'Analogue Pocket', 'Noma'). Never the publication itself, its writers, people (unless the person is the brand), or generic things. Most central first. Empty when the picked links cover it or there's no such subject.",
-      items: { type: "object", properties: { name: { type: "string" }, kind: { type: "string", enum: ["maker", "product", "place", "project", "organization"] } }, required: ["name", "kind"] },
+      description: "Names to look up when the picked links don't already go to them: first the subject itself, then (optionally) its owner when that's a different name: the maker of a product, the publisher of a book, the label of an album, the studio or distributor of a film, the agency behind a program, the institution behind a study. Never the publication, other media outlets, investors, venues merely hosting it, police or agencies merely reporting it, or people mentioned in passing. Empty when there's no subject.",
+      items: { type: "object", properties: { name: { type: "string" }, kind: { type: "string", enum: SUBJECT_TYPES }, role: { type: "string", enum: ["subject", "owner"] } }, required: ["name", "kind", "role"] },
     },
   },
-  required: ["links", "missing"],
+  required: ["storyKind", "subject", "subjectType", "links", "missing"],
 };
+const NO_LINK_KINDS = new Set(["roundup", "opinion", "explainer"]);
 // Links in the article that go to what the story is about, plus the subjects it names without linking
 // (resolved to official sites by the caller). Candidates may carry `dest`: where a redirect link lands.
 export async function pickLinks(item, gist, candidates, publisher = "") {
-  if (!hasKey()) return { links: [], missing: [] };
+  if (!hasKey()) return { links: [], missing: [], storyKind: "", subject: "" };
   const list = candidates.map((c, i) => `[${i + 1}] ${c.text || "(no text)"} -> ${(c.dest || c.url).replace(/^https?:\/\/(www\.)?/, "").slice(0, 120)}`).join("\n");
   const prompt = `Story${publisher ? ` from ${publisher}` : ""}: ${item.title}
 ${gist ? `Gist: ${gist}\n` : ""}Links in the article:
 ${list || "(none)"}
 
-Which of these link to the thing this story is about? And what is it about that has its own website but isn't linked?`;
-  const out = await claudeForm({ system: "You pick supporting links for stories in a discovery feed.", prompt, schema: LINKS_SCHEMA, model: FAST(), maxTokens: 400, purpose: "story-links" });
+What kind of story is this, and what one thing is it mainly about? Which links go to that thing, and what should be looked up that isn't linked?`;
+  const out = await claudeForm({ system: "You pick supporting links for stories in a discovery feed. Links take readers to the source of what a story is about: its own page, its maker's, the document itself. A missing link is better than a wrong one.", prompt, schema: LINKS_SCHEMA, model: FAST(), maxTokens: 500, purpose: "story-links" });
+  const storyKind = String(out.storyKind || ""), subject = String(out.subject || "").trim(), subjectType = String(out.subjectType || "none");
+  // No single subject, or a kind of story that isn't about one: no links at all.
+  if (!subject || subjectType === "none" || NO_LINK_KINDS.has(storyKind)) return { links: [], missing: [], storyKind, subject, subjectType, skipped: true };
   const picked = [];
   for (const l of Array.isArray(out.links) ? out.links : []) {
     const c = candidates[Number(l?.n) - 1];
@@ -423,9 +434,10 @@ Which of these link to the thing this story is about? And what is it about that 
     picked.push({ url: c.url, label, ...(c.dest ? { dest: c.dest } : {}) });
   }
   const missing = (Array.isArray(out.missing) ? out.missing : [])
-    .map((m) => ({ name: String(m?.name || "").trim(), kind: String(m?.kind || "maker") }))
-    .filter((m) => m.name && m.name.length <= 60 && (!publisher || m.name.toLowerCase() !== publisher.toLowerCase())).slice(0, 2);
-  return { links: picked.slice(0, 3), missing };
+    .map((m) => ({ name: String(m?.name || "").trim(), kind: SUBJECT_TYPES.includes(m?.kind) ? m.kind : subjectType, role: m?.role === "owner" ? "owner" : "subject" }))
+    .filter((m) => m.name && m.name.length <= 80 && (!publisher || m.name.toLowerCase() !== publisher.toLowerCase()))
+    .sort((a, b) => (a.role === "subject" ? 0 : 1) - (b.role === "subject" ? 0 : 1)).slice(0, 2);
+  return { links: picked.slice(0, 3), missing, storyKind, subject, subjectType };
 }
 
 // The official website of a maker, brand, product, place or project, by web search. Only a URL the search
@@ -449,7 +461,7 @@ export async function officialSite(name, kind = "maker", context = "", { exclude
       model: FAST(), max_tokens: 600,
       system: "You find official websites. Reply with JSON only.",
       messages: [{ role: "user", content: `Find the official website of "${name}" (a ${kind})${context ? `, as mentioned in: ${context}` : ""}.
-The ${kind === "product" ? "product's page on its maker's own site, or the maker's site" : "brand's, maker's or place's own site"}. Its own store counts. Not news coverage, encyclopedias, marketplaces, retailers or social profiles.
+${({ product: "The product's page on its maker's own site, or the maker's site.", "creative work": "The work's own official site, or its page on its publisher's, label's, studio's or distributor's site.", document: "The document itself on the site of whoever issued it (the journal, court, legislature, agency or company), or that issuer's page about it.", event: "The event's own page, or its organizer's or venue's page for it.", place: "The place's own site (or its page on its operator's site, e.g. a park on its park service's site).", "public figure": "Their own official site." }[kind] || "Its own official site.")} Its own store counts. Not news coverage, encyclopedias, marketplaces, retailers or social profiles.
 Return {"url":"","sure":true}. Use a URL exactly as it appeared in the search results. If you can't find its own site, return {"url":"","sure":false}.` }],
       tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }],
     }),
@@ -467,6 +479,7 @@ Return {"url":"","sure":true}. Use a URL exactly as it appeared in the search re
   const why = (r) => { note(r); return { url: null, reason: r }; };
   const excluded = (h) => exclude.some((e) => e && (h === e || h.endsWith("." + e)));
   let url = String(out.url || "").trim();
+  if (url && !/^https?:\/\//i.test(url) && /^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(url)) url = "https://" + url; // "bonappetit.com"
   if (!url) return why(`no site found (${found.size} search results)`);
   let host;
   try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { return why(`bad url ${url}`); }
