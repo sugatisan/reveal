@@ -18,7 +18,7 @@ export function subMatch(item, subs) {
 export function affinity(sourceId) {
   const s = stat(sourceId);
   // Opens and saves pull a source up; "less like this" pushes it down. Smoothed so new sources start neutral.
-  const raw = (s.expand * 1 + s.open * 1.5 + s.save * 3 - s.less * 3 + 2) / (s.shown * 0.15 + 4);
+  const raw = (s.expand * 1 + s.open * 1.5 + s.save * 3 + (s.like || 0) * 3 - s.less * 3 + 2) / (s.shown * 0.15 + 4);
   return Math.max(0.35, Math.min(1.8, raw));
 }
 
@@ -44,7 +44,12 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     let sub = null, subInt = null;
     for (const i of ints) { const m = subMatch(it, i.subs || []); if (m) { sub = m; subInt = i; break; } }
     const coverage = (it.also || []).length;
-    const engaged = ev.expand || ev.open || ev.save;
+    // Learned from your likes: weight, never a filter. Older ones fade over about a month.
+    let learned = 0;
+    for (const i of ints) for (const l of i.learned || []) {
+      if (subMatch(it, [l.term])) learned = Math.max(learned, 0.35 * Math.max(0.3, 1 - (now - l.at) / (30 * 864e5)));
+    }
+    const engaged = ev.expand || ev.open || ev.save || ev.like;
     // Opened: half weight. Scrolled past on several visits without opening: it sinks, so each visit's
     // top of the feed is mostly new to you. (Counted once per visit.)
     const skipped = engaged ? 0 : ev.shown || 0;
@@ -54,7 +59,7 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     let fit = 2;
     if (ints.every(scoped)) { fit = -1; for (const i of ints) { const f = fitOf(i, it.id); fit = Math.max(fit, f === undefined ? 1 : f); } }
     const scopeW = interestId ? 1 : fit === 0 ? 0.55 : fit === 1 ? 0.85 : 1; // in All, off-scope only ranks lower
-    const score = (recency * 1.0 + (sub ? 0.45 : 0) + coverage * 0.18 + (it.image ? 0.08 : 0)) * aff * seenPenalty * tuned * scopeW;
+    const score = (recency * 1.0 + (sub ? 0.45 : 0) + learned + coverage * 0.18 + (it.image ? 0.08 : 0)) * aff * seenPenalty * tuned * scopeW;
 
     // The line above the title says which interest a story belongs to (and the focus it matched),
     // not why the ranking put it here. Inside an interest, only a matched focus is worth saying.
@@ -62,7 +67,7 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     const why = interestId ? (sub || "") : sub ? `${primary.label} · ${sub}` : primary.label;
 
     const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, ...pub } = it; // server-only
-    scored.push({ ...pub, fit, opened: !!(ev.open || ev.expand), imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save });
+    scored.push({ ...pub, fit, opened: !!(ev.open || ev.expand), imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save, liked: !!ev.like });
   }
   // One source on its own reads like that site: newest first, nothing reordered.
   if (sourceId) {
@@ -155,7 +160,8 @@ export function buildMore({ interestId, exclude = [], limit = 12 } = {}) {
     const ageH = (now - it.date) / 36e5;
     if (ageH > 24 * 7) continue;
     const sub = subMatch(it, i.subs || []);
-    const score = Math.exp(-ageH / 48) + (sub ? 0.4 : 0) + (it.image ? 0.15 : 0);
+    const lik = subMatch(it, (i.learned || []).map((l) => l.term));
+    const score = Math.exp(-ageH / 48) + (sub ? 0.4 : 0) + (lik ? 0.35 : 0) + (it.image ? 0.15 : 0);
     pool.push({ it, i, sub, score });
   }
   pool.sort((a, b) => b.score - a.score);
@@ -180,7 +186,7 @@ export function buildMore({ interestId, exclude = [], limit = 12 } = {}) {
     const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, linkCands, subjectLinks, ...pub } = it;
     const src = d.sources[it.sourceId] || {};
     return { ...pub, type: "item", why: sub ? `${i.label} · ${sub}` : i.label, sourceName: src.name, imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length,
-      interestIds: [i.id], saved: !!d.events[it.id]?.save, beyond: { kind: web ? "web" : "source", sourceId: it.sourceId, sourceName: web ? src.name || String(it.sourceId).replace(/^web:/, "") : src.name, interestId: i.id, interestLabel: i.label } };
+      interestIds: [i.id], saved: !!d.events[it.id]?.save, liked: !!d.events[it.id]?.like, beyond: { kind: web ? "web" : "source", sourceId: it.sourceId, sourceName: web ? src.name || String(it.sourceId).replace(/^web:/, "") : src.name, interestId: i.id, interestLabel: i.label } };
   });
 }
 

@@ -29,7 +29,7 @@ export async function api<T = any>(path: string, data?: unknown): Promise<T> {
 
 // ---------- types (mirror the server's responses) ----------
 export type SourceView = { id: string; name: string; site: string; newCount?: number; why?: string; about?: string; status?: string; error?: string; perWeek?: number; cadence?: string; followed?: boolean; interestId?: string; interestLabel?: string };
-export type Interest = { id: string; label: string; longLabel?: string; origin: string; strict?: boolean; scope?: string; scopeShort?: string; scopeMode?: "first" | "only" | "all"; scopeStats?: { checked: number; matched: number } | null; createdAt: number; lastViewedAt: number; newCount: number; subs: string[]; subSuggestions: string[]; clarify: { question: string; options: string[] } | null; merged: string[]; sources: SourceView[]; suggested: SourceView[] };
+export type Interest = { id: string; label: string; longLabel?: string; origin: string; strict?: boolean; scope?: string; scopeShort?: string; scopeMode?: "first" | "only" | "all"; scopeStats?: { checked: number; matched: number } | null; createdAt: number; lastViewedAt: number; newCount: number; subs: string[]; learned?: { term: string; fresh: boolean; title: string; n: number }[]; subSuggestions: string[]; clarify: { question: string; options: string[] } | null; merged: string[]; sources: SourceView[]; suggested: SourceView[] };
 export type TuningRule = { id: string; kind: "source" | "topic" | "interest" | "format" | "exclude"; value: string; label: string; at: number; interestIds?: string[]; hidden?: number };
 export const NEEDS_API_VERSION = 6;
 export type StoryBrief = { gist: string; facts: { label: string; value: string }[]; questions: string[]; from: "article" | "excerpt" };
@@ -38,7 +38,7 @@ export type Usage = { days: number; priced: boolean; rows: UsageRow[]; total: { 
 export type ConceptGroup = { kind: "names" | "terms" | "nearby"; title: string; items: { term: string; why: string }[] };
 export type Overlap = { kind: "narrower"; interestId: string; label: string; focus: string; guessed?: boolean } | { kind: "covered"; interestId: string; label: string };
 export type AppState = { apiVersion?: number; hasKey: boolean; profile?: { name: string; photo: string | null }; tuning: TuningRule[]; interests: Interest[]; topics: { id: string; label: string }[]; lastRefresh: number; refreshing: boolean; itemCount: number; savedCount: number };
-export type FeedItem = { type: "item"; id: string; sourceId: string; title: string; link: string; date: number; excerpt?: string; image?: string; imageLarge?: string; brief?: StoryBrief | null; kind?: "audio" | "video"; duration?: number; mediaUrl?: string; opened?: boolean; imageCount?: number; why: string; sourceName: string; alsoNames: string[]; saved: boolean; interestIds: string[]; beyond?: { kind?: "source" | "web"; sourceId: string; sourceName: string; interestId: string; interestLabel: string } };
+export type FeedItem = { type: "item"; id: string; sourceId: string; title: string; link: string; date: number; excerpt?: string; image?: string; imageLarge?: string; brief?: StoryBrief | null; kind?: "audio" | "video"; duration?: number; mediaUrl?: string; opened?: boolean; imageCount?: number; why: string; sourceName: string; alsoNames: string[]; saved: boolean; liked?: boolean; interestIds: string[]; beyond?: { kind?: "source" | "web"; sourceId: string; sourceName: string; interestId: string; interestLabel: string } };
 export type CuratorCard =
   | { type: "curator"; kind: "sources"; id: string; interestId: string; title: string; sources: { id: string; name: string; site: string; about: string; interestId: string }[] }
   | { type: "curator"; kind: "deeper"; id: string; itemId: string; title: string; prompt: string; kicker?: string; headline?: string; question?: string; image?: string | null; sourceName?: string; interestId?: string; interestLabel?: string; likes?: string[] }
@@ -87,3 +87,15 @@ export type SitePreview = { name: string; site: string; kind: "podcast" | "video
 export type Draft = { label: string; name?: string; qualified: boolean; subject: string; short: string; scope: string; likes: { term: string; why: string }[]; home: string };
 export type Proposal = { name: string; site: string; feed: string | null; why: string; fit: "dedicated" | "broad" };
 export type ProposalCheck = { ok: boolean; url?: string; name?: string; kind?: "podcast" | "video" | "site"; cadence?: string; titles?: { title: string; excerpt: string }[] };
+
+// A like teaches the story's interest 1-3 ingredients; returns what it learned (fresh = a new direction).
+export type LikeResult = { learned: { term: string; fresh: boolean }[]; interestId?: string; interestLabel?: string; state?: AppState };
+export const likeStory = (itemId: string, like: boolean, interestId?: string) => api<LikeResult>("/api/like", { itemId, like, interestId });
+export function likeToast(r: LikeResult) {
+  const where = r.interestLabel ? ` in ${r.interestLabel}` : "";
+  const fresh = r.learned.filter((l) => l.fresh).map((l) => l.term);
+  const fits = r.learned.filter((l) => !l.fresh).map((l) => l.term);
+  if (fresh.length) return `New${where}: ${fresh.join(", ")}`;
+  if (fits.length) return `More ${fits.join(" and ")}${where}`;
+  return `Noted. More like this${where}`;
+}

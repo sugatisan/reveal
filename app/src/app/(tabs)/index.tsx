@@ -7,7 +7,7 @@ import { useTabBarSpace } from "@/components/TabBar";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { MenuButton, Pill, usePillStyle } from "@/components/FeedPills";
 import { rgba, useBackdrop } from "@/lib/backdrop";
-import { api, Feed, FeedEntry, FeedItem, Lens, NEEDS_API_VERSION, sendEvents } from "@/lib/api";
+import { api, Feed, FeedEntry, FeedItem, Lens, likeStory, likeToast, NEEDS_API_VERSION, sendEvents } from "@/lib/api";
 import { chooseLens, reloadState, useAppState, useFeedVersion, useLens } from "@/lib/store";
 import { space, useTheme } from "@/lib/theme";
 import { Empty, ErrorLine, useToast } from "@/components/ui";
@@ -192,6 +192,17 @@ export default function FeedScreen() {
   };
   const patch = (id: string, fn: (x: FeedItem) => FeedItem | null) =>
     setFeed((f) => f && { ...f, entries: f.entries.flatMap((e) => (e.type === "item" && e.id === id ? (fn(e) ? [fn(e) as FeedItem] : []) : [e])) });
+  // More of this: the story's interest learns from it; the toast says what, with Undo.
+  const like = async (it: FeedItem) => {
+    const on = !it.liked;
+    const set = (v: boolean) => { patch(it.id, (x) => ({ ...x, liked: v })); setMore((m) => Object.fromEntries(Object.entries(m).map(([k, v2]) => [k, { ...v2, items: v2.items.map((x) => (x.id === it.id ? { ...x, liked: v } : x)) }]))); };
+    set(on);
+    try {
+      const r = await likeStory(it.id, on, it.beyond?.interestId || (lens?.kind === "interest" ? lens.id : it.interestIds?.[0]));
+      reloadState();
+      if (on) toast.show(likeToast(r), async () => { set(false); await likeStory(it.id, false, r.interestId).catch(() => {}); reloadState(); });
+    } catch (e: any) { set(!on); toast.show(e.message); }
+  };
   const save = async (it: FeedItem) => {
     patch(it.id, (x) => ({ ...x, saved: !x.saved }));
     await sendEvents([{ itemId: it.id, type: "save" }]).catch(() => patch(it.id, (x) => ({ ...x, saved: it.saved })));
@@ -418,7 +429,7 @@ export default function FeedScreen() {
     if (r.type === "curator") return <CuratorCardView card={r} onFollow={follow} onAsk={ask} onDismiss={() => dismissCard(r.id)} />;
     const card = (it: FeedItem, inGrid = false) => {
       const c = (
-        <ItemCard key={it.id} inGrid={inGrid} item={it} onSave={() => save(it)} onLess={() => setLessFor(it.id)}
+        <ItemCard key={it.id} inGrid={inGrid} item={it} onSave={() => save(it)} onLess={() => setLessFor(it.id)} onMore={() => like(it)}
           onOpen={() => { sendEvents([{ itemId: it.id, type: "expand" }]).catch(() => {}); router.push({ pathname: "/item/[id]", params: { id: it.id } }); }} />
       );
       if (!it.beyond) return c;
@@ -459,7 +470,7 @@ export default function FeedScreen() {
     if (full) return (
       <View style={{ width: pageW, height: pageH }}>
         <FullFeed entries={f?.entries || []} loaded={!!f} listKey={key} height={pageH} topSpace={headerH || insets.top + 50} bottomSpace={tabSpace}
-          onSave={save} onLess={setLessFor} onViewable={viewFor(key)} refreshing={here && refreshing} onRefresh={pull}
+          onSave={save} onLess={setLessFor} onMore={like} onViewable={viewFor(key)} refreshing={here && refreshing} onRefresh={pull}
           curator={{ follow, ask, dismiss: dismissCard }} />
         {!f || (here && errorText) ? (
           <View style={{ position: "absolute", top: (headerH || insets.top + 50) + space.m, left: 0, right: 0 }}>

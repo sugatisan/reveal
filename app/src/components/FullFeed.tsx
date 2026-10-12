@@ -14,6 +14,7 @@ import { useDesign } from "@/design/store";
 import { StorySheet } from "./StorySheet";
 import { BestImage } from "./BestImage";
 import { prefetchStory } from "./StoryDetails";
+import { TunePill } from "@/components/TunePill";
 
 // A soft fade, built from bands (no gradient dependency). Studio: Feed cards › Full screen shade.
 function Fade({ from, height, max, curve = 1.6, color = "#000000", blend = "normal" }: { from: "top" | "bottom"; height: number; max: number; curve?: number; color?: string; blend?: string }) {
@@ -31,9 +32,9 @@ function Fade({ from, height, max, curve = 1.6, color = "#000000", blend = "norm
   );
 }
 
-export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpace, onSave, onLess, onViewable, refreshing, onRefresh, curator }: {
+export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpace, onSave, onLess, onMore, onViewable, refreshing, onRefresh, curator }: {
   entries: FeedEntry[]; loaded: boolean; listKey: string; height: number; topSpace: number; bottomSpace: number;
-  onSave: (it: FeedItem) => void; onLess: (id: string) => void;
+  onSave: (it: FeedItem) => void; onLess: (id: string) => void; onMore?: (it: FeedItem) => void;
   onViewable: (info: { viewableItems: ViewToken[] }) => void;
   refreshing: boolean; onRefresh: () => void;
   curator: { follow: (s: string, i: string) => Promise<void>; ask: (p: string, id?: string) => void; dismiss: (id: string) => void };
@@ -87,9 +88,8 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
             <Pressable onPress={() => onSave(it)} hitSlop={8} accessibilityLabel={it.saved ? "Unsave" : "Save"} style={[st.round, { backgroundColor: img ? "rgba(0,0,0,0.35)" : t.chip }]}>
               <Ionicons name={it.saved ? "bookmark" : "bookmark-outline"} size={22} color={it.saved ? "#F5C542" : ink} />
             </Pressable>
-            <Pressable onPress={() => onLess(it.id)} hitSlop={8} accessibilityLabel="Show me less of…" style={[st.round, { backgroundColor: img ? "rgba(0,0,0,0.35)" : t.chip }]}>
-              <Ionicons name="eye-off-outline" size={21} color={ink} />
-            </Pressable>
+            <TunePill vertical size="l" liked={it.liked} onMore={() => onMore?.(it)} onLess={() => onLess(it.id)} ink={ink}
+              fill={img ? "rgba(0,0,0,0.35)" : t.chip} line={img ? "rgba(255,255,255,0.18)" : t.line} />
           </View>
         <View style={[st.bottom, { paddingBottom: bottomSpace + space.m }]}>
           <View style={{ flex: 1, gap: space.s }}>

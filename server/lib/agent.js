@@ -366,6 +366,38 @@ Which of these link to the thing this story is about?`;
   return picked.slice(0, 3);
 }
 
+// What a liked story says about taste: 1-3 specific ingredients (subject, angle or format), each marked
+// whether it fits the interest as it stands or is a new direction for it.
+const LIKE_SCHEMA = {
+  type: "object",
+  properties: {
+    ingredients: {
+      type: "array", maxItems: 3,
+      description: "What about this story the reader likely liked, as terms that would also appear in other headlines: the specific subject (a technique, maker, style, era, place), the angle (how it's made, history, restoration) or the format (long-form essay, video tour). 1-3 words each. Specific, never generic (not 'design', 'news', 'cars'). Skip anything already in the interest's terms.",
+      items: { type: "object", properties: { term: { type: "string" }, fits: { type: "boolean", description: "True if it sits inside the interest as named and scoped; false if it's a new direction for it." } }, required: ["term", "fits"] },
+    },
+  },
+  required: ["ingredients"],
+};
+export async function likeIngredients(item, gist, interest) {
+  if (!hasKey()) return [];
+  const known = [...(interest.subs || []), ...(interest.learned || []).map((l) => l.term)];
+  const prompt = `Interest: ${interest.longLabel || interest.label}${interest.scope ? ` (${interest.scope})` : ""}
+Its terms so far: ${known.join(", ") || "(none)"}
+
+The reader liked this story:
+Title: ${item.title}
+${gist ? `Gist: ${gist}` : item.excerpt ? `Excerpt: ${String(item.excerpt).slice(0, 400)}` : ""}
+
+What should the feed bring more of?`;
+  const out = await claudeForm({ system: "You learn a reader's taste for a discovery feed.", prompt, schema: LIKE_SCHEMA, model: FAST(), maxTokens: 250, purpose: "like-learn" });
+  const have = new Set(known.map((k) => k.toLowerCase()));
+  return (Array.isArray(out.ingredients) ? out.ingredients : [])
+    .map((x) => ({ term: String(x?.term || "").trim(), fits: x?.fits !== false }))
+    .filter((x) => x.term && x.term.length <= 32 && !have.has(x.term.toLowerCase()))
+    .slice(0, 3);
+}
+
 // ---------- Interest composer ----------
 // Quick read while the person types: what they mean, whether it's narrower than its subject,
 // things they might like, and whether it belongs inside an interest they already have. Fast model.

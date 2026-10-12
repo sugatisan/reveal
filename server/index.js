@@ -161,7 +161,7 @@ function interestView(i, counts = newCounts()) {
     id: i.id, label: i.label, longLabel: i.longLabel || "", origin: i.origin, strict: !!i.strict,
     scope: i.scope || "", scopeShort: i.scopeShort || "", scopeMode: i.scopeMode || "first",
     scopeStats: i.scope && i.fit ? { checked: Object.keys(i.fit.m).length, matched: Object.values(i.fit.m).filter((v) => v === 2).length } : null, createdAt: i.createdAt || 0, lastViewedAt: i.lastViewedAt || 0,
-    newCount: i.sourceIds.reduce((n, s) => n + (counts.get(s) || 0), 0), subs: i.subs, subSuggestions: (i.subSuggestions || []).filter((x) => !i.subs.includes(x)), clarify: i.clarify, merged: i.merged,
+    newCount: i.sourceIds.reduce((n, s) => n + (counts.get(s) || 0), 0), subs: i.subs, learned: (i.learned || []).map((l) => ({ term: l.term, fresh: !!l.fresh, title: l.title || "", n: l.n || 1 })), subSuggestions: (i.subSuggestions || []).filter((x) => !i.subs.includes(x)), clarify: i.clarify, merged: i.merged,
     sources: i.sourceIds.map((id) => sourceView(id, true)).filter(Boolean).map((s) => ({ ...s, newCount: counts.get(s.id) || 0 })),
     suggested: i.suggestedIds.filter((id) => !i.sourceIds.includes(id)).map((id) => sourceView(id, false)).filter(Boolean),
   };
@@ -368,7 +368,7 @@ async function itemDetail(id) {
   const deeper = ints.flatMap((i) => i.suggestedIds.filter((s) => !i.sourceIds.includes(s)).map((s) => ({ ...sourceView(s, false), interestId: i.id }))).filter((s) => s.id).slice(0, 4);
   return {
     ...it, sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s),
-    interests: ints.map((i) => ({ id: i.id, label: i.label })), related, deeper, saved: !!d.events[id]?.save, gallery: gallery.slice(0, 12),
+    interests: ints.map((i) => ({ id: i.id, label: i.label })), related, deeper, saved: !!d.events[id]?.save, liked: !!d.events[id]?.like, gallery: gallery.slice(0, 12),
     brief: briefReady(it) ? it.brief : null, forYou: forYou(it, ints), feedText: undefined, shops: shop.withAffiliate(it.shopLinks || []), links: it.subjectLinks,
   };
 }
@@ -428,7 +428,9 @@ async function webDiscovery({ interestId, onDemand = false } = {}) {
   if (!i) return 0;
   webRunning = true; webRunningFor = i.id; b.runs++; b.lastAny = Date.now(); b.last[i.id] = Date.now(); save();
   try {
-    const subs = [...(i.subs || [])].sort(() => Math.random() - 0.5).slice(0, 2);
+    // Lean on what you've liked lately, then your focus words.
+    const liked = (i.learned || []).slice(0, 4).map((l) => l.term).sort(() => Math.random() - 0.5);
+    const subs = [...liked.slice(0, 1), ...[...(i.subs || [])].sort(() => Math.random() - 0.5)].slice(0, 2);
     const topic = i.longLabel || i.label;
     const followedNames = i.sourceIds.map((s) => d.sources[s]?.name).filter(Boolean).slice(0, 8);
     const query = `${topic}${subs.length ? " " + subs.join(" ") : ""}`;
@@ -458,6 +460,32 @@ async function webDiscovery({ interestId, onDemand = false } = {}) {
   } finally { webRunning = false; webRunningFor = null; }
 }
 
+// A like: the story's interest learns 1-3 ingredients from it (subject, angle, format). Ones outside the
+// interest are kept too, marked as a new direction. Unliking removes what that story taught.
+async function likeStory(itemId, interestId, like) {
+  const d = load();
+  const it = d.items[itemId];
+  if (!it) throw new Error("Story not found");
+  const e = (d.events[itemId] ||= {});
+  if (!!e.like !== !!like) recordEvent(itemId, "like");
+  const i = d.interests.find((x) => x.id === interestId) || (it.webFor && d.interests.find((x) => x.id === it.webFor)) || curator.homeOf(it, d);
+  if (!i) { save(); return { learned: [] }; }
+  i.learned ||= [];
+  if (!like) { i.learned = i.learned.filter((l) => l.from !== itemId); save(); return { learned: [], interestId: i.id, interestLabel: i.label }; }
+  let found = [];
+  try { found = await agent.likeIngredients(it, it.brief?.gist || "", i); } catch {}
+  const have = new Set(i.learned.map((l) => l.term.toLowerCase()));
+  const added = [];
+  for (const f of found) {
+    if (have.has(f.term.toLowerCase())) { const l = i.learned.find((x) => x.term.toLowerCase() === f.term.toLowerCase()); l.at = Date.now(); l.n = (l.n || 1) + 1; continue; }
+    const l = { term: f.term, fresh: !f.fits, from: itemId, title: it.title.slice(0, 100), at: Date.now(), n: 1 };
+    i.learned.push(l); added.push(l);
+  }
+  i.learned = i.learned.sort((a, b) => b.at - a.at).slice(0, 24);
+  save();
+  return { learned: added.map((l) => ({ term: l.term, fresh: l.fresh })), interestId: i.id, interestLabel: i.label };
+}
+
 function recordEvent(itemId, type) {
   const d = load();
   const it = d.items[itemId];
@@ -466,6 +494,7 @@ function recordEvent(itemId, type) {
   const s = stat(it.sourceId);
   if (type === "save") { e.save = !e.save; e.savedAt = e.save ? Date.now() : undefined; s.save += e.save ? 1 : -1; }
   else if (type === "less") { e.less = !e.less; s.less += e.less ? 1 : -1; }
+  else if (type === "like") { e.like = !e.like; s.like = (s.like || 0) + (e.like ? 1 : -1); }
   else if (type === "buy") { e.buy = (e.buy || 0) + 1; (load().meta.buyClicks ||= 0); load().meta.buyClicks++; }
   else if (["shown", "expand", "open"].includes(type)) { if (!e[type]) s[type]++; e[type] = (e[type] || 0) + 1; }
 }
@@ -822,6 +851,15 @@ const routes = {
   "POST /api/item/links": async (req) => { const { id } = await body(req); const links = await subjectLinks(id); return { links, shops: shop.withAffiliate(load().items[id]?.shopLinks || []) }; },
   "GET /api/usage": async (req, url) => usage.summary(Number(url.searchParams.get("days")) || 7),
 
+  "POST /api/like": async (req) => { const { itemId, interestId, like } = await body(req); return { ...(await likeStory(itemId, interestId, !!like)), state: state() }; },
+  "POST /api/interests/learned/remove": async (req) => {
+    const { id, term } = await body(req);
+    const i = load().interests.find((x) => x.id === id);
+    if (!i) throw new Error("Interest not found");
+    i.learned = (i.learned || []).filter((l) => l.term !== term);
+    save();
+    return state();
+  },
   "POST /api/events": async (req) => {
     const { events = [] } = await body(req);
     for (const e of events) recordEvent(e.itemId, e.type);

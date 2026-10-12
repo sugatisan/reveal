@@ -9,12 +9,13 @@ import { radius, serif, space, useTheme } from "@/lib/theme";
 import { Chip, SourceRow } from "./ui";
 import { useDesign } from "@/design/store";
 import { addLike } from "@/lib/store";
+import { TunePill } from "@/components/TunePill";
 
 const RATIO: Record<string, number> = { "16:9": 16 / 9, "3:2": 3 / 2, "4:3": 4 / 3, "1:1": 1 };
 
 // The feed card. Its look comes from the design settings (tune them at localhost:8081/?studio).
 // `inGrid`: rendered as one of two columns (the feed passes it when the 2-column grid is on).
-export function ItemCard({ item, onOpen, onSave, onLess, inGrid = false }: { item: FeedItem; onOpen: () => void; onSave: () => void; onLess: () => void; inGrid?: boolean }) {
+export function ItemCard({ item, onOpen, onSave, onLess, onMore, inGrid = false }: { item: FeedItem; onOpen: () => void; onSave: () => void; onLess: () => void; onMore?: () => void; inGrid?: boolean }) {
   const t = useTheme();
   const d = useDesign();
   const [imgFailed, setImgFailed] = useState(false);
@@ -42,9 +43,8 @@ export function ItemCard({ item, onOpen, onSave, onLess, inGrid = false }: { ite
   const footer = (
     <View style={[st.footer, inGrid ? { gap: space.m } : null]}>
       <Text style={{ color: t.muted, fontSize: inGrid ? 12 : 13, flex: 1 }} numberOfLines={1}>{meta}</Text>
-      <Pressable hitSlop={10} onPress={onLess} accessibilityLabel="Less like this" style={st.icon}>
-        <Ionicons name="eye-off-outline" size={19} color={t.faint} />
-      </Pressable>
+      {/* More / less of this: one pill, neither side chosen until you tap. */}
+      <TunePill size="s" liked={item.liked} onMore={onMore || (() => {})} onLess={onLess} ink={t.muted} />
       <Pressable hitSlop={10} onPress={onSave} accessibilityLabel={item.saved ? "Unsave" : "Save"} style={st.icon}>
         <Ionicons name={item.saved ? "bookmark" : "bookmark-outline"} size={20} color={item.saved ? t.accent : t.muted} />
       </Pressable>

@@ -109,6 +109,12 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    id: "card-tune", panel: "Feed cards", title: "More / less control", hint: "The two-sided pill on every card and story: more of this on one side, less on the other.",
+    controls: [
+      choice("tune.icons", "Icons", "arrows", [["arrows", "Up / down arrows"], ["light", "Brighter / dimmer"]]),
+    ],
+  },
+  {
     id: "card-layout", panel: "Feed cards", title: "Layout", hint: "The overall shape of each story in the feed.",
     controls: [
       choice("card.layout", "Layout", "hero", [["hero", "Big image"], ["compact", "Thumbnail"], ["text", "Text only"], ["full", "Full screen"]], "Full screen: one story per screen, swiped vertically, with a Details sheet."),

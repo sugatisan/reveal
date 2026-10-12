@@ -206,6 +206,23 @@ export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: st
           ) : null}
         </Section>
 
+        {/* What your "more of this" taps taught this interest. Weight only; remove anything that's wrong. */}
+        {i.learned?.length ? (
+          <Section title="Learned" hint="From stories you marked more of this. They add weight, from any source and in More you might like; they never hide anything.">
+            <View style={st.chips}>
+              {i.learned.filter((l) => !l.fresh).map((l) => <Chip key={l.term} label={l.term} active icon="close" onPress={() => run("learned", () => api("/api/interests/learned/remove", { id: i.id, term: l.term }))} />)}
+            </View>
+            {i.learned.some((l) => l.fresh) ? (
+              <>
+                <Text style={[st.label, { color: t.muted, marginTop: space.m }]}>NEW DIRECTIONS</Text>
+                <View style={st.chips}>
+                  {i.learned.filter((l) => l.fresh).map((l) => <Chip key={l.term} label={l.term} tone="curator" icon="close" onPress={() => run("learned", () => api("/api/interests/learned/remove", { id: i.id, term: l.term }))} />)}
+                </View>
+              </>
+            ) : null}
+          </Section>
+        ) : null}
+
         <Section title="Enrich" hint="Where its stories come from.">
           <Text style={[st.label, { color: t.muted }]}>FOLLOWING</Text>
           {i.sources.length ? i.sources.map((s) => (

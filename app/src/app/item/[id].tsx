@@ -15,6 +15,8 @@ import { rgba } from "@/lib/backdrop";
 import { openOriginal, readLabel, StoryBody, useStoryDetail } from "@/components/StoryDetails";
 import { useDesign } from "@/design/store";
 import { openCurator } from "@/lib/curatorSheet";
+import { TunePill } from "@/components/TunePill";
+import { likeStory, likeToast } from "@/lib/api";
 
 
 export default function ItemScreen() {
@@ -40,7 +42,18 @@ export default function ItemScreen() {
   const imgH = images.length ? (width * 3) / 4 : insets.top + 60;
   const barOpacity = scrollY.interpolate({ inputRange: [Math.max(0, imgH - barH - 60), Math.max(1, imgH - barH)], outputRange: [0, 1], extrapolate: "clamp" });
 
-  const moreLike = () => it && openCurator({ prompt: "More like this", itemId: it.id, title: it.title });
+  // Explore similar (the compass) asks the curator now; more / less of this (the pill) tunes the feed from here on.
+  const moreLike = () => it && openCurator({ prompt: "Explore similar stories", itemId: it.id, title: it.title });
+  const like = async () => {
+    if (!it) return;
+    const on = !it.liked;
+    setIt({ ...it, liked: on });
+    try {
+      const r = await likeStory(it.id, on, it.interests?.[0]?.id);
+      reloadState(); bumpFeed();
+      if (on) toast.show(likeToast(r), async () => { setIt((x: any) => x && { ...x, liked: false }); await likeStory(it.id, false, r.interestId).catch(() => {}); reloadState(); bumpFeed(); });
+    } catch (e: any) { setIt({ ...it, liked: !on }); toast.show(e.message); }
+  };
 
   // Read at the publisher, more like this, hide, save: one row, placed right under the description.
   const actions = it ? (
@@ -51,12 +64,9 @@ export default function ItemScreen() {
       </Pressable>
       <View style={{ flex: 1 }} />
       <View style={{ flexDirection: "row", gap: space.s }}>
-        {/* More like this: the opposite of the eye next to it. */}
-        <Pressable onPress={moreLike} hitSlop={4} accessibilityLabel="More like this" style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
+        <TunePill size="l" liked={it.liked} onMore={like} onLess={() => setLessOpen(true)} ink={t.ink} fill={t.chip} />
+        <Pressable onPress={moreLike} hitSlop={4} accessibilityLabel="Explore similar" style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
           <Ionicons name="compass-outline" size={21} color={t.ink} />
-        </Pressable>
-        <Pressable onPress={() => setLessOpen(true)} hitSlop={4} accessibilityLabel="Show me less of…" style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
-          <Ionicons name="eye-off-outline" size={20} color={t.ink} />
         </Pressable>
         <Pressable onPress={save} hitSlop={4} accessibilityLabel={it.saved ? "Unsave" : "Save"} style={({ pressed }) => [st.action, { backgroundColor: pressed ? t.line : t.chip }]}>
           <Ionicons name={it.saved ? "bookmark" : "bookmark-outline"} size={20} color={it.saved ? t.accent : t.ink} />
