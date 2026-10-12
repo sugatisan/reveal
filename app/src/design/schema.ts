@@ -115,6 +115,12 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    id: "card-video", panel: "Feed cards", title: "Video", hint: "YouTube videos (and trailers embedded in articles) play muted in the card that's on screen, one at a time.",
+    controls: [
+      { key: "video.autoplay", label: "Autoplay in the feed", type: "toggle", default: true },
+    ],
+  },
+  {
     id: "card-layout", panel: "Feed cards", title: "Layout", hint: "The overall shape of each story in the feed.",
     controls: [
       choice("card.layout", "Layout", "hero", [["hero", "Big image"], ["compact", "Thumbnail"], ["text", "Text only"], ["full", "Full screen"]], "Full screen: one story per screen, swiped vertically, with a Details sheet."),

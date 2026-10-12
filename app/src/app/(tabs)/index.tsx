@@ -144,10 +144,14 @@ export default function FeedScreen() {
     }, 4000);
     return () => clearInterval(id);
   }, []);
+  // The video that plays: the first card on screen (60% visible) that has one, on the page on screen.
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const viewers = useRef(new Map<string, (info: { viewableItems: ViewToken[] }) => void>());
   const viewFor = (key: string) => {
     if (!viewers.current.has(key)) viewers.current.set(key, ({ viewableItems }) => {
       if (key !== activeKey.current) return;
+      const firstVideo = viewableItems.map((v) => v.item as Row).flatMap((r) => (r.type === "item" ? [r] : [])).find((r) => r.video);
+      setPlayingId(firstVideo ? firstVideo.id : null);
       for (const v of viewableItems) {
         const e = v.item as Row;
         const ids = e.type === "item" ? [e.id] : e.type === "pair" ? e.items.map((x) => x.id) : [];
@@ -429,7 +433,7 @@ export default function FeedScreen() {
     if (r.type === "curator") return <CuratorCardView card={r} onFollow={follow} onAsk={ask} onDismiss={() => dismissCard(r.id)} />;
     const card = (it: FeedItem, inGrid = false) => {
       const c = (
-        <ItemCard key={it.id} inGrid={inGrid} item={it} onSave={() => save(it)} onLess={() => setLessFor(it.id)} onMore={() => like(it)}
+        <ItemCard key={it.id} inGrid={inGrid} item={it} playing={design["video.autoplay"] !== false && playingId === it.id && pageKey === activeKey.current} onSave={() => save(it)} onLess={() => setLessFor(it.id)} onMore={() => like(it)}
           onOpen={() => { sendEvents([{ itemId: it.id, type: "expand" }]).catch(() => {}); router.push({ pathname: "/item/[id]", params: { id: it.id } }); }} />
       );
       if (!it.beyond) return c;
@@ -470,7 +474,7 @@ export default function FeedScreen() {
     if (full) return (
       <View style={{ width: pageW, height: pageH }}>
         <FullFeed entries={f?.entries || []} loaded={!!f} listKey={key} height={pageH} topSpace={headerH || insets.top + 50} bottomSpace={tabSpace}
-          onSave={save} onLess={setLessFor} onMore={like} onViewable={viewFor(key)} refreshing={here && refreshing} onRefresh={pull}
+          onSave={save} onLess={setLessFor} onMore={like} playingId={here && design["video.autoplay"] !== false ? playingId : null} onViewable={viewFor(key)} refreshing={here && refreshing} onRefresh={pull}
           curator={{ follow, ask, dismiss: dismissCard }} />
         {!f || (here && errorText) ? (
           <View style={{ position: "absolute", top: (headerH || insets.top + 50) + space.m, left: 0, right: 0 }}>
@@ -486,7 +490,7 @@ export default function FeedScreen() {
         data={rowsFor(f, more[key], !!f && f.entries.length > 0 && l?.kind !== "source")}
         onEndReached={() => { if (f && l?.kind !== "source" && !(l?.kind === "interest" && state?.interests.find((x) => x.id === l.id)?.strict)) loadMore(l); }}
         onEndReachedThreshold={1.5}
-        extraData={[more[key], following, design]}
+        extraData={[more[key], following, design, playingId]}
         keyExtractor={(r) => (r.type === "curator" ? "c-" + r.id : r.id)}
         onViewableItemsChanged={viewFor(key)}
         onScroll={onPageScroll(key)}
@@ -529,7 +533,7 @@ export default function FeedScreen() {
             windowSize={3}
             initialNumToRender={3}
             maxToRenderPerBatch={3}
-            extraData={[feeds, more, following, pagerIdx, pagerH, curKey, headerH, barH, refreshing, design, errorText, pageH]}
+            extraData={[feeds, more, following, playingId, pagerIdx, pagerH, curKey, headerH, barH, refreshing, design, errorText, pageH]}
             onScroll={onPagerScroll}
             onMomentumScrollEnd={commit}
             scrollEventThrottle={16}

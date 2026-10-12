@@ -10,12 +10,13 @@ import { Chip, SourceRow } from "./ui";
 import { useDesign } from "@/design/store";
 import { addLike } from "@/lib/store";
 import { TunePill } from "@/components/TunePill";
+import { InlineVideo } from "@/components/InlineVideo";
 
 const RATIO: Record<string, number> = { "16:9": 16 / 9, "3:2": 3 / 2, "4:3": 4 / 3, "1:1": 1 };
 
 // The feed card. Its look comes from the design settings (tune them at localhost:8081/?studio).
 // `inGrid`: rendered as one of two columns (the feed passes it when the 2-column grid is on).
-export function ItemCard({ item, onOpen, onSave, onLess, onMore, inGrid = false }: { item: FeedItem; onOpen: () => void; onSave: () => void; onLess: () => void; onMore?: () => void; inGrid?: boolean }) {
+export function ItemCard({ item, onOpen, onSave, onLess, onMore, inGrid = false, playing = false }: { item: FeedItem; onOpen: () => void; onSave: () => void; onLess: () => void; onMore?: () => void; inGrid?: boolean; playing?: boolean }) {
   const t = useTheme();
   const d = useDesign();
   const [imgFailed, setImgFailed] = useState(false);
@@ -74,8 +75,12 @@ export function ItemCard({ item, onOpen, onSave, onLess, onMore, inGrid = false 
       {showHero ? (
         <View style={flush && !bleed ? { paddingHorizontal: pad } : null}>
           {/* Big image cards get the large version; the grid keeps the lighter original. */}
-          <BestImage large={inGrid ? null : item.imageLarge} small={item.image} style={{ width: "100%", aspectRatio: inGrid && d["card.ratio"] === "16:9" ? 4 / 3 : RATIO[d["card.ratio"]] || 16 / 9, backgroundColor: t.chip, borderRadius: flush && !bleed ? d["card.radius"] : 0 }}
-            contentFit="cover" transition={200} recyclingKey={item.id} onFail={() => setImgFailed(true)} />
+          <View style={{ borderRadius: flush && !bleed ? d["card.radius"] : 0, overflow: "hidden" }}>
+            <BestImage large={inGrid ? null : item.imageLarge} small={item.image} style={{ width: "100%", aspectRatio: inGrid && d["card.ratio"] === "16:9" ? 4 / 3 : RATIO[d["card.ratio"]] || 16 / 9, backgroundColor: t.chip, borderRadius: flush && !bleed ? d["card.radius"] : 0 }}
+              contentFit="cover" transition={200} recyclingKey={item.id} onFail={() => setImgFailed(true)} />
+            {/* The story's video plays here, muted, while this card is the one on screen. */}
+            {playing && item.video && !inGrid ? <InlineVideo id={item.video} /> : null}
+          </View>
           {badge}{mediaBadge}
         </View>
       ) : null}

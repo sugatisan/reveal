@@ -15,6 +15,7 @@ import { StorySheet } from "./StorySheet";
 import { BestImage } from "./BestImage";
 import { prefetchStory } from "./StoryDetails";
 import { TunePill } from "@/components/TunePill";
+import { InlineVideo } from "@/components/InlineVideo";
 
 // A soft fade, built from bands (no gradient dependency). Studio: Feed cards › Full screen shade.
 function Fade({ from, height, max, curve = 1.6, color = "#000000", blend = "normal" }: { from: "top" | "bottom"; height: number; max: number; curve?: number; color?: string; blend?: string }) {
@@ -32,9 +33,9 @@ function Fade({ from, height, max, curve = 1.6, color = "#000000", blend = "norm
   );
 }
 
-export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpace, onSave, onLess, onMore, onViewable, refreshing, onRefresh, curator }: {
+export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpace, onSave, onLess, onMore, playingId, onViewable, refreshing, onRefresh, curator }: {
   entries: FeedEntry[]; loaded: boolean; listKey: string; height: number; topSpace: number; bottomSpace: number;
-  onSave: (it: FeedItem) => void; onLess: (id: string) => void; onMore?: (it: FeedItem) => void;
+  onSave: (it: FeedItem) => void; onLess: (id: string) => void; onMore?: (it: FeedItem) => void; playingId?: string | null;
   onViewable: (info: { viewableItems: ViewToken[] }) => void;
   refreshing: boolean; onRefresh: () => void;
   curator: { follow: (s: string, i: string) => Promise<void>; ask: (p: string, id?: string) => void; dismiss: (id: string) => void };
@@ -82,6 +83,7 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
     return (
       <View style={{ height, backgroundColor: img ? "#000" : t.card }}>
         {img ? <BestImage large={it.imageLarge} small={it.image} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} priority="high" /> : null}
+        {img && it.video && playingId === it.id ? <InlineVideo id={it.video} /> : null}
         {img && d["full.topDark"] > 0 ? <Fade from="top" height={topSpace + 40} max={d["full.topDark"] / 100} color={shade.color} /> : null}
         {img && d["full.scrimDark"] > 0 ? <Fade from="bottom" height={height * d["full.scrimHeight"] / 100} max={d["full.scrimDark"] / 100} {...shade} /> : null}
         <View style={[st.rail, { top: topSpace + 30 }]}>
@@ -125,6 +127,7 @@ export function FullFeed({ entries, loaded, listKey, height, topSpace, bottomSpa
         data={entries}
         keyExtractor={(e) => (e.type === "curator" ? "c-" + e.id : e.id)}
         renderItem={({ item }) => page(item)}
+        extraData={playingId}
         pagingEnabled
         snapToInterval={height}
         decelerationRate="fast"

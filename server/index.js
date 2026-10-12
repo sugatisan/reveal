@@ -1140,6 +1140,29 @@ const refreshBeyond = () => {
   refresh({ onlyIds: ids, quiet: true }).then((r) => console.log(`  Refreshed suggested sources: ${r.added} new items`)).catch(() => {});
 };
 setTimeout(refreshBeyond, 90 * 1000);
+// Read the newest stories' article pages ahead of time (no AI): finds embedded videos (trailers) to play
+// inline in the feed, plus gallery images and links, before anyone opens them. A dozen at a time.
+let pagesRunning = false;
+const readPagesAhead = async () => {
+  if (pagesRunning) return;
+  pagesRunning = true;
+  try {
+    const d = load();
+    const fol = new Set(followedIds());
+    const since = Date.now() - 2 * 864e5;
+    const todo = Object.values(d.items).filter((i) => fol.has(i.sourceId) && !i.dupOf && !i.kind && i.date > since && i.linkCands === undefined && i.link)
+      .sort((a, b) => b.date - a.date).slice(0, 12);
+    for (const it of todo) {
+      if (it.pageImages !== undefined) {
+        // Page read before links were collected: read it again just for links (and embedded videos).
+        try { const pg = await articlePage(it.link); it.linkCands = pg.links || []; } catch { it.linkCands = []; }
+      } else await ensurePage(it.id);
+    }
+    if (todo.length) save();
+  } finally { pagesRunning = false; }
+};
+setTimeout(() => readPagesAhead().catch(() => {}), 2 * 6e4);
+setInterval(() => readPagesAhead().catch(() => {}), 6 * 6e4);
 setTimeout(() => webDiscovery().catch(() => {}), 4 * 6e4);
 setInterval(() => webDiscovery().catch((e) => console.error("  Web finds failed:", e.message)), 30 * 6e4);
 setInterval(refreshBeyond, 15 * 6e4);
