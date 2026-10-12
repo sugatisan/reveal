@@ -357,7 +357,7 @@ async function writeBrief(id) {
 }
 
 // Links to what a story is about: see lib/links.js. Worked out once, the first time the story is opened.
-const LINKS_V = 5;
+const LINKS_V = 7;
 const linksInflight = new Map();
 function subjectLinks(id) {
   if (!linksInflight.has(id)) linksInflight.set(id, findLinks(id).finally(() => linksInflight.delete(id)));
@@ -1234,6 +1234,14 @@ const readPagesAhead = async () => {
       } else await ensurePage(it.id);
     }
     if (todo.length) save();
+    // Source hints on feed cards (studio: Feed cards › Source hint): work out links for the newest stories
+    // ahead of time, so the hint can show before anyone opens them. Shared per story; official sites are
+    // cached across stories, so most of the cost is one small call per new story.
+    if (design.view().values["links.feedHint"] !== false && agent.hasKey()) {
+      const ahead = Object.values(d.items).filter((i) => fol.has(i.sourceId) && !i.dupOf && !i.kind && i.date > since && i.linkCands !== undefined && i.linksV !== LINKS_V && i.link)
+        .sort((a, b) => b.date - a.date).slice(0, 8);
+      for (const it of ahead) await subjectLinks(it.id).catch(() => {});
+    }
   } finally { pagesRunning = false; }
 };
 setTimeout(() => readPagesAhead().catch(() => {}), 2 * 6e4);

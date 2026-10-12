@@ -8,6 +8,16 @@ import { fitOf, scoped } from "./scope.js";
 const singular = (w) => w.toLowerCase().replace(/ies$/, "y").replace(/s$/, "");
 // A YouTube video to play inline: the story is one, or its article embeds one (a trailer).
 const ytId = (u = "") => (String(u).match(/(?:youtube(?:-nocookie)?\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/) || [])[1];
+// The story's main source link (its subject's own page), for the quiet hint on feed cards.
+// Only once links have been worked out; never computed here.
+function sourceOf(it) {
+  const l = Array.isArray(it.subjectLinks) ? it.subjectLinks[0] : null;
+  if (!l) return undefined;
+  let host = "";
+  try { host = new URL(l.dest || l.url).hostname.replace(/^www\./, ""); } catch { return undefined; }
+  return { label: l.label, host, url: l.url };
+}
+
 export function videoOf(it) {
   const own = ytId(it.link) || ytId(it.mediaUrl);
   if (own) return own;
@@ -76,7 +86,7 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     const why = interestId ? (sub || "") : sub ? `${primary.label} · ${sub}` : primary.label;
 
     const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, linkCands, subjectLinks, linksV, ...pub } = it; // server-only
-    scored.push({ ...pub, fit, opened: !!(ev.open || ev.expand), imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save, liked: !!ev.like, video: videoOf(it), shownN: ev.shown || 0, engagedAny: !!engaged });
+    scored.push({ ...pub, source: sourceOf(it), fit, opened: !!(ev.open || ev.expand), imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save, liked: !!ev.like, video: videoOf(it), shownN: ev.shown || 0, engagedAny: !!engaged });
   }
   // One source on its own reads like that site: newest first, nothing reordered.
   if (sourceId) {
@@ -227,7 +237,7 @@ export function buildMore({ interestId, exclude = [], limit = 12 } = {}) {
   return out.map(({ it, i, sub, web }) => {
     const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, linkCands, subjectLinks, linksV, ...pub } = it;
     const src = d.sources[it.sourceId] || {};
-    return { ...pub, type: "item", why: sub ? `${i.label} · ${sub}` : i.label, sourceName: src.name, imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length,
+    return { ...pub, source: sourceOf(it), type: "item", why: sub ? `${i.label} · ${sub}` : i.label, sourceName: src.name, imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length,
       interestIds: [i.id], saved: !!d.events[it.id]?.save, liked: !!d.events[it.id]?.like, video: videoOf(it), beyond: { kind: web ? "web" : "source", sourceId: it.sourceId, sourceName: web ? src.name || String(it.sourceId).replace(/^web:/, "") : src.name, interestId: i.id, interestLabel: i.label } };
   });
 }

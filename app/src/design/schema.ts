@@ -115,6 +115,12 @@ export const GROUPS: Group[] = [
     ],
   },
   {
+    id: "card-source", panel: "Feed cards", title: "Source hint", hint: "A quiet line on the card that goes straight to the source of what the story is about (the product's page, the maker, the study). Shows once Reveal has worked out the story's links; it does that ahead of time for the newest stories.",
+    controls: [
+      { key: "links.feedHint", label: "Show source hint on cards", type: "toggle", default: true },
+    ],
+  },
+  {
     id: "card-video", panel: "Feed cards", title: "Video", hint: "YouTube videos (and trailers embedded in articles) play muted in the card that's on screen, one at a time.",
     controls: [
       { key: "video.autoplay", label: "Autoplay in the feed", type: "toggle", default: true },
@@ -222,6 +228,12 @@ export const GROUPS: Group[] = [
     controls: [
       choice("story.body", "Source", "gist", [["gist", "AI gist"], ["excerpt", "Feed excerpt"], ["lead", "Article opening"]],
         "Feed excerpt: what the publisher puts in their RSS feed. Article opening: the first paragraphs of the article page."),
+    ],
+  },
+  {
+    id: "story-source", panel: "Story page", title: "Source links", hint: "Where links to the source of a story show up. On: a Source list (the subject's own pages first, with their sites), and Where to buy on its own. Off: the earlier single row of chips.",
+    controls: [
+      { key: "links.module", label: "New source module", type: "toggle", default: true },
     ],
   },
   {

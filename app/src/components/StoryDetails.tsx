@@ -7,6 +7,7 @@ import { Animated, Pressable, StyleSheet, View } from "react-native";
 import { Text } from "@/components/AppText";
 import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Image } from "expo-image";
 import { ago, api, ItemDetail, mediaLabel, sendEvents, StoryBrief } from "@/lib/api";
 import { bumpFeed, reloadState } from "@/lib/store";
 import { radius, serif, space, useTheme } from "@/lib/theme";
@@ -135,8 +136,34 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
       </View>
 
 
-      {/* Where to buy, and links to what the story is about (official site, trailer, the study), in one module. */}
-      {shops?.length || links?.length ? (
+      {/* Source links (studio: Story page › Source links). On: the subject's own pages as a list, then Where to
+          buy on its own. Off: the earlier single row of chips for both. */}
+      {d["links.module"] !== false ? (
+        <>
+          {links?.length ? (
+            <View>
+              <Label>SOURCE</Label>
+              <View style={{ borderRadius: radius.m, backgroundColor: t.card, overflow: "hidden" }}>
+                {links.map((l, i) => <SourceLinkRow key={l.url} link={l} first={i === 0} />)}
+              </View>
+            </View>
+          ) : null}
+          {shops?.length ? (
+            <View>
+              <Label>WHERE TO BUY</Label>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
+                {shops.map((s) => (
+                  <Chip key={s.shop} label={s.shop} icon="bag-handle-outline" onPress={() => {
+                    sendEvents([{ itemId: it.id, type: "buy" }]).catch(() => {});
+                    openLink(s.url);
+                  }} />
+                ))}
+              </View>
+              {shops.some((s) => s.ours) ? <Text style={{ color: t.faint, fontSize: 12, marginTop: space.s }}>Reveal may earn a commission from these links. It never affects what you see.</Text> : null}
+            </View>
+          ) : null}
+        </>
+      ) : shops?.length || links?.length ? (
         <View>
           <Label>{shops?.length && !links?.length ? "WHERE TO BUY" : shops?.length ? "WHERE TO BUY & LINKS" : "LINKS"}</Label>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
@@ -245,3 +272,27 @@ const st = StyleSheet.create({
   facts: { flexDirection: "row", flexWrap: "wrap", borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth },
   fact: { width: "50%", gap: 4, paddingRight: space.m },
 });
+
+// One source link: the site's icon, what it is, and where it goes. The first is the subject's own page.
+function SourceLinkRow({ link, first }: { link: { url: string; label: string; official?: boolean; dest?: string }; first: boolean }) {
+  const t = useTheme();
+  let host = "";
+  try { host = new URL(link.dest || link.url).hostname.replace(/^www\./, ""); } catch {}
+  const video = /youtube\.com|youtu\.be|vimeo\.com/.test(link.dest || link.url) || /trailer|video|watch/i.test(link.label);
+  return (
+    <Pressable onPress={() => openLink(link.url)} accessibilityRole="link" accessibilityLabel={`${link.label}, ${host}`}
+      style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: space.m, paddingVertical: 12, paddingHorizontal: space.m, opacity: pressed ? 0.6 : 1 },
+        first ? null : { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: t.line }]}>
+      <View style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: t.chip, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        {video ? <Ionicons name="play" size={14} color={t.ink} />
+          : host ? <Image source={{ uri: `https://www.google.com/s2/favicons?domain=${host}&sz=64` }} style={{ width: 18, height: 18 }} contentFit="contain" />
+          : <Ionicons name="globe-outline" size={15} color={t.ink} />}
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: t.ink, fontSize: 15, fontWeight: "600" }} numberOfLines={1}>{link.label}</Text>
+        {host ? <Text style={{ color: t.muted, fontSize: 13, marginTop: 1 }} numberOfLines={1}>{host}</Text> : null}
+      </View>
+      <Ionicons name="arrow-forward" size={16} color={t.muted} style={{ transform: [{ rotate: "-45deg" }] }} />
+    </Pressable>
+  );
+}

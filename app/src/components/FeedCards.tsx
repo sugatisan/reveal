@@ -11,6 +11,7 @@ import { useDesign } from "@/design/store";
 import { addLike } from "@/lib/store";
 import { TunePill } from "@/components/TunePill";
 import { InlineVideo } from "@/components/InlineVideo";
+import { openLink } from "@/lib/openLink";
 
 const RATIO: Record<string, number> = { "16:9": 16 / 9, "3:2": 3 / 2, "4:3": 4 / 3, "1:1": 1 };
 
@@ -53,6 +54,17 @@ export function ItemCard({ item, onOpen, onSave, onLess, onMore, inGrid = false,
   );
   const why = d["card.showWhy"] && item.why ? <Text style={[st.why, { color: t.accent }, inGrid ? { fontSize: 10 } : null]} numberOfLines={1}>{item.why}</Text> : null;
   const excerpt = showExcerpt ? <Text style={{ color: t.muted, lineHeight: 20 }} numberOfLines={d["card.excerptLines"]}>{item.excerpt}</Text> : null;
+  // Quiet line to the source of what the story is about. Its own tap target, so it doesn't open the story.
+  const source = d["links.feedHint"] !== false && item.source && !inGrid ? (
+    <Pressable hitSlop={8} onPress={() => openLink(item.source!.url)} accessibilityRole="link" accessibilityLabel={`Go to ${item.source.label}`}
+      style={({ pressed }) => [st.source, { opacity: pressed ? 0.6 : 1 }]}>
+      <Ionicons name="globe-outline" size={13} color={t.muted} />
+      <Text style={{ color: t.muted, fontSize: 13, flexShrink: 1 }} numberOfLines={1}>
+        <Text style={{ color: t.ink, fontWeight: "500" }}>{item.source.label}</Text>{`  ${item.source.host}`}
+      </Text>
+      <Ionicons name="arrow-forward" size={12} color={t.muted} style={{ transform: [{ rotate: "-45deg" }] }} />
+    </Pressable>
+  ) : null;
   const media = mediaLabel(item);
   const mediaBadge = media ? (
     <View style={[st.badge, { left: 10, right: undefined }]}>
@@ -92,12 +104,13 @@ export function ItemCard({ item, onOpen, onSave, onLess, onMore, inGrid = false,
               contentFit="cover" transition={200} recyclingKey={item.id} onError={() => setImgFailed(true)} />
           </View>
           {excerpt}
+          {source}
           {footer}
         </View>
       ) : (
         <View style={{ paddingVertical: pad, paddingHorizontal: textPad, gap: inGrid ? 6 : space.s, flex: inGrid ? 1 : undefined, justifyContent: inGrid && !showHero ? "flex-end" : "space-between" }}>
           {/* Grid card without an image: the kicker and title sit at the bottom, just above the source line. */}
-          <View style={{ gap: inGrid ? 4 : space.s }}>{why}{title}{excerpt}</View>{footer}
+          <View style={{ gap: inGrid ? 4 : space.s }}>{why}{title}{excerpt}{source}</View>{footer}
         </View>
       )}
     </Pressable>
@@ -154,6 +167,7 @@ const st = StyleSheet.create({
   hero: { width: "100%", aspectRatio: 16 / 9 },
   badge: { position: "absolute", top: 10, right: 10, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, backgroundColor: "rgba(0,0,0,0.55)" },
   body: { padding: space.l, gap: space.s },
+  source: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", maxWidth: "100%" },
   why: { fontSize: 12, fontWeight: "700", letterSpacing: 0.3, textTransform: "uppercase" },
   title: { fontFamily: serif, fontSize: 21, lineHeight: 27, letterSpacing: -0.2 },
   footer: { flexDirection: "row", alignItems: "center", gap: space.l, marginTop: space.xs },

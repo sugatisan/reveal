@@ -396,13 +396,13 @@ const LINKS_SCHEMA = {
   type: "object",
   properties: {
     storyKind: { type: "string", enum: STORY_KINDS, description: "announcement: something new is launched or revealed. review: an evaluation of one thing. news: a report of an event. explainer: a how-to, guide or background piece. opinion: a column, letter or essay. roundup: a list, gallery or buying guide covering several things. deal: a discount on something. listing: an event listing, auction or for-sale post." },
-    subject: { type: "string", description: "The ONE specific thing the story is mainly about, as a reader would search it (e.g. 'Mattel Brick Shop', 'Renoir and Love', 'Rosewood Bangkok', 'H.R. 6500'). Empty if it isn't mainly about one thing: roundups and lists of several things, trend pieces, how-tos, opinion, or a story about a private person (a crime victim, a resident). A roundup where every item comes from one brand is about that brand. An award, prize or ranking announcement is about the award (e.g. '2026 Nobel Prize in Medicine'), even with several winners." },
+    subject: { type: "string", description: "The ONE specific thing the story is mainly about, as a reader would search it (e.g. 'Mattel Brick Shop', 'Renoir and Love', 'Rosewood Bangkok', 'H.R. 6500'). Empty for an auction or for-sale post of a used or one-off item (the post itself is the source). Empty if it isn't mainly about one thing: roundups and lists of several things, trend pieces, how-tos, opinion, or a story about a private person (a crime victim, a resident). A roundup where every item comes from one brand is about that brand. An award, prize or ranking announcement is about the award (e.g. '2026 Nobel Prize in Medicine'), even with several winners." },
     distinctThings: { type: "integer", description: "How many distinct products, works, places, organizations, cases or events the story covers in substance (not passing mentions). A review of one film is 1; a list of 7 court cases is 7; an award announced with several winners is 1 (the award); a player's contract with a club is 1." },
     singleOwner: { type: "boolean", description: "True when all of those things come from one maker, brand or organization (e.g. a roundup of one brand's new collection)." },
     subjectType: { type: "string", enum: [...SUBJECT_TYPES, "none"], description: "document: a study, report, filing, bill, ruling or press release. creative work: a book, film, show, album, game, app, artwork. public figure: only people famous in their own right; never private individuals." },
     links: {
       type: "array", maxItems: 3,
-      description: "Links in the article whose destination IS the subject or its owner's own page for it: the product's page, the maker's site, the study itself, the bill text, the venue's or exhibition's page, the official trailer, the press release. Never another publication's coverage, never a retailer listing (those are handled separately), never tangents. Most useful first. Empty when there's no subject.",
+      description: "Links in the article whose destination IS the subject or its owner's own page for it: the product's page, the maker's site, the study itself, the bill text, the venue's or exhibition's page, the official trailer, the press release. Never another publication's coverage or reporting (even the outlet that broke the story), never a retailer listing (those are handled separately), never tangents. Most useful first. Empty when there's no subject.",
       items: { type: "object", properties: { n: { type: "integer", description: "The link's number in the list" }, label: { type: "string", description: "1-3 words naming what it is, e.g. Official site, Trailer, The study, Bill text, Exhibition, Press release" } }, required: ["n", "label"] },
     },
     missing: {
@@ -414,7 +414,7 @@ const LINKS_SCHEMA = {
   required: ["storyKind", "subject", "distinctThings", "singleOwner", "subjectType", "links", "missing"],
 };
 // Labels that mean "another publication's coverage", which never belongs in Links.
-const COVERAGE_LABEL = /\b(article|coverage|review|interview|story|op-ed|column)\b/i;
+const COVERAGE_LABEL = /\b(article|coverage|review|interview|story|op-ed|column|report|reporting|scoop)\b/i;
 // Links in the article that go to what the story is about, plus the subjects it names without linking
 // (resolved to official sites by the caller). Candidates may carry `dest`: where a redirect link lands.
 export async function pickLinks(item, gist, candidates, publisher = "") {

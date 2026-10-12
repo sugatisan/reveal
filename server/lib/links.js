@@ -82,7 +82,19 @@ export async function resolveLinks(story, cache, { log = true } = {}) {
   trace.redirectsFollowed = fr.followed;
   const picked = await agent.pickLinks({ title: story.title }, story.gist || "", fr.cands, story.publisher || "");
   Object.assign(trace, { storyKind: picked.storyKind, subject: picked.subject, subjectType: picked.subjectType, skipped: !!picked.skipped });
+  // Follow each picked link once to where it lands: publishers' own short links (un.cr and the like) and
+  // unknown redirectors look like any other domain, so this is the only generic way to see the destination.
+  await Promise.all(picked.links.filter((l) => !l.dest).map(async (l) => {
+    const to = await resolveRedirect(l.url, 4000);
+    if (!to || sameSite(hostOf(to), hostOf(l.url))) return;
+    const s = shop.shopFor(to);
+    if (s) { if (!fr.shopLinks.some((x) => x.shop === s.name) && fr.shopLinks.length < 4) fr.shopLinks.push({ shop: s.name, host: s.host, url: l.url, publisherAffiliate: true }); l.shop = true; }
+    else l.dest = to;
+  }));
+  picked.links = picked.links.filter((l) => !l.shop);
   trace.picked = picked.links.map((l) => ({ url: l.url, label: l.label, dest: l.dest }));
+  // Generic labels ("Official site") read better as the subject's name.
+  for (const l of picked.links) if (/^(official (web)?site|website|homepage|site|official page)$/i.test(l.label) && picked.subject && picked.subject.length <= 28) l.label = picked.subject;
   trace.missing = picked.missing;
   const blocked = [...fr.shopLinks.map((s) => s.host), hostOf(story.link || ""), hostOf(story.publisherSite || "")].filter(Boolean);
   const links = [];
