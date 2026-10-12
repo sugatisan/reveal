@@ -1,5 +1,5 @@
 // Pull every followed source, store new items, merge duplicates, fill missing images.
-import { fetchText, isFeed, parseFeed, discoverFeed, ogImage, stripTags, cadence, sourceKind } from "./feeds.js";
+import { fetchText, isFeed, parseFeed, discoverFeed, ogImage, stripTags, cadence, sourceKind, sitemapItems, pageItems } from "./feeds.js";
 import { looksSmall, isGeneratedCard } from "./images.js";
 import { load, save, hash, followedIds } from "./store.js";
 
@@ -21,6 +21,21 @@ async function pool(list, n, fn) {
 }
 
 export async function fetchSource(src) {
+  // Sites without a feed: their news sitemap, or their homepage's list of stories (see discoverFeed).
+  if (src.feedUrl?.startsWith("sitemap:")) {
+    const u = src.feedUrl.slice(8);
+    const r = await fetchText(u, { accept: "application/xml, text/xml" });
+    const items = sitemapItems(r.text);
+    if (!items.length) throw new Error("The site's news sitemap is empty");
+    return { title: src.name, site: src.site, description: src.about || "", feedUrl: src.feedUrl, items };
+  }
+  if (src.feedUrl?.startsWith("page:")) {
+    const u = src.feedUrl.slice(5);
+    const r = await fetchText(u, { accept: "text/html" });
+    const items = pageItems(r.text, r.url);
+    if (!items.length) throw new Error("Couldn't find stories on the site's page");
+    return { title: src.name, site: src.site, description: src.about || "", feedUrl: src.feedUrl, items };
+  }
   // Prefer the known feed URL, fall back to discovery from the site.
   if (src.feedUrl) {
     try {

@@ -230,6 +230,7 @@ export async function discoverFeed(input, { timeout = 9000 } = {}) {
   const deadline = Date.now() + 25000; // give up on a site after ~25s total
   if (!url) throw new Error("Not a valid web address");
   const tried = new Set();
+  const errors = new Map();
   const tryFeed = async (u) => {
     if (!u || tried.has(u) || Date.now() > deadline) return null;
     tried.add(u);
@@ -239,7 +240,8 @@ export async function discoverFeed(input, { timeout = 9000 } = {}) {
       const f = parseFeed(r.text, r.url);
       if (!f.items.length) return null;
       return { feed: { ...f, feedUrl: r.url } };
-    } catch {
+    } catch (e) {
+      errors.set(u, String(e.message || e));
       return null;
     }
   };
@@ -274,7 +276,83 @@ export async function discoverFeed(input, { timeout = 9000 } = {}) {
     const r = await tryFeed(origin + p);
     if (r?.feed) return { ...r.feed, title: r.feed.title || name };
   }
-  throw new Error(mediaNote ? `Couldn't add it. ${mediaNote}` : "Couldn't find a feed on that site");
+  // No feed anywhere. Two fallbacks that work for most sites, so a missing RSS feed doesn't mean "can't follow":
+  // 1) a Google News sitemap (titles and dates, published for search engines),
+  try {
+    const sm = await newsSitemap(origin, deadline);
+    if (sm && sm.items.length >= 3) return { title: name || new URL(origin).hostname.replace(/^www\./, ""), site: origin, description: "", feedUrl: "sitemap:" + sm.url, items: sm.items };
+  } catch {}
+  // 2) the homepage's own list of stories, watched for new ones.
+  if (first?.html) {
+    const items = pageItems(first.html, first.finalUrl);
+    if (items.length >= 5) return { title: name || new URL(origin).hostname.replace(/^www\./, ""), site: origin, description: "", feedUrl: "page:" + first.finalUrl, items };
+  }
+  if (mediaNote) throw new Error(`Couldn't add it. ${mediaNote}`);
+  // Say why, when the site itself refused us (blocked, down), rather than "no feed".
+  const homeErr = errors.get(url);
+  if (!first && homeErr) throw new Error(`Couldn't reach that site (${homeErr}); it may block apps like this one`);
+  throw new Error("Couldn't find a feed, a news sitemap or a list of stories on that site");
+}
+
+// ---------- Sites without a feed ----------
+
+// A Google News sitemap: <url><loc>…</loc><news:news><news:title>…</news:title><news:publication_date>…
+async function newsSitemap(origin, deadline) {
+  const cands = [];
+  try {
+    const robots = await fetchText(origin + "/robots.txt", { timeout: 5000, accept: "text/plain" });
+    for (const m of robots.text.matchAll(/^\s*sitemap:\s*(\S+)/gim)) if (/news/i.test(m[1])) cands.push(m[1]);
+  } catch {}
+  cands.push(origin + "/news-sitemap.xml", origin + "/sitemap_news.xml", origin + "/sitemap-news.xml");
+  for (const u of [...new Set(cands)]) {
+    if (Date.now() > deadline) break;
+    try {
+      const r = await fetchText(u, { timeout: 6000, accept: "application/xml, text/xml" });
+      const items = sitemapItems(r.text);
+      if (items.length) return { url: u, items };
+    } catch {}
+  }
+  return null;
+}
+export function sitemapItems(xml = "") {
+  const out = [];
+  for (const b of xml.match(/<url>[\s\S]*?<\/url>/gi) || []) {
+    const link = stripTags(tag(b, "loc"));
+    const title = stripTags(tag(b, "news:title")) || stripTags(tag(b, "image:title"));
+    if (!link || !title) continue;
+    out.push({ title, link, guid: link, date: Date.parse(stripTags(tag(b, "news:publication_date") || tag(b, "lastmod"))) || null, html: "", image: absolutize(stripTags(tag(b, "image:loc")), link) || "", tags: [], images: [] });
+  }
+  return out.sort((a, b) => (b.date || 0) - (a.date || 0)).slice(0, 40);
+}
+
+// The homepage's story links: same-site links whose text reads like a headline, minus navigation.
+// Story URLs on a site share a shape (a section, or a long slug), which separates them from menus.
+const NAV = /^\/(tag|tags|topic|topics|category|categories|section|author|authors|about|contact|privacy|terms|search|login|signin|signup|register|subscribe|newsletter|cart|account|page|wp-|feed|rss|advertise|careers|jobs|help|faq|legal|cookie|shop$)/i;
+export function pageItems(html = "", base = "") {
+  let host = "";
+  try { host = new URL(base).hostname.replace(/^www\./, ""); } catch { return []; }
+  const seen = new Set(), cands = [];
+  for (const m of html.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi)) {
+    const href = (m[1].match(/href\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean);
+    if (!href || href.startsWith("#") || /^(mailto|tel|javascript):/i.test(href)) continue;
+    let u;
+    try { u = new URL(decode(href), base); } catch { continue; }
+    if (u.hostname.replace(/^www\./, "") !== host || u.pathname === "/" || NAV.test(u.pathname)) continue;
+    const label = decode(stripTags(m[2])).replace(/\s+/g, " ").trim() || decode((m[1].match(/(?:title|aria-label)\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean) || "").trim();
+    if (label.length < 15 || label.length > 200 || label.split(" ").length < 3) continue;
+    u.hash = "";
+    const key = u.origin + u.pathname.replace(/\/$/, "");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const img = (m[2].match(/<img[^>]+(?:data-src|src)\s*=\s*(?:"([^"]+)"|'([^']+)')/i) || []).slice(1).find(Boolean);
+    cands.push({ title: label, link: u.href, path: u.pathname, image: img ? absolutize(decode(img), base) : "" });
+  }
+  // Keep links in the site's most common story shapes: a shared first path segment used 3+ times, or a long slug.
+  const first = (p) => p.split("/").filter(Boolean)[0] || "";
+  const count = new Map();
+  for (const c of cands) count.set(first(c.path), (count.get(first(c.path)) || 0) + 1);
+  const story = cands.filter((c) => (count.get(first(c.path)) || 0) >= 3 || (c.path.split("/").pop() || first(c.path)).split("-").length >= 4);
+  return story.slice(0, 40).map((c) => ({ title: c.title, link: c.link, guid: c.link, date: null, html: "", image: c.image, tags: [], images: [] }));
 }
 
 export async function ogImage(url, { timeout = 7000 } = {}) {
