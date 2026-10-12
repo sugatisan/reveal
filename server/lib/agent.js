@@ -471,13 +471,15 @@ Return {"url":"","sure":true}. Use a URL exactly as it appeared in the search re
   // on the same site, and use the page the search actually returned.
   if (!found.has(url)) {
     const same = [...found].filter((f) => { try { return new URL(f).hostname.replace(/^www\./, "") === host; } catch { return false; } });
-    if (same.length) url = same.find((f) => new URL(f).pathname.split("/").filter(Boolean).length <= 2) || same[0];
-    else if (!NOT_OFFICIAL.test(host) && carriesName(host, name)) {
-      // New things often only show up as news in search; the model may still know the maker's page.
-      // Trust it only if the page actually loads.
-      try { const r = await fetchText(url, { timeout: 6000, accept: "text/html" }); if (!/^https?:/.test(r.url)) throw new Error("bad"); url = r.url; }
-      catch (e) { return why(`${url} wasn't in the search results and didn't load (${e.message})`); }
-    } else return why(`${url} wasn't in the search results`);
+    // New things often only show up as news in search; the model may still know the maker's page.
+    // Use the page it named if it loads; otherwise the site's own homepage, if the search found the site.
+    let loaded = null;
+    if (!NOT_OFFICIAL.test(host) && (same.length || carriesName(host, name))) {
+      try { const r = await fetchText(url, { timeout: 6000, accept: "text/html" }); if (/^https?:/.test(r.url)) loaded = r.url; } catch {}
+    }
+    if (loaded) url = loaded;
+    else if (same.length) url = `https://${new URL(same[0]).hostname}/`;
+    else return why(`${url} wasn't in the search results${carriesName(host, name) ? " and didn't load" : ""}`);
   }
   if (NOT_OFFICIAL.test(host)) return why(`${host} isn't an official site`);
   if (carriesName(host, name) || out.sure === true) { note(`found ${url}`); return url; }
