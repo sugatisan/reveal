@@ -361,8 +361,8 @@ async function writeBrief(id) {
 // 2. One fast call picks the links that go to the subject, and names subjects the article didn't link.
 // 3. Those names are looked up in a shared directory of official sites; a name it hasn't seen costs one
 //    web search, then every later story that mentions it gets the link for free.
-const LINKS_V = 3;
-const OFFICIAL_V = 2; // misses from an older lookup are retried
+const LINKS_V = 4;
+const OFFICIAL_V = 3; // misses from an older lookup are retried
 const linksInflight = new Map();
 function subjectLinks(id) {
   if (!linksInflight.has(id)) linksInflight.set(id, findLinks(id).finally(() => linksInflight.delete(id)));

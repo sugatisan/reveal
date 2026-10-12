@@ -2,6 +2,7 @@
 // Without an API key, everything falls back to the built-in catalog.
 import fs from "node:fs";
 import { record } from "./usage.js";
+import { fetchText } from "./feeds.js";
 
 export const catalog = JSON.parse(fs.readFileSync(new URL("../catalog.json", import.meta.url), "utf8"));
 
@@ -432,6 +433,11 @@ Which of these link to the thing this story is about? And what is it about that 
 // carry the name unless the model is sure. A missing link is better than a wrong one.
 const NOT_OFFICIAL = /(^|\.)(wikipedia|wikimedia|fandom|amazon|ebay|walmart|target|etsy|aliexpress|temu|reddit|facebook|instagram|twitter|x|tiktok|pinterest|linkedin|youtube|medium|substack|bricklink|brickset|imdb|yelp|tripadvisor|crunchbase|bloomberg|reuters|theverge|engadget|wired|caranddriver|motortrend|cnet|techcrunch|gizmodo)\.[a-z.]+$/i;
 const nameTokens = (s) => String(s).toLowerCase().normalize("NFKD").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length >= 3 && !/^(the|and|for|inc|llc|ltd|company|official|shop|store)$/.test(w));
+function carriesName(host, name) {
+  const labels = host.replace(/^www\./, "").split(".").slice(0, -1).join(" ").replace(/-/g, " ");
+  const last = labels.split(" ").pop();
+  return nameTokens(name).some((t) => labels.includes(t)) || last.length >= 4 && name.toLowerCase().replace(/[^a-z0-9]/g, "").includes(last);
+}
 export async function officialSite(name, kind = "maker", context = "") {
   if (!hasKey() || !name) return null;
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -443,7 +449,7 @@ export async function officialSite(name, kind = "maker", context = "") {
       messages: [{ role: "user", content: `Find the official website of "${name}" (a ${kind})${context ? `, as mentioned in: ${context}` : ""}.
 The ${kind === "product" ? "product's page on its maker's own site, or the maker's site" : "brand's, maker's or place's own site"}. Its own store counts. Not news coverage, encyclopedias, marketplaces, retailers or social profiles.
 Return {"url":"","sure":true}. Use a URL exactly as it appeared in the search results. If you can't find its own site, return {"url":"","sure":false}.` }],
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 2 }],
     }),
   });
   const body = await res.json().catch(() => ({}));
@@ -455,7 +461,8 @@ Return {"url":"","sure":true}. Use a URL exactly as it appeared in the search re
   const text = (body.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
   let out = {};
   try { out = json(text); } catch {}
-  const why = (r) => { console.log(`[official] ${name}: ${r}`); return null; };
+  const note = (r) => { console.log(`[official] ${name}: ${r}`); try { fs.mkdirSync("data/debug", { recursive: true }); fs.appendFileSync("data/debug/official.txt", `${new Date().toISOString()} ${name} (${kind}): ${r}\n  model: ${text.replace(/\s+/g, " ").slice(0, 300)}\n  results: ${[...found].slice(0, 8).join(" ")}\n`); } catch {} };
+  const why = (r) => { note(r); return null; };
   let url = String(out.url || "").trim();
   if (!url) return why(`no site found (${found.size} search results)`);
   let host;
@@ -464,14 +471,17 @@ Return {"url":"","sure":true}. Use a URL exactly as it appeared in the search re
   // on the same site, and use the page the search actually returned.
   if (!found.has(url)) {
     const same = [...found].filter((f) => { try { return new URL(f).hostname.replace(/^www\./, "") === host; } catch { return false; } });
-    if (!same.length) return why(`${url} wasn't in the search results`);
-    url = same.find((f) => new URL(f).pathname.split("/").filter(Boolean).length <= 2) || same[0];
+    if (same.length) url = same.find((f) => new URL(f).pathname.split("/").filter(Boolean).length <= 2) || same[0];
+    else if (!NOT_OFFICIAL.test(host) && carriesName(host, name)) {
+      // New things often only show up as news in search; the model may still know the maker's page.
+      // Trust it only if the page actually loads.
+      try { const r = await fetchText(url, { timeout: 6000, accept: "text/html" }); if (!/^https?:/.test(r.url)) throw new Error("bad"); url = r.url; }
+      catch (e) { return why(`${url} wasn't in the search results and didn't load (${e.message})`); }
+    } else return why(`${url} wasn't in the search results`);
   }
   if (NOT_OFFICIAL.test(host)) return why(`${host} isn't an official site`);
-  const labels = host.split(".").slice(0, -1).join(" ").replace(/-/g, " ");
-  const toks = nameTokens(name);
-  const carries = toks.some((t) => labels.includes(t)) || labels.replace(/\s/g, "").length >= 4 && name.toLowerCase().replace(/[^a-z0-9]/g, "").includes(labels.split(" ").pop());
-  return carries || out.sure === true ? url : why(`${host} doesn't carry the name and the model wasn't sure`);
+  if (carriesName(host, name) || out.sure === true) { note(`found ${url}`); return url; }
+  return why(`${host} doesn't carry the name and the model wasn't sure`);
 }
 
 // What a liked story says about taste: 1-3 specific ingredients (subject, angle or format), each marked
