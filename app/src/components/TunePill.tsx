@@ -25,24 +25,27 @@ export function TunePill({ liked, less, onMore, onLess, size = "m", vertical, in
   const w = size === "s" ? 30 : size === "l" ? 40 : size === "xl" ? 42 : 34;
   const icon = size === "s" ? 15 : size === "l" ? 20 : size === "xl" ? 21 : 17;
   const base = ink || t.muted;
-  // The pill sets the size; each half fills exactly its half and rounds its own outer corners,
+  // The pill sets the size; each half fills exactly its half, and the selected side is a circle centered in it.
   // so the selected fill follows the pill's shape and the icon sits dead center.
   const r = h / 2;
   const W = vertical ? h : w * 2, H = vertical ? w * 2 : h;
+  const dot = Math.min(h, w) - 4;
   const side = (which: "more" | "less", first: boolean) => {
     const on = which === "more" ? !!liked : !!less;
     const color = on ? t.accentInk : base;
     const glyph = light
       ? <Ionicons name={which === "more" ? "sunny" : "sunny-outline"} size={which === "more" ? icon + 1 : icon - 4} color={color} style={which === "less" && !on ? { opacity: 0.75 } : null} />
       : <Ionicons name={which === "more" ? "arrow-up" : "arrow-down"} size={icon} color={color} />;
-    const corners = vertical
-      ? first ? { borderTopLeftRadius: r, borderTopRightRadius: r } : { borderBottomLeftRadius: r, borderBottomRightRadius: r }
-      : first ? { borderTopLeftRadius: r, borderBottomLeftRadius: r } : { borderTopRightRadius: r, borderBottomRightRadius: r };
     return (
       <Pressable key={which} onPress={which === "more" ? onMore : onLess} hitSlop={4}
         accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={which === "more" ? "More of this" : "Less of this…"}
-        style={({ pressed }) => [{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: on ? t.accent : pressed ? (line || t.line) : "transparent" }, corners]}>
-        {glyph}
+        style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        {({ pressed }) => (
+          // Selected: a full circle inside its half, not a half-pill.
+          <View style={{ width: dot, height: dot, borderRadius: dot / 2, alignItems: "center", justifyContent: "center", backgroundColor: on ? t.accent : pressed ? (line || t.line) : "transparent" }}>
+            {glyph}
+          </View>
+        )}
       </Pressable>
     );
   };
