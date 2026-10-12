@@ -377,17 +377,31 @@ export default function FeedScreen() {
   const renderRow = (r: Row, pageKey: string) => {
     if (r.type === "end") {
       const m = more[pageKey];
+      // On an interest's page, the end card speaks for that interest.
+      const l = orderRef.current.find((x) => keyOf(x) === pageKey);
+      const i = l?.kind === "interest" ? state?.interests.find((x) => x.id === l.id) : undefined;
+      const n = i?.sources.length || 0;
+      const title = i ? `That's all from your ${n} ${i.label} source${n === 1 ? "" : "s"}` : "You're all caught up";
+      const what = i ? `more ${i.label}` : "more";
+      const line = i?.strict ? "Just these sources, as you set it up."
+        : m?.items.length ? (i ? `More ${i.label} from beyond your sources.` : "More you might like, from beyond your sources.")
+        : m?.loading ? "Looking beyond your sources…"
+        : m?.searching ? `Looking on the web for ${what}…`
+        : m?.done ? `That's everything for now. ${i ? `More ${i.label}` : "More"} arrives through the day.`
+        : "Keep scrolling for more from beyond your sources.";
+      const again = () => { moreRef.current = { ...moreRef.current, [pageKey]: { ...(m || { items: [], loading: false }), done: false } }; if (l !== undefined) loadMore(l); };
       return (
         <View style={{ alignItems: "center", gap: 6, marginHorizontal: space.l, marginTop: space.l, marginBottom: space.xl }}>
           <View style={{ width: 36, height: 3, borderRadius: 2, backgroundColor: t.line, marginBottom: space.m }} />
-          <Text style={{ color: t.ink, fontSize: 17, fontWeight: "700" }}>You're all caught up</Text>
-          <Text style={{ color: t.muted, fontSize: 14, textAlign: "center" }}>
-            {m?.items.length ? "More you might like, from beyond your sources." : m?.loading ? "Looking beyond your sources…" : m?.searching ? "Looking on the web for more…" : m?.done ? "That's everything for now. More arrives through the day." : "Keep scrolling for more from beyond your sources."}
-          </Text>
+          <Text style={{ color: t.ink, fontSize: 17, fontWeight: "700", textAlign: "center" }}>{title}</Text>
+          <Text style={{ color: t.muted, fontSize: 14, textAlign: "center" }}>{line}</Text>
           {(m?.loading || m?.searching) && !m.items.length ? <ActivityIndicator style={{ marginTop: space.s }} color={t.muted} /> : null}
-          {m?.done && !m.items.length ? (
-            <Pressable onPress={() => { const l = orderRef.current.find((x) => keyOf(x) === pageKey); moreRef.current = { ...moreRef.current, [pageKey]: { ...m, done: false } }; if (l !== undefined) loadMore(l); }}
-              accessibilityRole="button" style={({ pressed }) => ({ marginTop: space.s, paddingHorizontal: 14, height: 32, borderRadius: 16, justifyContent: "center", backgroundColor: t.chip, opacity: pressed ? 0.7 : 1 })}>
+          {i?.strict ? (
+            <Pressable onPress={() => drawer.openEdit(i.id)} accessibilityRole="button" style={({ pressed }) => ({ marginTop: space.s, paddingHorizontal: 14, height: 32, borderRadius: 16, justifyContent: "center", backgroundColor: t.chip, opacity: pressed ? 0.7 : 1 })}>
+              <Text style={{ color: t.ink, fontSize: 13, fontWeight: "600" }}>Find more sources</Text>
+            </Pressable>
+          ) : m?.done && !m.items.length ? (
+            <Pressable onPress={again} accessibilityRole="button" style={({ pressed }) => ({ marginTop: space.s, paddingHorizontal: 14, height: 32, borderRadius: 16, justifyContent: "center", backgroundColor: t.chip, opacity: pressed ? 0.7 : 1 })}>
               <Text style={{ color: t.ink, fontSize: 13, fontWeight: "600" }}>Look again</Text>
             </Pressable>
           ) : null}
@@ -459,7 +473,7 @@ export default function FeedScreen() {
         ref={(r) => { lists.current.set(key, r); }}
         style={{ width: pageW, height: pagerH }}
         data={rowsFor(f, more[key], !!f && f.entries.length > 0 && l?.kind !== "source")}
-        onEndReached={() => { if (f && l?.kind !== "source") loadMore(l); }}
+        onEndReached={() => { if (f && l?.kind !== "source" && !(l?.kind === "interest" && state?.interests.find((x) => x.id === l.id)?.strict)) loadMore(l); }}
         onEndReachedThreshold={1.5}
         extraData={[more[key], following, design]}
         keyExtractor={(r) => (r.type === "curator" ? "c-" + r.id : r.id)}
