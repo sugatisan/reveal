@@ -22,13 +22,13 @@ export function TunePill({ liked, less, onMore, onLess, size = "m", vertical, in
   const d = useDesign();
   const light = d["tune.icons"] === "light";
   const h = size === "s" ? 26 : size === "l" ? 40 : size === "xl" ? 46 : 30;
-  const w = size === "s" ? 30 : size === "l" ? 40 : size === "xl" ? 42 : 34;
   const icon = size === "s" ? 15 : size === "l" ? 20 : size === "xl" ? 21 : 17;
   const base = ink || t.muted;
   // The pill sets the size; each half fills exactly its half, and the selected side is a circle centered in it.
   const r = h / 2;
-  const W = vertical ? h : w * 2, H = vertical ? w * 2 : h;
-  const dot = Math.min(h, w) - 4;
+  // Each half is a square, so the selected circle fills the pill's full thickness at its end.
+  const W = vertical ? h : h * 2, H = vertical ? h * 2 : h;
+  const dot = h;
   const side = (which: "more" | "less", first: boolean) => {
     const on = which === "more" ? !!liked : !!less;
     const color = on ? t.accentInk : base;
@@ -54,11 +54,8 @@ export function TunePill({ liked, less, onMore, onLess, size = "m", vertical, in
     <View style={{ width: W, height: H, borderRadius: r, backgroundColor: fill || "transparent", flexDirection: vertical ? "column" : "row", overflow: "hidden" }}>
       {side(a1, true)}
       {side(a2, false)}
-      {/* Outline and divider drawn on top, so they never shift the halves. */}
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: r, borderWidth: StyleSheet.hairlineWidth, borderColor: line || t.line }]} />
-      <View pointerEvents="none" style={vertical
-        ? { position: "absolute", left: 6, right: 6, top: H / 2, height: StyleSheet.hairlineWidth, backgroundColor: line || t.line }
-        : { position: "absolute", top: 5, bottom: 5, left: W / 2, width: StyleSheet.hairlineWidth, backgroundColor: line || t.line }} />
+      {/* No divider. An outline only when the pill has no fill of its own (on plain cards). */}
+      {fill ? null : <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: r, borderWidth: StyleSheet.hairlineWidth, borderColor: line || t.line }]} />}
     </View>
   );
 }
