@@ -85,8 +85,10 @@ export function InterestEditor({ id, onBack, onViewStories, embedded }: { id: st
       setSub("");
       const likes = r.results.filter((x: any) => x.kind === "like").map((x: any) => x.text);
       const sites = r.results.filter((x: any) => x.kind === "site" && x.ok).map((x: any) => x.text);
-      const missed = r.results.filter((x: any) => x.kind === "site" && !x.ok).map((x: any) => x.text);
-      setAdded([likes.length ? `Liked ${likes.join(", ")}` : "", sites.length ? `Following ${sites.join(", ")}` : "", missed.length ? `No feed for ${missed.join(", ")}, kept as ${missed.length === 1 ? "a like" : "likes"}` : ""].filter(Boolean).join(" · ") + ".");
+      const missed = r.results.filter((x: any) => x.kind === "site" && !x.ok && !x.typed).map((x: any) => x.text);
+      // Addresses you pasted that couldn't be followed: say so, with the reason (never quietly kept as likes).
+      const failed = r.results.filter((x: any) => x.kind === "site" && !x.ok && x.typed).map((x: any) => `Couldn't follow ${x.text}${x.error ? ` (${String(x.error).replace(/^Couldn't add it\.\s*/, "").slice(0, 90)})` : ""}`);
+      setAdded([likes.length ? `Liked ${likes.join(", ")}` : "", sites.length ? `Following ${sites.join(", ")}` : "", missed.length ? `No feed for ${missed.join(", ")}, kept as ${missed.length === 1 ? "a like" : "likes"}` : "", ...failed].filter(Boolean).join(" · ") + ".");
     });
   };
   const rename = () => { const v = naming?.trim(); setNaming(null); if (v && v !== i.label) run("name", () => api("/api/interests/update", { id: i.id, label: v })); };

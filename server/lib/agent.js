@@ -517,14 +517,20 @@ const SPLIT_SCHEMA = {
 };
 export async function splitAdditions(text, interestLabel) {
   const looksSite = (x) => /^(https?:\/\/)?([\w-]+\.)+[a-z]{2,}(\/\S*)?$/i.test(x);
+  // Anything that's an address is a site, decided here, never by the model. The rest goes to the model.
+  const urls = (text.match(/\bhttps?:\/\/\S+|\b(?:[\w-]+\.)+(?:com|org|net|io|co|uk|de|fr|jp|tv|blog|news|me|app|dev|design|cars)(?:\/\S*)?/gi) || []).map((u) => u.replace(/[),.;]+$/, ""));
+  const sites = [...new Set(urls)].map((u) => ({ kind: "site", text: u.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, ""), url: /^https?:/i.test(u) ? u : "https://" + u, feed: "", typed: true }));
+  for (const u of urls) text = text.split(u).join(" ");
+  text = text.replace(/\s{2,}/g, " ").trim();
+  if (!text.replace(/[,;\s]|\band\b/gi, "")) return sites;
   const parts = text.split(/[,;\n]|\band\b/i).map((x) => x.trim()).filter(Boolean);
-  if (!hasKey()) return parts.map((p) => (looksSite(p) ? { kind: "site", text: p, url: p } : { kind: "like", text: p.charAt(0).toUpperCase() + p.slice(1), url: "" }));
+  if (!hasKey()) return [...sites, ...parts.map((p) => (looksSite(p) ? { kind: "site", text: p, url: p } : { kind: "like", text: p.charAt(0).toUpperCase() + p.slice(1), url: "" }))];
   const prompt = `Interest: "${interestLabel}"
 The person typed things to add to it: """${text}"""
 
 Split it into separate items. Decide for each whether it's a site to follow or something they like. Names of well-known publications, blogs, auction sites, YouTube channels and podcasts are sites even without ".com" (e.g. "autoblog" -> Autoblog, https://www.autoblog.com; "bring a trailer" -> Bring a Trailer, https://bringatrailer.com). Only call it a site if you're confident it exists.`;
   const out = await claudeForm({ system: "You sort what a person types into a discovery feed's interest settings.", prompt, schema: SPLIT_SCHEMA, model: FAST(), maxTokens: 500, purpose: "interest-add" });
-  return (out.items || []).map((x) => ({ kind: x.kind === "site" && x.url ? "site" : "like", text: String(x.text || "").trim().slice(0, 60), url: String(x.url || "").trim(), feed: String(x.feed || "").trim() })).filter((x) => x.text).slice(0, 12);
+  return [...sites, ...(out.items || []).map((x) => ({ kind: x.kind === "site" && x.url ? "site" : "like", text: String(x.text || "").trim().slice(0, 60), url: String(x.url || "").trim(), feed: String(x.feed || "").trim() })).filter((x) => x.text)].slice(0, 12);
 }
 
 // From a story you saved: 2-3 things to like in its interest, so the feed leans toward its spirit.

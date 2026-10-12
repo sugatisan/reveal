@@ -750,9 +750,10 @@ const routes = {
         i.subs = i.subs.filter((s) => s.toLowerCase() !== x.text.toLowerCase()); // kept as a like on an earlier try
         return { kind: "site", text: load().sources[sid]?.name || x.text, ok: true };
       } catch (e) {
-        // A site we couldn't follow is still kept as a like, so nothing typed is lost.
-        if (!i.subs.some((s) => s.toLowerCase() === x.text.toLowerCase())) i.subs.push(x.text);
-        return { kind: "site", text: x.text, ok: false, error: String(e.message || e) };
+        // A name the curator took for a site is kept as a like if it can't be followed, so nothing typed is lost.
+        // An address you pasted is never turned into a like: say it couldn't be followed, and why.
+        if (!x.typed && !i.subs.some((s) => s.toLowerCase() === x.text.toLowerCase())) i.subs.push(x.text);
+        return { kind: "site", text: x.text, ok: false, typed: !!x.typed, error: String(e.message || e) };
       }
     }));
     save();

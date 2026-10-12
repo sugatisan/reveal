@@ -3,7 +3,15 @@ import { shopFor, shopLinks } from "./shop.js";
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36 DiscoveryFeed/0.1";
 
-export async function fetchText(url, { timeout = 10000, accept } = {}) {
+export async function fetchText(url, opts = {}) {
+  // YouTube's feeds return 404/500 on and off; a couple of retries usually get through.
+  const tries = /youtube\.com\/feeds\//.test(url) ? 3 : 1;
+  for (let k = 0; ; k++) {
+    try { return await fetchOnce(url, opts); }
+    catch (e) { if (k >= tries - 1 || /HTTP 4(0[0-3]|10)/.test(String(e.message)) && !/HTTP 404/.test(String(e.message))) throw e; await new Promise((r) => setTimeout(r, 1200 * (k + 1))); }
+  }
+}
+async function fetchOnce(url, { timeout = 10000, accept } = {}) {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeout);
   try {
