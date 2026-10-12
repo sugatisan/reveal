@@ -220,7 +220,9 @@ function siteName(html) {
   return t ? stripTags(t).split(/\s[|–—-]\s/)[0].trim() : "";
 }
 
-const COMMON = ["/feed/", "/feed", "/rss", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml", "/?format=rss", "/blog?format=rss", "/feeds/posts/default", "/rss/"];
+// Common feed paths, tried when a site doesn't link its feed. "/.rss/full/" is the Arena Group / Maven
+// platform (Autoblog, TheStreet, Sports Illustrated…), whose pages don't advertise their feeds.
+const COMMON = ["/feed/", "/feed", "/rss", "/rss.xml", "/feed.xml", "/atom.xml", "/index.xml", "/?format=rss", "/blog?format=rss", "/feeds/posts/default", "/rss/", "/.rss/full/", "/.rss/"];
 
 // Find a working feed for a site or feed URL. Returns { feedUrl, title, site, description, items } or throws.
 export async function discoverFeed(input, { timeout = 9000 } = {}) {
