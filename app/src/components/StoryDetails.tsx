@@ -31,10 +31,10 @@ const loadBrief = (id: string, d: ItemDetail) => {
   return briefs.get(id)!;
 };
 // Links to what the story is about, worked out the first time anyone opens it.
-type Links = { links: { url: string; label: string; official?: boolean }[]; shops?: ItemDetail["shops"] };
+type Links = { links: { url: string; label: string; official?: boolean }[]; shops?: ItemDetail["shops"]; market?: ItemDetail["market"] };
 const linkLoads = new Map<string, Promise<Links>>();
 const loadLinks = (id: string) => {
-  if (!linkLoads.has(id)) linkLoads.set(id, api<Links>("/api/item/links", { id }).then((r) => ({ links: r.links || [], shops: r.shops })).catch(() => { linkLoads.delete(id); return { links: [] }; }));
+  if (!linkLoads.has(id)) linkLoads.set(id, api<Links>("/api/item/links", { id }).then((r) => ({ links: r.links || [], shops: r.shops, market: r.market || [] })).catch(() => { linkLoads.delete(id); return { links: [] }; }));
   return linkLoads.get(id)!;
 };
 // The feed already carries summaries written ahead of time; keep them so opening a story is instant.
@@ -87,11 +87,12 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
   const [busy, setBusy] = useState("");
   const [links, setLinks] = useState(it.links);
   const [shops, setShops] = useState(it.shops);
+  const [market, setMarket] = useState(it.market);
   useEffect(() => {
-    setLinks(it.links); setShops(it.shops);
+    setLinks(it.links); setShops(it.shops); setMarket(it.market);
     if (it.links === undefined && !it.web) {
       let live = true;
-      loadLinks(it.id).then((r) => { if (!live) return; setLinks(r.links); if (r.shops) setShops(r.shops); });
+      loadLinks(it.id).then((r) => { if (!live) return; setLinks(r.links); if (r.shops) setShops(r.shops); setMarket(r.market); });
       return () => { live = false; };
     }
   }, [it.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -154,18 +155,34 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
               <View style={{ borderRadius: radius.m, backgroundColor: t.card, overflow: "hidden" }}><SourceLoadingRow /></View>
             </View>
           ) : null}
-          {shops?.length ? (
+          {shops?.length || market?.length ? (
             <View>
               <Label>WHERE TO BUY</Label>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
-                {shops.map((s) => (
-                  <Chip key={s.shop} label={s.shop} icon="bag-handle-outline" onPress={() => {
-                    sendEvents([{ itemId: it.id, type: "buy" }]).catch(() => {});
-                    openLink(s.url);
-                  }} />
-                ))}
-              </View>
-              {shops.some((s) => s.ours) ? <Text style={{ color: t.faint, fontSize: 12, marginTop: space.s }}>Reveal may earn a commission from these links. It never affects what you see.</Text> : null}
+              {shops?.length ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
+                  {shops.map((s) => (
+                    <Chip key={s.shop} label={s.shop} icon="bag-handle-outline" onPress={() => {
+                      sendEvents([{ itemId: it.id, type: "buy" }]).catch(() => {});
+                      openLink(s.url);
+                    }} />
+                  ))}
+                </View>
+              ) : null}
+              {/* Where this kind of item is sold (auctions, dealers, marketplaces), found for the item itself. */}
+              {market?.length ? (
+                <View style={{ marginTop: shops?.length ? space.m : 0 }}>
+                  <Text style={{ color: t.muted, fontSize: 13, marginBottom: space.s }}>More for sale</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s }}>
+                    {market.map((m) => (
+                      <Chip key={m.url} label={m.name} icon="pricetags-outline" onPress={() => {
+                        sendEvents([{ itemId: it.id, type: "buy" }]).catch(() => {});
+                        openLink(m.url);
+                      }} />
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+              {shops?.some((s) => s.ours) ? <Text style={{ color: t.faint, fontSize: 12, marginTop: space.s }}>Reveal may earn a commission from these links. It never affects what you see.</Text> : null}
             </View>
           ) : null}
         </>

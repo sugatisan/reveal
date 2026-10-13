@@ -396,9 +396,11 @@ const LINKS_SCHEMA = {
   type: "object",
   properties: {
     storyKind: { type: "string", enum: STORY_KINDS, description: "announcement: something new is launched or revealed. review: an evaluation of one thing. news: a report of an event. explainer: a how-to, guide or background piece. opinion: a column, letter or essay. roundup: a list, gallery or buying guide covering several things. deal: a discount on something. listing: an event listing, auction or for-sale post." },
-    subject: { type: "string", description: "The ONE specific thing the story is mainly about, as a reader would search it (e.g. 'Mattel Brick Shop', 'Renoir and Love', 'Rosewood Bangkok', 'H.R. 6500'). Empty for an auction or for-sale post of a used or one-off item (the post itself is the source). Empty if it isn't mainly about one thing: roundups and lists of several things, trend pieces, how-tos, opinion, or a story about a private person (a crime victim, a resident). A roundup where every item comes from one brand is about that brand. If the headline names one specific thing, that thing is the subject even when the story also covers others. An award, prize or ranking announcement is about the award (e.g. '2026 Nobel Prize in Medicine'), even with several winners." },
+    subject: { type: "string", description: "The ONE specific thing the story is mainly about, as a reader would search it (e.g. 'Mattel Brick Shop', 'Renoir and Love', 'Rosewood Bangkok', 'H.R. 6500'). For an auction or for-sale post, the item being sold (e.g. '2020 Ford GT Carbon Series'). Empty if it isn't mainly about one thing: roundups and lists of several things, trend pieces, how-tos, opinion, or a story about a private person (a crime victim, a resident). A roundup where every item comes from one brand is about that brand. If the headline names one specific thing, that thing is the subject even when the story also covers others. An award, prize or ranking announcement is about the award (e.g. '2026 Nobel Prize in Medicine'), even with several winners." },
     distinctThings: { type: "integer", description: "How many distinct products, works, places, organizations, cases or events the story covers in substance (not passing mentions). A review of one film is 1; a list of 7 court cases is 7; an award announced with several winners is 1 (the award); a player's contract with a club is 1." },
     headlineNamesOne: { type: "boolean", description: "True when the headline itself names one specific thing (e.g. 'KÜHL The One Series', 'Review: Rosewood Bangkok'), even if the body also covers other things. False for list headlines ('The 15 best new restaurants') and topic headlines." },
+    buyIntent: { type: "boolean", description: "True when the story is about something a reader could buy right now or soon: an auction, a for-sale listing, a deal, a preorder or a just-released product with a price." },
+    marketName: { type: "string", description: "When buyIntent: what a shopper would search to find more of these for sale, at the level the market trades it (e.g. 'Ford GT', 'Rolex Submariner 5513', 'LEGO 10179 Millennium Falcon', 'Eames lounge chair'). Not the one specific listing. Empty otherwise." },
     singleOwner: { type: "boolean", description: "True when all of those things come from one maker, brand or organization (e.g. a roundup of one brand's new collection)." },
     subjectType: { type: "string", enum: [...SUBJECT_TYPES, "none"], description: "document: a study, report, filing, bill, ruling or press release. creative work: a book, film, show, album, game, app, artwork. public figure: only people famous in their own right; never private individuals." },
     links: {
@@ -407,9 +409,9 @@ const LINKS_SCHEMA = {
       items: { type: "object", properties: { n: { type: "integer", description: "The link's number in the list" }, label: { type: "string", description: "1-3 words naming what it is, e.g. Official site, Trailer, The study, Bill text, Exhibition, Press release" } }, required: ["n", "label"] },
     },
     missing: {
-      type: "array", maxItems: 2,
-      description: "Names to look up when the picked links don't already go to them: first the subject itself, then (optionally) its owner when that's a different name: the maker of a product, the publisher of a book, the label of an album, the studio or distributor of a film, the agency behind a program, the institution behind a study, the club or team of an athlete, the company of an executive. When the subject is a person, always include their owner, since many people have no site of their own. Never the publication, other media outlets, investors, venues merely hosting it, police or agencies merely reporting it, or people mentioned in passing. Empty when there's no subject.",
-      items: { type: "object", properties: { name: { type: "string" }, kind: { type: "string", enum: SUBJECT_TYPES }, role: { type: "string", enum: ["subject", "owner"] } }, required: ["name", "kind", "role"] },
+      type: "array", maxItems: 3,
+      description: "Names to look up when the picked links don't already go to them, most specific first: the subject itself; then, when the subject is one version, model year or unit of something broader, its line (e.g. 'Ford GT' for '2020 Ford GT Carbon Series', 'Submariner' for one watch reference); then (optionally) its owner when that's a different name: the maker of a product, the publisher of a book, the label of an album, the studio or distributor of a film, the agency behind a program, the institution behind a study, the club or team of an athlete, the company of an executive. When the subject is a person, always include their owner, since many people have no site of their own. Never the publication, other media outlets, investors, venues merely hosting it, police or agencies merely reporting it, or people mentioned in passing. Empty when there's no subject.",
+      items: { type: "object", properties: { name: { type: "string" }, kind: { type: "string", enum: SUBJECT_TYPES }, role: { type: "string", enum: ["subject", "line", "owner"] } }, required: ["name", "kind", "role"] },
     },
   },
   required: ["storyKind", "subject", "distinctThings", "headlineNamesOne", "singleOwner", "subjectType", "links", "missing"],
@@ -443,10 +445,11 @@ What kind of story is this, and what one thing is it mainly about? If the headli
     picked.push({ url: c.url, label, ...(c.dest ? { dest: c.dest } : {}) });
   }
   const missing = (Array.isArray(out.missing) ? out.missing : [])
-    .map((m) => ({ name: String(m?.name || "").trim(), kind: SUBJECT_TYPES.includes(m?.kind) ? m.kind : subjectType, role: m?.role === "owner" ? "owner" : "subject" }))
+    .map((m) => ({ name: String(m?.name || "").trim(), kind: SUBJECT_TYPES.includes(m?.kind) ? m.kind : subjectType, role: ["line", "owner"].includes(m?.role) ? m.role : "subject" }))
     .filter((m) => m.name && m.name.length <= 80 && (!publisher || m.name.toLowerCase() !== publisher.toLowerCase()))
-    .sort((a, b) => (a.role === "subject" ? 0 : 1) - (b.role === "subject" ? 0 : 1)).slice(0, 2);
-  return { links: picked.slice(0, 3), missing, storyKind, subject, subjectType, why };
+    .sort((a, b) => ({ subject: 0, line: 1, owner: 2 }[a.role] - { subject: 0, line: 1, owner: 2 }[b.role])).slice(0, 3);
+  const marketName = out.buyIntent ? String(out.marketName || "").trim().slice(0, 80) : "";
+  return { links: picked.slice(0, 3), missing, storyKind, subject, subjectType, why, marketName };
 }
 
 // The official website of a maker, brand, product, place or project, by web search. Only a URL the search
@@ -456,6 +459,46 @@ What kind of story is this, and what one thing is it mainly about? If the headli
 // the publisher that wrote the story (passed in by the caller).
 const NOT_OFFICIAL = /(^|\.)(wikipedia|wikimedia|wikidata|fandom|amazon|ebay|walmart|target|etsy|aliexpress|temu|reddit|facebook|instagram|twitter|x|threads|tiktok|pinterest|linkedin|youtube|medium|substack|imdb|yelp|tripadvisor|crunchbase|google|apple\.news|msn|yahoo)\.[a-z.]+$/i;
 const nameTokens = (s) => String(s).toLowerCase().normalize("NFKD").replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length >= 3 && !/^(the|and|for|inc|llc|ltd|company|official|shop|store)$/.test(w));
+// Where something is sold right now, worked out for the item itself (collector cars, watches, LEGO, furniture
+// each have their own markets): one web search, up to 3 places that list it for sale. Only pages the search
+// returned; never news, reviews, price guides, encyclopedias or social.
+const NOT_MARKET = /(^|\.)(wikipedia|wikimedia|fandom|reddit|facebook|instagram|twitter|x|threads|tiktok|pinterest|linkedin|youtube|medium|substack|imdb|google|msn|yahoo)\.[a-z.]+$/i;
+export async function whereSold(marketName, context = "", { exclude = [] } = {}) {
+  if (!hasKey() || !marketName) return { places: [], reason: "no API key" };
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model: FAST(), max_tokens: 700,
+      system: "You find where things are bought and sold. Reply with JSON only.",
+      messages: [{ role: "user", content: `Where would someone buy a ${marketName} right now${context ? ` (context: ${context})` : ""}? Search for current listings.
+Pick up to 3 places that actually list ${marketName} for sale: the marketplaces, auction houses, dealers or classifieds that specialize in this kind of item (specialists over general stores; a general store only if it really carries it). Prefer each place's page of listings for ${marketName} (search or category results) or a current listing.
+Never news, reviews, price guides, forums or encyclopedias.
+Return {"places":[{"name":"short name of the place","url":""}]}. Use URLs exactly as they appeared in the search results.` }],
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 1 }],
+    }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error?.message || `Claude API error ${res.status}`);
+  const us = body.usage || {};
+  record({ purpose: "where-sold", model: FAST(), input: (us.input_tokens || 0) + (us.cache_creation_input_tokens || 0), output: us.output_tokens || 0, cached: us.cache_read_input_tokens || 0, searches: us.server_tool_use?.web_search_requests || 0 });
+  const found = new Set();
+  for (const c of body.content || []) if (c.type === "web_search_tool_result" && Array.isArray(c.content)) for (const r of c.content) if (r.url) found.add(r.url);
+  const text = (body.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+  let out = {};
+  try { out = json(text); } catch {}
+  const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } };
+  const places = [];
+  for (const p of Array.isArray(out.places) ? out.places : []) {
+    const url = String(p?.url || "").trim(), name = String(p?.name || "").trim().slice(0, 28), h = hostOf(url);
+    if (!url || !name || !found.has(url) || NOT_MARKET.test(h) || exclude.some((e) => e && (h === e || h.endsWith("." + e)))) continue;
+    if (places.some((x) => hostOf(x.url) === h)) continue;
+    places.push({ name, url });
+    if (places.length >= 3) break;
+  }
+  return { places, reason: places.length ? "found" : `nothing usable (${found.size} search results)` };
+}
+
 function carriesName(host, name) {
   const labels = host.replace(/^www\./, "").split(".").slice(0, -1).join(" ").replace(/-/g, " ");
   const last = labels.split(" ").pop();

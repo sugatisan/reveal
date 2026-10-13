@@ -181,13 +181,14 @@ function caseHtml(r) {
   const expected = r.expectNone ? `<span style="color:var(--quiet)">No link: ${esc(r.storyKind)}</span>` :
     r.hosts.map((h) => `<span class="link">${esc(h)}</span>`).join("") + (r.idealUrl ? `<div style="font-size:12px;color:var(--faint);margin-top:2px">ideal: <a href="${esc(r.idealUrl)}" target="_blank">${esc(r.idealUrl)}</a></div>` : "");
   const got = !res ? `<span style="color:var(--faint)">Not run</span>` : res.error && !links.length ? `<span style="color:var(--wrong)">Error: ${esc(res.error)}</span>` :
-    links.length ? links.map((l) => `<a class="link ${r.expectNone ? "bad" : onSite(l.url, r.hosts) ? "ok" : "bad"}" href="${esc(l.url)}" target="_blank" title="${esc(l.url)}">${esc(l.label)} <span class="src">${esc(host(l.url))} · ${l.from === "lookup" ? "looked up" : "from article"}</span></a>`).join("") : `<span style="color:var(--faint)">Nothing</span>`;
+    links.length ? links.map((l) => `<a class="link ${r.expectNone ? "bad" : onSite(l.dest || l.url, r.hosts) ? "ok" : "bad"}" href="${esc(l.url)}" target="_blank" title="${esc(l.dest || l.url)}">${esc(l.label)} <span class="src">${esc(host(l.dest || l.url))}${l.dest ? " (via publisher link)" : ""} · ${l.from === "lookup" ? "looked up" : "from article"}</span></a>`).join("") : `<span style="color:var(--faint)">Nothing</span>`;
   const t = res?.trace;
   const trace = res ? [
     `Article read: ${res.readArticle ? `yes (${res.textChars} chars of text)` : `no${res.articleError ? ` (${res.articleError})` : ""}`}`,
-    t ? `Outside links in article: ${t.candidates}${t.redirectsFollowed ? ` · redirects followed: ${t.redirectsFollowed}` : ""}` : "",
+    t?.storyKind ? `Story kind: ${t.storyKind} · about: ${t.subject || "no single subject"}${t.subjectType && t.subjectType !== "none" ? ` (${t.subjectType})` : ""}${t.skipped ? " → no links for this kind of story" : ""}` : "",
+    t ? `Outside links in article: ${t.candidates}${t.redirectsFollowed ? ` · wrapped/redirect links unwrapped: ${t.redirectsFollowed}` : ""}` : "",
     t?.picked?.length ? `Picked from article: ${t.picked.map((p) => `${p.label} → ${p.dest || p.url}`).join("; ")}` : t ? "Picked from article: none" : "",
-    t?.missing?.length ? `Named but not linked: ${t.missing.map((m) => `${m.name} (${m.kind})`).join(", ")}` : t ? "Named but not linked: none" : "",
+    t?.missing?.length ? `To look up: ${t.missing.map((m) => `${m.name} (${m.kind}${m.role ? ", " + m.role : ""})`).join(", ")}` : t ? "To look up: none" : "",
     ...(t?.lookups || []).map((l) => `Lookup "${l.name}": ${l.url || "no site"} — ${l.from}${l.reason ? `; ${l.reason}` : ""}`),
     res.shops?.length ? `Where to buy: ${res.shops.map((x) => x.shop).join(", ")}` : "",
     `Took ${(res.ms / 1000).toFixed(1)}s`,

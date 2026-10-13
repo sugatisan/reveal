@@ -95,7 +95,7 @@ async function runOne(c) {
   const text = page?.text || "";
   try {
     const out = await resolveLinks({ title: c.title, link: c.url, gist: text.slice(0, 700), publisher: c.publisher, publisherSite: "", cands: page?.links || [], shopLinks: page?.shops || [] }, cache, { log: false });
-    Object.assign(r, { links: out.links, shops: out.shopLinks.map((s) => ({ shop: s.shop, url: s.url })), trace: out.trace, readArticle: !!page, textChars: text.length });
+    Object.assign(r, { links: out.links, market: out.market, shops: out.shopLinks.map((s) => ({ shop: s.shop, url: s.url })), trace: out.trace, readArticle: !!page, textChars: text.length });
   } catch (e) { r.error = String(e.message || e); r.readArticle = !!page; }
   r.ms = Date.now() - t0;
   return r;

@@ -85,7 +85,7 @@ export function buildFeed({ interestId, sourceId, limit = 120, mediaEvery = 8 } 
     const primary = subInt || ints[0];
     const why = interestId ? (sub || "") : sub ? `${primary.label} · ${sub}` : primary.label;
 
-    const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, linkCands, subjectLinks, linksV, linksTrace, ...pub } = it; // server-only
+    const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, linkCands, subjectLinks, linksV, linksTrace, marketLinks, ...pub } = it; // server-only
     scored.push({ ...pub, source: sourceOf(it), fit, opened: !!(ev.open || ev.expand), imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length, score, why, interestIds: ints.map((i) => i.id), sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s), saved: !!ev.save, liked: !!ev.like, video: videoOf(it), shownN: ev.shown || 0, engagedAny: !!engaged });
   }
   // One source on its own reads like that site: newest first, nothing reordered.
@@ -235,7 +235,7 @@ export function buildMore({ interestId, exclude = [], limit = 12 } = {}) {
     }
   }
   return out.map(({ it, i, sub, web }) => {
-    const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, linkCands, subjectLinks, linksV, linksTrace, ...pub } = it;
+    const { feedText, pageImages, shopLinks, lead, briefFailedAt, briefFailedV, largeTried, imageTried, linkCands, subjectLinks, linksV, linksTrace, marketLinks, ...pub } = it;
     const src = d.sources[it.sourceId] || {};
     return { ...pub, source: sourceOf(it), type: "item", why: sub ? `${i.label} · ${sub}` : i.label, sourceName: src.name, imageLarge: best(it), imageCount: (it.image ? 1 : 0) + (it.images || []).length,
       interestIds: [i.id], saved: !!d.events[it.id]?.save, liked: !!d.events[it.id]?.like, video: videoOf(it), beyond: { kind: web ? "web" : "source", sourceId: it.sourceId, sourceName: web ? src.name || String(it.sourceId).replace(/^web:/, "") : src.name, interestId: i.id, interestLabel: i.label } };

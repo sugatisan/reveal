@@ -357,7 +357,7 @@ async function writeBrief(id) {
 }
 
 // Links to what a story is about: see lib/links.js. Worked out once, the first time the story is opened.
-const LINKS_V = 9;
+const LINKS_V = 10;
 const linksInflight = new Map();
 function subjectLinks(id) {
   if (!linksInflight.has(id)) linksInflight.set(id, findLinks(id).finally(() => linksInflight.delete(id)));
@@ -383,6 +383,7 @@ async function findLinks(id) {
   it.shopLinks = r.shopLinks;
   it.subjectLinks = r.links.map(({ from, ...l }) => l);
   it.linksTrace = r.trace; // why it linked what it did (or nothing); for debugging
+  it.marketLinks = r.market || [];
   it.linksV = LINKS_V;
   save();
   return it.subjectLinks;
@@ -417,7 +418,7 @@ async function itemDetail(id) {
   return {
     ...it, sourceName: src.name, alsoNames: (it.also || []).map((s) => d.sources[s]?.name || s),
     interests: ints.map((i) => ({ id: i.id, label: i.label })), related, deeper, saved: !!d.events[id]?.save, liked: !!d.events[id]?.like, gallery: gallery.slice(0, 12),
-    brief: briefReady(it) ? it.brief : null, forYou: forYou(it, ints), feedText: undefined, shops: shop.withAffiliate(it.shopLinks || []), links: it.linksV === LINKS_V ? it.subjectLinks : undefined,
+    brief: briefReady(it) ? it.brief : null, forYou: forYou(it, ints), feedText: undefined, shops: shop.withAffiliate(it.shopLinks || []), links: it.linksV === LINKS_V ? it.subjectLinks : undefined, market: it.linksV === LINKS_V ? it.marketLinks || [] : undefined,
   };
 }
 
@@ -907,7 +908,7 @@ const routes = {
     save();
     return { sourceId: sid, name: d.sources[sid].name };
   },
-  "POST /api/item/links": async (req) => { const { id } = await body(req); const links = await subjectLinks(id); return { links, shops: shop.withAffiliate(load().items[id]?.shopLinks || []) }; },
+  "POST /api/item/links": async (req) => { const { id } = await body(req); const links = await subjectLinks(id); const it = load().items[id]; return { links, shops: shop.withAffiliate(it?.shopLinks || []), market: it?.marketLinks || [] }; },
   "GET /api/usage": async (req, url) => usage.summary(Number(url.searchParams.get("days")) || 7),
   // Links lab (server/public/lab.html): test articles across categories, scored. Separate data, never the feed's.
   "GET /api/lab/links": async () => lab.view(),

@@ -116,7 +116,7 @@ export async function resolveLinks(story, cache, { log = true } = {}) {
   // A homepage doesn't cover the subject: look the subject up too, so its own page can replace it.
   if (picked.subject && !picked.skipped && !picked.missing.some((m) => m.role === "subject") && !links.some((l) => !isHome(l.dest || l.url)))
     picked.missing.unshift({ name: picked.subject, kind: picked.subjectType, role: "subject" });
-  picked.missing = picked.missing.slice(0, 2);
+  picked.missing = picked.missing.slice(0, 3);
   trace.missing = picked.missing;
   const context = `${story.title}${story.publisher ? ` (${story.publisher})` : ""}`;
   const exclude = [hostOf(story.link || ""), hostOf(story.publisherSite || "")].filter(Boolean);
@@ -124,12 +124,31 @@ export async function resolveLinks(story, cache, { log = true } = {}) {
   trace.lookups = picked.missing.map((m, i) => ({ name: m.name, kind: m.kind, role: m.role, url: found[i].entry?.url || null, from: found[i].from, reason: found[i].reason || "" }));
   found.forEach((f, i) => {
     if (!f.entry) return;
+    // A maker's bare homepage only helps when the story is about the maker itself.
+    if (picked.missing[i].role === "owner" && isHome(f.entry.url) && picked.subjectType !== "organization") { trace.lookups[i].reason += " (dropped: owner homepage isn't about this)"; return; }
     const note = add({ url: f.entry.url, label: f.entry.name.slice(0, 28), official: true, from: "lookup", role: picked.missing[i].role });
     if (note) trace.lookups[i].reason += ` (${note})`;
   });
+  // Buying intent (auctions, listings, deals): where this kind of item is sold, found for the item itself.
+  let market = [];
+  if (picked.marketName) {
+    const key = "market:" + officialKey(picked.marketName);
+    const hit = cache.entries[key];
+    if (hit && Date.now() - hit.at < 3 * 864e5) { market = hit.places; trace.market = { name: picked.marketName, from: "cache", places: market }; }
+    else {
+      try {
+        const r = await agent.whereSold(picked.marketName, `${story.title}${story.publisher ? ` (${story.publisher})` : ""}`);
+        market = r.places;
+        cache.entries[key] = { name: picked.marketName, places: market, at: Date.now() };
+        cache.save();
+        trace.market = { name: picked.marketName, from: "search", places: market, reason: r.reason };
+      } catch (e) { trace.market = { name: picked.marketName, from: "error", reason: e.message }; }
+    }
+    market = market.filter((m) => m.url !== story.link);
+  }
   // Order: the subject's own pages first; then homepages; then its owner; press releases and pre-save or
   // streaming pages last. Stable within each rank.
   const rank = (l) => /press|pre-?save|stream|listen|watch on/i.test(l.label) ? 3 : l.role === "owner" ? 2 : l.from === "article" && isHome(l.dest || l.url) ? 1 : 0;
   links.sort((a, b) => rank(a) - rank(b));
-  return { links: links.map(({ role, ...l }) => l), shopLinks: fr.shopLinks, trace };
+  return { links: links.map(({ role, ...l }) => l), shopLinks: fr.shopLinks, market, trace };
 }
