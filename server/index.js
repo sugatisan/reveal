@@ -357,7 +357,7 @@ async function writeBrief(id) {
 }
 
 // Links to what a story is about: see lib/links.js. Worked out once, the first time the story is opened.
-const LINKS_V = 8;
+const LINKS_V = 9;
 const linksInflight = new Map();
 function subjectLinks(id) {
   if (!linksInflight.has(id)) linksInflight.set(id, findLinks(id).finally(() => linksInflight.delete(id)));
@@ -382,6 +382,7 @@ async function findLinks(id) {
   } catch { return it.subjectLinks || []; } // try again next time it's opened
   it.shopLinks = r.shopLinks;
   it.subjectLinks = r.links.map(({ from, ...l }) => l);
+  it.linksTrace = r.trace; // why it linked what it did (or nothing); for debugging
   it.linksV = LINKS_V;
   save();
   return it.subjectLinks;

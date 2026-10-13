@@ -421,18 +421,19 @@ const COVERAGE_LABEL = /\b(article|coverage|review|interview|story|op-ed|column|
 export async function pickLinks(item, gist, candidates, publisher = "") {
   if (!hasKey()) return { links: [], missing: [], storyKind: "", subject: "" };
   const list = candidates.map((c, i) => `[${i + 1}] ${c.text || "(no text)"} -> ${(c.dest || c.url).replace(/^https?:\/\/(www\.)?/, "").slice(0, 120)}`).join("\n");
-  const prompt = `Story${publisher ? ` from ${publisher}` : ""}: ${item.title}
-${gist ? `Gist: ${gist}\n` : ""}Links in the article:
+  const prompt = `Headline${publisher ? ` (${publisher})` : ""}: ${item.title}
+${gist ? `Summary: ${gist}\n` : ""}Links in the article:
 ${list || "(none)"}
 
-What kind of story is this, and what one thing is it mainly about? Which links go to that thing, and what should be looked up that isn't linked?`;
+What kind of story is this, and what one thing is it mainly about? If the headline names one specific thing, that's the subject, even when the summary calls the story a roundup. Which links go to that thing, and what should be looked up that isn't linked?`;
   const out = await claudeForm({ system: "You pick supporting links for stories in a discovery feed. Links take readers to the source of what a story is about: its own page, its maker's, the document itself. A missing link is better than a wrong one.", prompt, schema: LINKS_SCHEMA, model: FAST(), maxTokens: 500, purpose: "story-links" });
   const storyKind = String(out.storyKind || ""), subject = String(out.subject || "").trim(), subjectType = String(out.subjectType || "none");
   // No links when the story isn't about one thing: no subject, an opinion piece, or several things that don't
   // share an owner. A how-to or explainer about one specific thing (a ruling, a benefit change) still links.
   // A headline that names one thing wins: readers expect a link to what the title names.
   const many = (Number(out.distinctThings) >= 3 || storyKind === "roundup") && !out.singleOwner && !out.headlineNamesOne;
-  if (!subject || subjectType === "none" || storyKind === "opinion" || many) return { links: [], missing: [], storyKind, subject, subjectType, skipped: true };
+  const why = { distinctThings: out.distinctThings, headlineNamesOne: !!out.headlineNamesOne, singleOwner: !!out.singleOwner };
+  if (!subject || subjectType === "none" || storyKind === "opinion" || many) return { links: [], missing: [], storyKind, subject, subjectType, skipped: true, why };
   const picked = [];
   for (const l of Array.isArray(out.links) ? out.links : []) {
     const c = candidates[Number(l?.n) - 1];
@@ -445,7 +446,7 @@ What kind of story is this, and what one thing is it mainly about? Which links g
     .map((m) => ({ name: String(m?.name || "").trim(), kind: SUBJECT_TYPES.includes(m?.kind) ? m.kind : subjectType, role: m?.role === "owner" ? "owner" : "subject" }))
     .filter((m) => m.name && m.name.length <= 80 && (!publisher || m.name.toLowerCase() !== publisher.toLowerCase()))
     .sort((a, b) => (a.role === "subject" ? 0 : 1) - (b.role === "subject" ? 0 : 1)).slice(0, 2);
-  return { links: picked.slice(0, 3), missing, storyKind, subject, subjectType };
+  return { links: picked.slice(0, 3), missing, storyKind, subject, subjectType, why };
 }
 
 // The official website of a maker, brand, product, place or project, by web search. Only a URL the search

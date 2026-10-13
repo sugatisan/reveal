@@ -82,7 +82,7 @@ export async function resolveLinks(story, cache, { log = true } = {}) {
   const fr = await followRedirects(story.cands || [], story.shopLinks || []);
   trace.redirectsFollowed = fr.followed;
   const picked = await agent.pickLinks({ title: story.title }, story.gist || "", fr.cands, story.publisher || "");
-  Object.assign(trace, { storyKind: picked.storyKind, subject: picked.subject, subjectType: picked.subjectType, skipped: !!picked.skipped });
+  Object.assign(trace, { storyKind: picked.storyKind, subject: picked.subject, subjectType: picked.subjectType, skipped: !!picked.skipped, why: picked.why });
   // Follow each picked link once to where it lands: publishers' own short links (un.cr and the like) and
   // unknown redirectors look like any other domain, so this is the only generic way to see the destination.
   await Promise.all(picked.links.filter((l) => !l.dest).map(async (l) => {
