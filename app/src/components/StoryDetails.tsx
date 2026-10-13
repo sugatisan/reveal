@@ -31,10 +31,10 @@ const loadBrief = (id: string, d: ItemDetail) => {
   return briefs.get(id)!;
 };
 // Links to what the story is about, worked out the first time anyone opens it.
-type Links = { links: { url: string; label: string; official?: boolean }[]; shops?: ItemDetail["shops"]; market?: ItemDetail["market"] };
+type Links = { links: { url: string; label: string; official?: boolean }[]; shops?: ItemDetail["shops"]; market?: ItemDetail["market"]; none?: "several" | "notfound" };
 const linkLoads = new Map<string, Promise<Links>>();
 const loadLinks = (id: string) => {
-  if (!linkLoads.has(id)) linkLoads.set(id, api<Links>("/api/item/links", { id }).then((r) => ({ links: r.links || [], shops: r.shops, market: r.market || [] })).catch(() => { linkLoads.delete(id); return { links: [] }; }));
+  if (!linkLoads.has(id)) linkLoads.set(id, api<Links>("/api/item/links", { id }).then((r) => ({ links: r.links || [], shops: r.shops, market: r.market || [], none: r.none })).catch(() => { linkLoads.delete(id); return { links: [] }; }));
   return linkLoads.get(id)!;
 };
 // The feed already carries summaries written ahead of time; keep them so opening a story is instant.
@@ -88,11 +88,13 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
   const [links, setLinks] = useState(it.links);
   const [shops, setShops] = useState(it.shops);
   const [market, setMarket] = useState(it.market);
+  // Set only when you watched it look and it found nothing, so the placeholder ends with an answer.
+  const [noSource, setNoSource] = useState<"several" | "notfound" | null>(null);
   useEffect(() => {
-    setLinks(it.links); setShops(it.shops); setMarket(it.market);
+    setLinks(it.links); setShops(it.shops); setMarket(it.market); setNoSource(null);
     if (it.links === undefined && !it.web) {
       let live = true;
-      loadLinks(it.id).then((r) => { if (!live) return; setLinks(r.links); if (r.shops) setShops(r.shops); setMarket(r.market); });
+      loadLinks(it.id).then((r) => { if (!live) return; setLinks(r.links); if (r.shops) setShops(r.shops); setMarket(r.market); if (!r.links.length) setNoSource(r.none || "notfound"); });
       return () => { live = false; };
     }
   }, [it.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -147,6 +149,11 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
               <View style={{ borderRadius: radius.m, backgroundColor: t.card, overflow: "hidden" }}>
                 {links.map((l, i) => <SourceLinkRow key={l.url} link={l} first={i === 0} />)}
               </View>
+            </View>
+          ) : noSource && links ? (
+            <View>
+              <Label>SOURCE</Label>
+              <View style={{ borderRadius: radius.m, backgroundColor: t.card, overflow: "hidden" }}><SourceNoneRow reason={noSource} /></View>
             </View>
           ) : links === undefined && !it.web ? (
             // Still working it out (first open can take a few seconds): say so, then become the link or go away.
@@ -340,5 +347,26 @@ function SourceLoadingRow() {
         <Animated.View style={{ width: "40%", height: 9, borderRadius: 5, backgroundColor: t.chip, opacity: pulse }} />
       </View>
     </View>
+  );
+}
+
+// The end of "Finding the source…" when nothing turned up: says so, and why, instead of vanishing.
+function SourceNoneRow({ reason }: { reason: "several" | "notfound" }) {
+  const t = useTheme();
+  const fade = useRef(new Animated.Value(0)).current;
+  useEffect(() => { Animated.timing(fade, { toValue: 1, duration: 250, useNativeDriver: true }).start(); }, [fade]);
+  const [title, detail] = reason === "several"
+    ? ["No single source", "This story covers several things."]
+    : ["No source page found", "Reveal looked for an official page but couldn't find one."];
+  return (
+    <Animated.View accessible accessibilityLabel={`${title}. ${detail}`} style={{ opacity: fade, flexDirection: "row", alignItems: "center", gap: space.m, paddingVertical: 12, paddingHorizontal: space.m }}>
+      <View style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: t.chip, alignItems: "center", justifyContent: "center" }}>
+        <Ionicons name={reason === "several" ? "albums-outline" : "search-outline"} size={14} color={t.muted} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: t.muted, fontSize: 15 }}>{title}</Text>
+        <Text style={{ color: t.faint, fontSize: 13, marginTop: 1 }}>{detail}</Text>
+      </View>
+    </Animated.View>
   );
 }

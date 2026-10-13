@@ -908,7 +908,7 @@ const routes = {
     save();
     return { sourceId: sid, name: d.sources[sid].name };
   },
-  "POST /api/item/links": async (req) => { const { id } = await body(req); const links = await subjectLinks(id); const it = load().items[id]; return { links, shops: shop.withAffiliate(it?.shopLinks || []), market: it?.marketLinks || [] }; },
+  "POST /api/item/links": async (req) => { const { id } = await body(req); const links = await subjectLinks(id); const it = load().items[id]; return { links, shops: shop.withAffiliate(it?.shopLinks || []), market: it?.marketLinks || [], none: links.length ? undefined : it?.linksTrace?.skipped ? "several" : "notfound" }; },
   "GET /api/usage": async (req, url) => usage.summary(Number(url.searchParams.get("days")) || 7),
   // Links lab (server/public/lab.html): test articles across categories, scored. Separate data, never the feed's.
   "GET /api/lab/links": async () => lab.view(),
