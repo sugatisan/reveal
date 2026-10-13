@@ -45,6 +45,7 @@ export async function followRedirects(cands = [], shopLinks = []) {
   for (const c of cands) {
     if (!c.dest) continue;
     const s = shop.shopFor(c.dest);
+    if (s && shop.isStorePage(c.dest)) { c.shop = true; continue; } // a storefront: neither a link nor a shop
     if (s) {
       if (!shopLinks.some((x) => x.shop === s.name) && shopLinks.length < 4) shopLinks.push({ shop: s.name, host: s.host, url: c.url, publisherAffiliate: true });
       c.shop = true;
@@ -88,6 +89,7 @@ export async function resolveLinks(story, cache, { log = true } = {}) {
     const to = await resolveRedirect(l.url, 4000);
     if (!to || sameSite(hostOf(to), hostOf(l.url))) return;
     const s = shop.shopFor(to);
+    if (s && shop.isStorePage(to)) { l.shop = true; return; }
     if (s) { if (!fr.shopLinks.some((x) => x.shop === s.name) && fr.shopLinks.length < 4) fr.shopLinks.push({ shop: s.name, host: s.host, url: l.url, publisherAffiliate: true }); l.shop = true; }
     else l.dest = to;
   }));

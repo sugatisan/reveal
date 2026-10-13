@@ -37,6 +37,17 @@ function innerUrl(u) {
   return null;
 }
 
+// A shop link that isn't a product: a storefront, a shop's homepage, a search or browse page (e.g. a
+// publisher's own Amazon storefront in its site navigation). Not worth a Where to buy chip.
+export function isStorePage(u) {
+  let x;
+  try { x = new URL(u); } catch { return true; }
+  const segs = x.pathname.split("/").filter(Boolean);
+  if (!segs.length) return true;
+  if (/^(s|search|shop|stores?|storefront|str|b|browse|brands?|collections?|category|categories|c|deals|gp)$/i.test(segs[0]) && segs.length <= 2 && !/\/(dp|product|products|p|itm|listing)\//i.test(x.pathname)) return true;
+  return false;
+}
+
 export function shopLinks(html = "", base = "") {
   const out = [];
   for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
@@ -45,7 +56,7 @@ export function shopLinks(html = "", base = "") {
     const redirect = REDIRECTS.test(new URL(href).hostname);
     const target = redirect ? innerUrl(href) : href;
     const shop = target && shopFor(target);
-    if (!shop) continue;
+    if (!shop || (target && isStorePage(target))) continue;
     if (out.some((o) => o.shop === shop.name)) continue; // one link per shop
     out.push({ shop: shop.name, host: shop.host, url: href, publisherAffiliate: redirect || TAG_PARAMS.test(href) });
     if (out.length >= 4) break;
@@ -58,7 +69,7 @@ function config() { try { return JSON.parse(process.env.DF_AFFILIATE || "{}"); }
 // Applied when a story is served, so changing .env takes effect without refetching anything.
 export function withAffiliate(links = []) {
   const cfg = config();
-  return links.map((l) => {
+  return links.filter((l) => !isStorePage(innerUrl(l.url) || l.url)).map((l) => {
     if (l.publisherAffiliate) return { shop: l.shop, url: l.url, ours: false };
     const key = Object.keys(cfg).find((d) => l.host === d || l.host.endsWith("." + d) || l.host.startsWith(d.split(".")[0] + "."));
     if (!key) return { shop: l.shop, url: l.url, ours: false };
