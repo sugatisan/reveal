@@ -129,7 +129,24 @@ export async function resolveLinks(story, cache, { log = true } = {}) {
     const note = add({ url: f.entry.url, label: f.entry.name.slice(0, 28), official: true, from: "lookup", role: picked.missing[i].role });
     if (note) trace.lookups[i].reason += ` (${note})`;
   });
-  // Buying intent (auctions, listings, deals): where this kind of item is sold, found for the item itself.
+  // A store page that IS the subject's page (its crowdfunding campaign, its page on a game or app store, its
+  // maker's shop) belongs in Source, not only in Where to buy: it's the closest thing to the item itself.
+  // Recognised generically: the store URL names the subject.
+  const words = (x) => String(x).toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").split(" ").filter((w) => w.length >= 4);
+  const subjWords = picked.subject && !picked.skipped ? words(picked.subject) : [];
+  if (subjWords.length) {
+    for (const sh of [...fr.shopLinks]) {
+      let path = "";
+      try { const u = new URL(shop.innerUrlOf?.(sh.url) || sh.url); path = decodeURIComponent(u.hostname + u.pathname).toLowerCase(); } catch { continue; }
+      const hits = subjWords.filter((w) => path.includes(w)).length;
+      if (hits < Math.min(2, subjWords.length)) continue;
+      links.push({ url: sh.url, label: picked.subject.slice(0, 28), from: "store", role: "subject" });
+      fr.shopLinks.splice(fr.shopLinks.indexOf(sh), 1);
+      trace.storeAsSource = sh.shop;
+      break;
+    }
+  }
+  // Secondhand and collectible items (auctions, for-sale posts): where this exact model is traded.
   let market = [];
   if (picked.marketName) {
     const key = "market:" + officialKey(picked.marketName);
@@ -148,7 +165,8 @@ export async function resolveLinks(story, cache, { log = true } = {}) {
   }
   // Order: the subject's own pages first; then homepages; then its owner; press releases and pre-save or
   // streaming pages last. Stable within each rank.
-  const rank = (l) => /press|pre-?save|stream|listen|watch on/i.test(l.label) ? 3 : l.role === "owner" ? 2 : l.from === "article" && isHome(l.dest || l.url) ? 1 : 0;
+  const isVideo = (l) => /youtube\.com|youtu\.be|vimeo\.com/.test(l.dest || l.url) || /video|trailer|demo/i.test(l.label);
+  const rank = (l) => /press|pre-?save|stream|listen|watch on/i.test(l.label) ? 3 : l.role === "owner" ? 2 : isVideo(l) ? 1.5 : l.from === "article" && isHome(l.dest || l.url) ? 1 : 0;
   links.sort((a, b) => rank(a) - rank(b));
   return { links: links.map(({ role, ...l }) => l), shopLinks: fr.shopLinks, market, trace };
 }

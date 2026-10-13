@@ -399,8 +399,8 @@ const LINKS_SCHEMA = {
     subject: { type: "string", description: "The ONE specific thing the story is mainly about, as a reader would search it (e.g. 'Mattel Brick Shop', 'Renoir and Love', 'Rosewood Bangkok', 'H.R. 6500'). For an auction or for-sale post, the item being sold (e.g. '2020 Ford GT Carbon Series'). Empty if it isn't mainly about one thing: roundups and lists of several things, trend pieces, how-tos, opinion, or a story about a private person (a crime victim, a resident). A roundup where every item comes from one brand is about that brand. If the headline names one specific thing, that thing is the subject even when the story also covers others. An award, prize or ranking announcement is about the award (e.g. '2026 Nobel Prize in Medicine'), even with several winners." },
     distinctThings: { type: "integer", description: "How many distinct products, works, places, organizations, cases or events the story covers in substance (not passing mentions). A review of one film is 1; a list of 7 court cases is 7; an award announced with several winners is 1 (the award); a player's contract with a club is 1." },
     headlineNamesOne: { type: "boolean", description: "True when the headline itself names one specific thing (e.g. 'KÜHL The One Series', 'Review: Rosewood Bangkok'), even if the body also covers other things. False for list headlines ('The 15 best new restaurants') and topic headlines." },
-    buyIntent: { type: "boolean", description: "True when the story is about something a reader could buy right now or soon: an auction, a for-sale listing, a deal, a preorder or a just-released product with a price." },
-    marketName: { type: "string", description: "When buyIntent: what a shopper would search to find more of these for sale, at the level the market trades it (e.g. 'Ford GT', 'Rolex Submariner 5513', 'LEGO 10179 Millennium Falcon', 'Eames lounge chair'). Not the one specific listing. Empty otherwise." },
+    resale: { type: "boolean", description: "True only when the item trades secondhand or between collectors: an auction or for-sale post of a used, vintage, collectible or discontinued item. False for new products, launches, preorders, crowdfunding and deals on new things (their maker or the linked store is where to buy)." },
+    marketName: { type: "string", description: "When resale: the exact make and model as the market trades it (e.g. 'Ford GT', 'Rolex Submariner 5513', 'LEGO 10179 Millennium Falcon', 'Eames lounge chair 670'). Never a generic description of the kind of thing ('titanium ruler', 'sports car'). Empty when not resale or when it has no specific make and model." },
     singleOwner: { type: "boolean", description: "True when all of those things come from one maker, brand or organization (e.g. a roundup of one brand's new collection)." },
     subjectType: { type: "string", enum: [...SUBJECT_TYPES, "none"], description: "document: a study, report, filing, bill, ruling or press release. creative work: a book, film, show, album, game, app, artwork. public figure: only people famous in their own right; never private individuals." },
     links: {
@@ -448,7 +448,7 @@ What kind of story is this, and what one thing is it mainly about? If the headli
     .map((m) => ({ name: String(m?.name || "").trim(), kind: SUBJECT_TYPES.includes(m?.kind) ? m.kind : subjectType, role: ["line", "owner"].includes(m?.role) ? m.role : "subject" }))
     .filter((m) => m.name && m.name.length <= 80 && (!publisher || m.name.toLowerCase() !== publisher.toLowerCase()))
     .sort((a, b) => ({ subject: 0, line: 1, owner: 2 }[a.role] - { subject: 0, line: 1, owner: 2 }[b.role])).slice(0, 3);
-  const marketName = out.buyIntent ? String(out.marketName || "").trim().slice(0, 80) : "";
+  const marketName = out.resale ? String(out.marketName || "").trim().slice(0, 80) : "";
   return { links: picked.slice(0, 3), missing, storyKind, subject, subjectType, why, marketName };
 }
 

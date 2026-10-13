@@ -48,6 +48,7 @@ export function isStorePage(u) {
   return false;
 }
 
+export const innerUrlOf = (u) => innerUrl(u);
 export function shopLinks(html = "", base = "") {
   const out = [];
   for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
