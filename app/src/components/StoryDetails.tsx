@@ -147,6 +147,12 @@ export function StoryBody({ it, brief, briefError, mode, onRelated = (id) => rou
                 {links.map((l, i) => <SourceLinkRow key={l.url} link={l} first={i === 0} />)}
               </View>
             </View>
+          ) : links === undefined && !it.web ? (
+            // Still working it out (first open can take a few seconds): say so, then become the link or go away.
+            <View>
+              <Label>SOURCE</Label>
+              <View style={{ borderRadius: radius.m, backgroundColor: t.card, overflow: "hidden" }}><SourceLoadingRow /></View>
+            </View>
           ) : null}
           {shops?.length ? (
             <View>
@@ -294,5 +300,28 @@ function SourceLinkRow({ link, first }: { link: { url: string; label: string; of
       </View>
       <Ionicons name="arrow-forward" size={16} color={t.muted} style={{ transform: [{ rotate: "-45deg" }] }} />
     </Pressable>
+  );
+}
+
+// Placeholder while a story's source links are being found: same shape as a link row, gently pulsing.
+function SourceLoadingRow() {
+  const t = useTheme();
+  const pulse = useRef(new Animated.Value(0.4)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.timing(pulse, { toValue: 0.4, duration: 700, useNativeDriver: true }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <View accessible accessibilityLabel="Finding the source" style={{ flexDirection: "row", alignItems: "center", gap: space.m, paddingVertical: 12, paddingHorizontal: space.m }}>
+      <Animated.View style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: t.chip, opacity: pulse }} />
+      <View style={{ flex: 1, gap: 6 }}>
+        <Text style={{ color: t.muted, fontSize: 15 }}>Finding the source…</Text>
+        <Animated.View style={{ width: "40%", height: 9, borderRadius: 5, backgroundColor: t.chip, opacity: pulse }} />
+      </View>
+    </View>
   );
 }
